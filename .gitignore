@@ -1,0 +1,5 @@
+## Cargo
+/target
+
+## Release workflow, when run by hand: archives of the bundled plugins
+/dist

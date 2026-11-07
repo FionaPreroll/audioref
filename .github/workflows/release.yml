@@ -1,0 +1,267 @@
+name: Plugin bundles and releases
+# The VST3 and CLAP bundles of AudioRef for Linux (x86_64), Windows (x86_64) and macOS (one
+# universal bundle for Intel and Apple silicon), each built, tested and checked with clap-validator
+# on its system. For each commit on main, they replace the files of the pre-release "snapshot",
+# whose tag moves to that commit. A version tag, e.g. v0.1.0, publishes them as the release of
+# that version, with the version's section of CHANGELOG.md as notes, see Changelog and versions in
+# docs/DEVELOPMENT.md. Pull requests only build and check them, so a change that breaks them shows
+# before it is merged.
+#
+# The pre-release "snapshot" changes, so release immutability must stay off (Settings, General,
+# Releases). An immutable release takes no new files, its tag doesn't move, and GitHub never lets
+# its tag name be used again, not even after the release and the tag are deleted.
+on:
+  push:
+    branches: ["main"]
+    # Versions, e.g. v0.1.0 or v1.0.0-rc.1.
+    tags: ["v*"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # A new push to a pull request cancels the run for the previous one. On main, a run finishes
+  # before the next one starts, so publishing isn't interrupted halfway.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+defaults:
+  run:
+    shell: bash
+env:
+  CARGO_TERM_COLOR: always
+  # Pinned, as Dependabot doesn't update it: a new release is used only once someone looked at
+  # it. Bump deliberately.
+  CLAP_VALIDATOR_TAG: "0.4.1"
+jobs:
+  build:
+    name: Bundle and check (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x86_64
+            runner: ubuntu-24.04
+            bundle: bundle
+            targets: ""
+          - name: windows-x86_64
+            runner: windows-2025
+            bundle: bundle
+            targets: ""
+          # One bundle with the code for Intel and for Apple silicon.
+          - name: macos-universal
+            runner: macos-15
+            bundle: bundle-universal
+            targets: x86_64-apple-darwin,aarch64-apple-darwin
+    env:
+      BUNDLE: ${{ matrix.bundle }}
+      ARCHIVE: audioref-${{ matrix.name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
+          targets: ${{ matrix.targets }}
+      - name: Run tests
+        # On each system, as the plugin crate reads the system's locale.
+        run: cargo test --workspace --locked
+      - name: Bundle the plugin
+        run: cargo run --locked --package xtask --release -- "$BUNDLE" audioref --release --locked
+      - name: Sign the bundles ad hoc (macOS)
+        # Apple silicon only loads signed code. An ad-hoc signature isn't notarized: Gatekeeper
+        # still asks, see Installing in the README.
+        if: runner.os == 'macOS'
+        run: |
+          codesign --force --deep --sign - target/bundled/AudioRef.vst3
+          codesign --force --deep --sign - target/bundled/AudioRef.clap
+      - name: Install clap-validator
+        run: cargo install --locked --git https://github.com/free-audio/clap-validator --tag "$CLAP_VALIDATOR_TAG" clap-validator
+      - name: Check the CLAP bundle (clap-validator)
+        run: clap-validator validate target/bundled/AudioRef.clap
+      - name: Pack the bundles
+        run: |
+          mkdir -p "$ARCHIVE"
+          cp -R target/bundled/AudioRef.vst3 target/bundled/AudioRef.clap README.md CHANGELOG.md LICENSE "$ARCHIVE/"
+          if [ "$RUNNER_OS" = Windows ]; then
+            7z a -tzip "$ARCHIVE.zip" "$ARCHIVE" > /dev/null
+          else
+            zip -r -q -y "$ARCHIVE.zip" "$ARCHIVE"
+          fi
+      - name: Upload archive
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ env.ARCHIVE }}
+          path: ${{ env.ARCHIVE }}.zip
+          if-no-files-found: error
+          # Re-running the job replaces the archive of the previous attempt.
+          overwrite: true
+
+  publish:
+    name: Publish ${{ github.ref_type == 'tag' && format('release {0}', github.ref_name) || 'pre-release "snapshot"' }}
+    needs: build
+    # Commits on main and version tags only, not pull requests or other branches started by hand.
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write # move the tag, update the release
+      id-token: write # sign the attestations
+      attestations: write # store the attestations
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      # The version's own tag, or snapshot, which moves.
+      TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'snapshot' }}
+    steps:
+      # For the version, its changes and the date of the commit.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check the version tag
+        if: github.ref_type == 'tag'
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)
+          if [ "$TAG" != "v$version" ]; then
+            echo "::error::The tag $TAG doesn't match the version in Cargo.toml, $version. Tag the commit that sets the version with v$version."
+            exit 1
+          fi
+          # Only what was merged into main becomes a release.
+          status=$(gh api "repos/$GH_REPO/compare/main...$GITHUB_SHA" --jq .status)
+          if [ "$status" != identical ] && [ "$status" != behind ]; then
+            echo "::error::The tag $TAG is on a commit that isn't on main."
+            exit 1
+          fi
+          # The version's section of the changelog, for the release notes.
+          awk -v heading="## [$version]" '
+            index($0, heading) == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found
+          ' CHANGELOG.md > changes.md
+          if ! grep -q '[^[:space:]]' changes.md; then
+            echo "::error::CHANGELOG.md has no section for $version. Rename the section [Unreleased] to [$version] with the date."
+            exit 1
+          fi
+      - name: Download archives
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: audioref-*
+          merge-multiple: true
+          path: dist
+      - name: Write checksums
+        working-directory: dist
+        run: sha256sum audioref-*.zip | tee SHA256SUMS
+      - name: Attest build provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: dist/audioref-*.zip
+      - name: Describe the downloads
+        # For the notes of both kinds of releases.
+        run: |
+          cat > downloads.md <<EOF
+          | System | File |
+          |---|---|
+          | Windows 10 or newer, x86_64 | \`audioref-windows-x86_64.zip\` |
+          | macOS, Intel and Apple silicon | \`audioref-macos-universal.zip\` |
+          | Linux, x86_64 | \`audioref-linux-x86_64.zip\` |
+
+          Each archive holds \`AudioRef.vst3\` and \`AudioRef.clap\`, with the README, the changelog and the license. See [Installing]($GITHUB_SERVER_URL/$GH_REPO#installing) in the README for where they go.
+
+          **AudioRef is for private, non-commercial use only**, see the [disclaimer]($GITHUB_SERVER_URL/$GH_REPO#disclaimer).
+
+          To check a download, compare its checksum, and verify with the [GitHub CLI](https://cli.github.com) that this repository's workflow built it:
+
+          \`\`\`sh
+          sha256sum --check --ignore-missing SHA256SUMS
+          gh attestation verify audioref-windows-x86_64.zip --repo $GH_REPO
+          \`\`\`
+          EOF
+      - name: Publish the pre-release
+        if: github.ref_type == 'branch'
+        run: |
+          # A re-run of an older run must not replace the bundles of a newer commit.
+          head=$(gh api "repos/$GH_REPO/commits/main" --jq .sha)
+          if [ "$head" != "$GITHUB_SHA" ]; then
+            echo "::notice::Not published: main is at $head now, its run publishes it."
+            exit 0
+          fi
+
+          # An immutable release takes no new files and its tag doesn't move, see above.
+          if [ "$(gh api "repos/$GH_REPO/immutable-releases" --jq .enabled 2>/dev/null)" = true ]; then
+            echo "::error::Release immutability is on (Settings, General, Releases). The pre-release $TAG takes the files of each new commit, so turn it off."
+            exit 1
+          fi
+          if [ "$(gh api "repos/$GH_REPO/releases/tags/$TAG" --jq .immutable 2>/dev/null)" = true ]; then
+            echo "::error::The pre-release $TAG is immutable and can't change any more. Delete it and its tag, and give the pre-release a new tag name in this workflow: GitHub doesn't let the tag name of an immutable release be used again."
+            exit 1
+          fi
+
+          version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)
+          date=$(git log -1 --format=%cs)
+          short=${GITHUB_SHA::7}
+          url="$GITHUB_SERVER_URL/$GH_REPO"
+          title="Latest build of main ($short, $date)"
+          cat > notes.md <<EOF
+          The plugin bundles of the latest commit on \`main\`, [$short]($url/commit/$GITHUB_SHA) of $date: version $version and the [changes since then]($url/blob/$GITHUB_SHA/CHANGELOG.md#unreleased).
+          Each new commit on \`main\` replaces them.
+
+          EOF
+          cat downloads.md >> notes.md
+
+          # Move the tag to this commit, or create it.
+          if gh api "repos/$GH_REPO/git/ref/tags/$TAG" --silent 2>/dev/null; then
+            gh api --method PATCH "repos/$GH_REPO/git/refs/tags/$TAG" -f sha="$GITHUB_SHA" -F force=true --silent
+          else
+            gh api --method POST "repos/$GH_REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA" --silent
+          fi
+          # Replace the release's files and notes, or create it.
+          if gh release view "$TAG" --json name >/dev/null 2>&1; then
+            # Delete files that this build doesn't have, e.g. after an archive was renamed.
+            for asset in $(gh release view "$TAG" --json assets --jq '.assets[].name'); do
+              [ -e "dist/$asset" ] || gh release delete-asset "$TAG" "$asset" --yes
+            done
+            gh release upload "$TAG" dist/* --clobber
+            gh release edit "$TAG" --prerelease --title "$title" --notes-file notes.md
+          else
+            gh release create "$TAG" dist/* --prerelease --verify-tag --title "$title" --notes-file notes.md
+          fi
+      - name: Publish the release
+        if: github.ref_type == 'tag'
+        run: |
+          version=${TAG#v}
+          url="$GITHUB_SERVER_URL/$GH_REPO"
+          {
+            echo "## Changes"
+            echo
+            # Links relative to the changelog lead to the files of this version.
+            perl -pe "s{\]\((?!https?://|#)([^)]+)\)}{]($url/blob/$TAG/\$1)}g" changes.md
+            echo
+            echo "## Downloads"
+            echo
+            cat downloads.md
+          } > notes.md
+
+          # A version with a suffix, e.g. -rc.1, is a pre-release.
+          prerelease=()
+          if [[ $version == *-* ]]; then
+            prerelease=(--prerelease)
+          fi
+          # The files of a published version don't change. A draft is left of an earlier attempt
+          # that failed, which this one completes.
+          if draft=$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null); then
+            if [ "$draft" != true ]; then
+              echo "::error::The release $TAG is published already. To publish it again, delete the release first, not its tag."
+              exit 1
+            fi
+            gh release upload "$TAG" dist/* --clobber
+            gh release edit "$TAG" "${prerelease[@]}" --title "AudioRef $version" --notes-file notes.md
+          else
+            gh release create "$TAG" dist/* --draft "${prerelease[@]}" --verify-tag \
+              --title "AudioRef $version" --notes-file notes.md
+          fi
+          # Published only once it has all files.
+          gh release edit "$TAG" --draft=false

@@ -1,0 +1,15 @@
+[package]
+name = "audioref-core"
+description = "AudioRef, headphone correction for monitoring: its logic, signal processing and texts, without plugin APIs, GUI or I/O."
+readme = "../../README.md"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+# Only crates without plugin APIs, GUI or I/O: no nih-plug, no egui, no files. make lint checks it.
+[dependencies]
+
+[lints]
+workspace = true

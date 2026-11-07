@@ -1,0 +1,3 @@
+# The names of the bundles that `cargo xtask bundle` writes, e.g. AudioRef.vst3 and AudioRef.clap.
+[audioref]
+name = "AudioRef"
