@@ -108,11 +108,17 @@ jobs:
         run: |
           curl --fail --silent --show-error --location --output pluginval.zip \
             "https://github.com/Tracktion/pluginval/releases/download/$PLUGINVAL_VERSION/pluginval_$PLUGINVAL_OS.zip"
-          # -c, not --check: macOS 15 has a BSD sha256sum without the long options.
+          # Compares the hash itself: the check modes of GNU's sha256sum, macOS 15's BSD sha256sum
+          # and shasum take different arguments.
           if command -v sha256sum > /dev/null; then
-            echo "$PLUGINVAL_SHA256  pluginval.zip" | sha256sum -c
+            hash=$(sha256sum pluginval.zip)
           else
-            echo "$PLUGINVAL_SHA256  pluginval.zip" | shasum -a 256 -c
+            hash=$(shasum -a 256 pluginval.zip)
+          fi
+          hash=${hash%% *}
+          if [ "$hash" != "$PLUGINVAL_SHA256" ]; then
+            echo "::error::pluginval_$PLUGINVAL_OS.zip has the SHA-256 $hash, not $PLUGINVAL_SHA256"
+            exit 1
           fi
           if [ "$RUNNER_OS" = Windows ]; then
             7z x -opluginval pluginval.zip > /dev/null
