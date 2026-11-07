@@ -2,8 +2,8 @@
 //! nih-plug.
 //!
 //! This crate only translates between nih-plug and `audioref-core`; everything that can be
-//! tested without a host lives there. clap-validator checks the hosts' side in CI, see
-//! `docs/DEVELOPMENT.md`.
+//! tested without a host lives there. clap-validator and pluginval check the hosts' side in CI,
+//! see `docs/DEVELOPMENT.md`.
 
 // The macros of vst3-sys, which nih_export_vst3! expands, end expressions with a semicolon:
 // Rust 1.99 warns of it, a later Rust will refuse it. Goes once nih-plug's VST3 bindings are

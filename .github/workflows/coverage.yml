@@ -1,7 +1,7 @@
 name: Coverage (100 % of lines and functions)
 # The Cargo tests must cover every line and every function: make coverage fails below
 # COVERAGE_MIN in the Makefile. It leaves out the crates in COVERAGE_EXCLUDE, whose code only a
-# host reaches; release.yml checks them with clap-validator.
+# host reaches; release.yml checks them with clap-validator and pluginval.
 # The summary goes to the run's page and the reports are kept as an artifact. A job of its own
 # uploads them to Codecov, so the OIDC token that Codecov checks is never available to the code
 # that the tests run, which includes the build scripts of all dependencies.

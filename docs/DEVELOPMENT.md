@@ -34,7 +34,7 @@ builds the plugin in release mode and writes `AudioRef.vst3` and `AudioRef.clap`
 `make coverage` runs the tests with [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov) and fails if they cover less than 100 % of the lines or of the functions (`COVERAGE_MIN` in the `Makefile`).
 It prints a summary per file, writes an HTML report with the covered lines to `target/llvm-cov/html` and an LCOV report to `target/llvm-cov/lcov.info`.
 
-- Coverage leaves out `crates/audioref` and `xtask` (`COVERAGE_EXCLUDE` in the `Makefile`): a test can't build nih-plug's `Buffer` or `Transport` without `unsafe`, so it can't call `process`, and `xtask` only hands over to nih-plug's bundler. The plugin crate stays a thin translation; clap-validator checks it in CI. Everything that can be tested without a host goes into `audioref-core`.
+- Coverage leaves out `crates/audioref` and `xtask` (`COVERAGE_EXCLUDE` in the `Makefile`): a test can't build nih-plug's `Buffer` or `Transport` without `unsafe`, so it can't call `process`, and `xtask` only hands over to nih-plug's bundler. The plugin crate stays a thin translation; clap-validator and pluginval check it in CI. Everything that can be tested without a host goes into `audioref-core`.
 - The coverage of a generic function is that of its best instantiation, not of all of them together. Functions that the tests need to call with other types, e.g. readers that fail, take trait objects (`&mut dyn Read`) instead.
 
 ## Dependency Checks
@@ -56,7 +56,9 @@ make deny
 | `deny.yml`, `audit.yml` | pull requests, `main`, weekly | the dependencies, with cargo-deny and cargo-audit |
 | `codeql.yml` | pull requests, `main`, weekly | CodeQL's analysis of the Rust code and of the workflows |
 | `zizmor.yml` | pull requests, `main`, weekly | the workflows, with zizmor: e.g. template injection, permissions, known vulnerable actions |
-| `release.yml` | pull requests, `main`, version tags | the tests and the VST3 and CLAP bundles on Windows, macOS (universal, signed ad hoc) and Linux, the CLAP bundles checked with clap-validator; publishes them for `main` as the pre-release `snapshot` and for version tags as releases, see [Changelog and versions](#changelog-and-versions) |
+| `release.yml` | pull requests, `main`, version tags | the tests and the VST3 and CLAP bundles on Windows, macOS (universal, signed ad hoc) and Linux, the CLAP bundles checked with clap-validator, the VST3 bundles with pluginval at strictness 10; publishes them for `main` as the pre-release `snapshot` and for version tags as releases, see [Changelog and versions](#changelog-and-versions) |
+
+clap-validator and pluginval are pinned in `release.yml` (pluginval's archives by their SHA-256), as Dependabot doesn't update them. Four tests of clap-validator are left out because of two bugs of nih-plug, see Dependencies in [PLAN.md](PLAN.md#dependencies).
 
 Dependabot proposes updates of the crates and the GitHub Actions once a week, each kind in one pull request, and only for versions at least a week old. It doesn't move nih-plug, which is pinned to a git commit, see Dependencies in [PLAN.md](PLAN.md#dependencies).
 All GitHub Actions are pinned to the SHA of their commit, and no workflow gets more permissions than it needs.
