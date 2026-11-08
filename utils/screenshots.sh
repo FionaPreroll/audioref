@@ -31,7 +31,7 @@ USE_BUTTON=(87 158)
 LINEAR_PHASE=(715 213)
 CROSSFEED_LIST=(390 625)
 ABOUT_BUTTON=(724 24)
-ABOUT_FIRST_CRATE=(120 533)
+ABOUT_FIRST_CRATE=(120 580)
 
 # Outside Xvfb: prepare the copy of nih-plug, build the program and run this script again on Xvfb.
 if [[ "${AUDIOREF_SCREENSHOTS_XVFB:-}" != 1 ]]; then

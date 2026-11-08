@@ -19,11 +19,71 @@
 //! assert!(rust.contains(r#"name: "rtrb""#));
 //! assert_eq!(utc(1_794_156_300), "2026-11-08 16:45 UTC");
 //! ```
+//!
+//! The build script also asks [`ci_run`] whether GitHub Actions builds the plugin, so the window
+//! can say so.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write;
 
 use serde::Deserialize;
+
+/// The run of GitHub Actions that builds AudioRef.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CiRun {
+    /// Its number in its workflow, e.g. `42`, as GitHub shows it after `#`.
+    pub number: String,
+    /// The address of its page, e.g.
+    /// `https://github.com/FionaPreroll/audioref/actions/runs/123456789`.
+    pub url: String,
+}
+
+/// The run of GitHub Actions a build runs in, from the variables GitHub sets, which `var` reads
+/// (`GITHUB_ACTIONS`, `GITHUB_SERVER_URL`, `GITHUB_REPOSITORY`, `GITHUB_RUN_ID` and
+/// `GITHUB_RUN_NUMBER`), or `None` for a build elsewhere, e.g. on a developer's computer, or
+/// with values that don't look like GitHub's.
+///
+/// ```
+/// use audioref_core::about::ci_run;
+///
+/// let github = |name: &str| match name {
+///     "GITHUB_ACTIONS" => Some("true".to_owned()),
+///     "GITHUB_REPOSITORY" => Some("FionaPreroll/audioref".to_owned()),
+///     "GITHUB_RUN_ID" => Some("123456789".to_owned()),
+///     "GITHUB_RUN_NUMBER" => Some("42".to_owned()),
+///     _ => None,
+/// };
+/// let run = ci_run(&github).unwrap();
+/// assert_eq!(run.number, "42");
+/// assert_eq!(run.url, "https://github.com/FionaPreroll/audioref/actions/runs/123456789");
+/// assert_eq!(ci_run(&|_| None), None);
+/// ```
+#[must_use]
+pub fn ci_run(var: &dyn Fn(&str) -> Option<String>) -> Option<CiRun> {
+    if var("GITHUB_ACTIONS").as_deref() != Some("true") {
+        return None;
+    }
+    let server = var("GITHUB_SERVER_URL")
+        .filter(|server| !server.is_empty())
+        .unwrap_or_else(|| "https://github.com".to_owned());
+    let host = server.strip_prefix("https://")?;
+    let repository = var("GITHUB_REPOSITORY")?;
+    let id = var("GITHUB_RUN_ID")?;
+    let number = var("GITHUB_RUN_NUMBER")?;
+    let name = |part: &str| {
+        !part.is_empty()
+            && part
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+    };
+    let digits = |text: &str| !text.is_empty() && text.chars().all(|c| c.is_ascii_digit());
+    let (owner, project) = repository.split_once('/')?;
+    (host.split(':').all(name) && name(owner) && name(project) && digits(&id) && digits(&number))
+        .then(|| CiRun {
+            number,
+            url: format!("{server}/{repository}/actions/runs/{id}"),
+        })
+}
 
 /// A crate built into AudioRef, as the window shows it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -298,6 +358,84 @@ pub fn utc(seconds: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// GitHub's variables of a run, with `name` set to `value`, or left out for `None`.
+    fn github(name: &'static str, value: Option<&'static str>) -> impl Fn(&str) -> Option<String> {
+        move |asked: &str| {
+            if asked == name {
+                return value.map(str::to_owned);
+            }
+            [
+                ("GITHUB_ACTIONS", "true"),
+                ("GITHUB_SERVER_URL", "https://github.com"),
+                ("GITHUB_REPOSITORY", "FionaPreroll/audioref"),
+                ("GITHUB_RUN_ID", "19234567890"),
+                ("GITHUB_RUN_NUMBER", "7"),
+            ]
+            .into_iter()
+            .find(|&(known, _)| known == asked)
+            .map(|(_, value)| value.to_owned())
+        }
+    }
+
+    #[test]
+    fn ci_run_links_the_run_of_github_actions() {
+        let run = ci_run(&github("", None));
+        assert_eq!(
+            run,
+            Some(CiRun {
+                number: "7".to_owned(),
+                url: "https://github.com/FionaPreroll/audioref/actions/runs/19234567890".to_owned(),
+            })
+        );
+        // GitHub Enterprise has a server of its own, with a port, too.
+        let enterprise = ci_run(&github(
+            "GITHUB_SERVER_URL",
+            Some("https://git.example.com:8443"),
+        ));
+        assert_eq!(
+            enterprise.map(|run| run.url),
+            Some(
+                "https://git.example.com:8443/FionaPreroll/audioref/actions/runs/19234567890"
+                    .to_owned()
+            )
+        );
+        // Without a server, it is github.com.
+        for server in [None, Some("")] {
+            assert_eq!(
+                ci_run(&github("GITHUB_SERVER_URL", server)),
+                run,
+                "{server:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn ci_run_is_none_outside_github_actions() {
+        assert_eq!(ci_run(&|_| None), None);
+        for (name, value) in [
+            ("GITHUB_ACTIONS", None),
+            ("GITHUB_ACTIONS", Some("false")),
+            ("GITHUB_ACTIONS", Some("1")),
+            ("GITHUB_SERVER_URL", Some("http://github.com")),
+            ("GITHUB_SERVER_URL", Some("https://")),
+            ("GITHUB_SERVER_URL", Some("https://github.com/x")),
+            ("GITHUB_REPOSITORY", None),
+            ("GITHUB_REPOSITORY", Some("audioref")),
+            ("GITHUB_REPOSITORY", Some("/audioref")),
+            ("GITHUB_REPOSITORY", Some("FionaPreroll/")),
+            ("GITHUB_REPOSITORY", Some("Fiona Preroll/audioref")),
+            ("GITHUB_REPOSITORY", Some("FionaPreroll/audio/ref")),
+            ("GITHUB_RUN_ID", None),
+            ("GITHUB_RUN_ID", Some("")),
+            ("GITHUB_RUN_ID", Some("12a")),
+            ("GITHUB_RUN_NUMBER", None),
+            ("GITHUB_RUN_NUMBER", Some("")),
+            ("GITHUB_RUN_NUMBER", Some("7\n")),
+        ] {
+            assert_eq!(ci_run(&github(name, value)), None, "{name}={value:?}");
+        }
+    }
 
     /// A small output of `cargo metadata`: the plugin, the core in the workspace, a normal
     /// dependency with its own dependency, one for building only and one for development only.

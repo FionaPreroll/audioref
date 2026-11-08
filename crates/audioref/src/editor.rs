@@ -243,7 +243,7 @@ pub fn create(params: Arc<AudioRefParams>, shared: Arc<Shared>) -> Option<Box<dy
                         |ui| correction(ui, lang, state, &params, &shared),
                     );
                 });
-            about::window(ctx, lang, &mut state.about);
+            about::window(ctx, lang, setter.raw_context.plugin_api(), &mut state.about);
         },
     )
 }
