@@ -22,6 +22,7 @@ use std::sync::Arc;
 
 use audioref_core::engine::Engine;
 use audioref_core::i18n::{Lang, Param};
+use audioref_core::render::{self, Processing};
 use nih_plug::prelude::*;
 
 /// The plugin's ID for CLAP hosts. Never change it: hosts find saved plugins by it.
@@ -43,6 +44,8 @@ const _: () = assert!(OUTPUT_MIN_DB < 0.0 && OUTPUT_MAX_DB > 0.0);
 pub struct AudioRef {
     params: Arc<AudioRefParams>,
     engine: Engine,
+    /// How the host runs the plugin, as it said when it last activated it.
+    processing: Processing,
 }
 
 /// The parameters that hosts automate and save with a project. Their IDs never change; their
@@ -55,6 +58,10 @@ pub struct AudioRefParams {
     /// Passes the signal through unchanged.
     #[id = "bypass"]
     pub bypass: BoolParam,
+    /// Bypasses the plugin while the host exports offline, see `audioref_core::render`. A
+    /// setting, not for automation.
+    #[id = "bypass_on_export"]
+    pub bypass_on_export: BoolParam,
 }
 
 impl AudioRefParams {
@@ -73,6 +80,8 @@ impl AudioRefParams {
             .with_unit(" dB")
             .with_step_size(0.1),
             bypass: BoolParam::new(Param::Bypass.name(lang), false).make_bypass(),
+            bypass_on_export: BoolParam::new(Param::BypassOnExport.name(lang), true)
+                .non_automatable(),
         }
     }
 }
@@ -88,6 +97,7 @@ impl Default for AudioRef {
         Self {
             params: Arc::new(AudioRefParams::new(system_lang())),
             engine: Engine::new(48_000.0),
+            processing: Processing::Realtime,
         }
     }
 }
@@ -119,12 +129,17 @@ impl Plugin for AudioRef {
         _context: &mut impl InitContext<Self>,
     ) -> bool {
         self.engine.set_sample_rate(buffer_config.sample_rate);
+        // Hosts activate the plugin again whenever this changes, e.g. to export.
+        self.processing = match buffer_config.process_mode {
+            ProcessMode::Offline => Processing::Offline,
+            ProcessMode::Realtime | ProcessMode::Buffered => Processing::Realtime,
+        };
         true
     }
 
     fn reset(&mut self) {
-        self.engine.set_output_db(self.params.output.value());
-        self.engine.set_bypass(self.params.bypass.value());
+        // The fades end here, so an export starts bypassed from its first sample.
+        self.apply_params();
         self.engine.reset();
     }
 
@@ -134,10 +149,21 @@ impl Plugin for AudioRef {
         _aux: &mut AuxiliaryBuffers,
         _context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
-        self.engine.set_output_db(self.params.output.value());
-        self.engine.set_bypass(self.params.bypass.value());
+        self.apply_params();
         self.engine.process(buffer.as_slice());
         ProcessStatus::Normal
+    }
+}
+
+impl AudioRef {
+    /// Hands the parameters to the engine, which fades to them.
+    fn apply_params(&mut self) {
+        self.engine.set_output_db(self.params.output.value());
+        self.engine.set_bypass(render::bypassed(
+            self.params.bypass.value(),
+            self.params.bypass_on_export.value(),
+            self.processing,
+        ));
     }
 }
 
@@ -180,6 +206,10 @@ mod tests {
             let params = AudioRefParams::new(lang);
             assert_eq!(params.output.name(), Param::Output.name(lang));
             assert_eq!(params.bypass.name(), Param::Bypass.name(lang));
+            assert_eq!(
+                params.bypass_on_export.name(),
+                Param::BypassOnExport.name(lang)
+            );
         }
     }
 
@@ -188,6 +218,7 @@ mod tests {
         let params = AudioRefParams::new(Lang::En);
         assert!(params.output.value().abs() < f32::EPSILON);
         assert!(!params.bypass.value());
+        assert!(params.bypass_on_export.value());
     }
 
     #[test]
@@ -199,7 +230,7 @@ mod tests {
             .into_iter()
             .map(|(id, ..)| id)
             .collect();
-        assert_eq!(ids, ["output", "bypass"]);
+        assert_eq!(ids, ["output", "bypass", "bypass_on_export"]);
         // Whatever the system's locale, it is one of the languages.
         assert!(Lang::ALL.contains(&system_lang()));
     }

@@ -35,14 +35,15 @@ xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/AudioRef.vst3 ~/Lib
 
 ## Using AudioRef
 
-Put AudioRef last on your master track, after everything else, and bypass it before you export.
+Put AudioRef last on your master track, after everything else. The correction is for your headphones, not for your mix: AudioRef bypasses itself when your DAW exports offline, but not when it exports in real time, so bypass it yourself then.
 
 | Parameter | Range | What it does |
 |---|---|---|
 | Output | −24 to +6 dB | The output level |
 | Bypass | on, off | Passes the signal through unchanged |
+| Bypass on export | on (default), off | Bypasses AudioRef while your DAW exports offline. Not automatable. |
 
-Changes of both fade over 20 ms, so they don't click. The parameter names follow the language of your operating system: German on German systems, English on all others.
+Changes of the output level and the bypass fade over 20 ms, so they don't click. The parameter names follow the language of your operating system: German on German systems, English on all others.
 
 ## Documentation
 
