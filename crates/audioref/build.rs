@@ -1,5 +1,6 @@
-//! Collects what the about window shows of the build: the git commit, the time, and the crates
-//! the plugin is built from with their license texts, see `audioref_core::about`.
+//! Collects what the about window shows of the build: the git commit, the time, whether GitHub
+//! Actions builds it, and the crates the plugin is built from with their license texts, see
+//! `audioref_core::about`.
 //!
 //! Nothing here may fail the build: what it can't find, the window shows as unknown.
 
@@ -9,7 +10,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use std::{env, fs};
 
 use audioref_core::about::{
-    Package, code, is_license_file, packages, standard_licenses, standard_text,
+    Package, ci_run, code, is_license_file, packages, standard_licenses, standard_text,
 };
 
 fn main() {
@@ -18,7 +19,16 @@ fn main() {
     println!("cargo:rerun-if-changed=licenses");
     println!("cargo:rerun-if-changed=../../Cargo.lock");
     println!("cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH");
-    println!("cargo:rerun-if-env-changed=GITHUB_SHA");
+    for name in [
+        "GITHUB_SHA",
+        "GITHUB_ACTIONS",
+        "GITHUB_SERVER_URL",
+        "GITHUB_REPOSITORY",
+        "GITHUB_RUN_ID",
+        "GITHUB_RUN_NUMBER",
+    ] {
+        println!("cargo:rerun-if-env-changed={name}");
+    }
 
     let commit = commit(&manifest_dir).unwrap_or_default();
     println!("cargo:rustc-env=AUDIOREF_COMMIT={commit}");
@@ -35,6 +45,12 @@ fn main() {
         })
         .unwrap_or_default();
     println!("cargo:rustc-env=AUDIOREF_BUILD_TIME={seconds}");
+
+    // Empty for a build outside GitHub Actions.
+    let run = ci_run(&|name| env::var(name).ok());
+    let (number, url) = run.map(|run| (run.number, run.url)).unwrap_or_default();
+    println!("cargo:rustc-env=AUDIOREF_CI_RUN_NUMBER={number}");
+    println!("cargo:rustc-env=AUDIOREF_CI_RUN_URL={url}");
 
     let components = third_party(&manifest_dir).unwrap_or_default();
     let out = PathBuf::from(env::var_os("OUT_DIR").unwrap_or_default()).join("third_party.rs");

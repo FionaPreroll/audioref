@@ -913,11 +913,25 @@ pub enum About {
     ThirdPartyHint,
     /// The build couldn't list the third-party software.
     NoThirdParty,
+    /// The label of the plugin format the host loaded, CLAP or VST3.
+    Format,
+    /// The format of AudioRef as a program of its own, outside a host.
+    Standalone,
+    /// The label of whether GitHub Actions built this AudioRef.
+    BuiltByCi,
+    /// GitHub Actions built it: before the link to its run.
+    BuiltByCiYes,
+    /// It was built elsewhere, e.g. on a developer's computer.
+    BuiltByCiNo,
+    /// The label of the link to the releases.
+    Downloads,
+    /// The hint of the link to the releases.
+    DownloadsHint,
 }
 
 impl About {
     /// All texts, e.g. for tests.
-    pub const ALL: [Self; 16] = [
+    pub const ALL: [Self; 23] = [
         Self::Button,
         Self::Hint,
         Self::Title,
@@ -934,6 +948,13 @@ impl About {
         Self::ThirdParty,
         Self::ThirdPartyHint,
         Self::NoThirdParty,
+        Self::Format,
+        Self::Standalone,
+        Self::BuiltByCi,
+        Self::BuiltByCiYes,
+        Self::BuiltByCiNo,
+        Self::Downloads,
+        Self::DownloadsHint,
     ];
 
     /// The text in a language.
@@ -971,6 +992,13 @@ impl About {
             Self::NoThirdParty => {
                 "This build has no list of them: see the dependencies in Cargo.lock of AudioRef's source."
             }
+            Self::Format => "Format",
+            Self::Standalone => "standalone program",
+            Self::BuiltByCi => "Built by GitHub",
+            Self::BuiltByCiYes => "yes, by GitHub Actions in run",
+            Self::BuiltByCiNo => "no, built elsewhere, e.g. on your own computer",
+            Self::Downloads => "Downloads",
+            Self::DownloadsHint => "Every version of AudioRef, ready to download",
         }
     }
 
@@ -1000,6 +1028,13 @@ impl About {
             Self::NoThirdParty => {
                 "Dieser Build hat keine Liste davon: Siehe die Abhängigkeiten in Cargo.lock von AudioRefs Quelltext."
             }
+            Self::Format => "Format",
+            Self::Standalone => "eigenständiges Programm",
+            Self::BuiltByCi => "Von GitHub gebaut",
+            Self::BuiltByCiYes => "ja, von GitHub Actions im Lauf",
+            Self::BuiltByCiNo => "nein, anderswo gebaut, z. B. auf dem eigenen Computer",
+            Self::Downloads => "Downloads",
+            Self::DownloadsHint => "Alle Versionen von AudioRef zum Herunterladen",
         }
     }
 }

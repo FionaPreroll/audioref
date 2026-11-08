@@ -135,7 +135,12 @@ The window and the parameter names follow the language of your operating system:
 
 ### About
 
-**About** at the top right, or a click on the name AudioRef, opens the about window: the version and the build of AudioRef, how to reach its author, its homepage, the licenses of AudioRef and of its built-in presets, and every piece of software AudioRef is built with, with its license text.
+**About** at the top right, or a click on the name AudioRef, opens the about window: the version and the build of AudioRef, how to reach its author, its homepage, a link to every version to download, the licenses of AudioRef and of its built-in presets, and every piece of software AudioRef is built with, with its license text.
+
+Two of its lines help when something doesn't work as expected, e.g. to say which AudioRef you run when you report a problem:
+
+- **Format** says which of the two plugins the DAW loaded: **CLAP** or **VST3**. A DAW that offers both lists AudioRef twice; each window shows which one it is.
+- **Built by GitHub** says whether the plugin comes from GitHub Actions, which builds the archives of the [releases](https://github.com/FionaPreroll/audioref/releases), with a link to that run, or was built elsewhere, e.g. from the source on your own computer.
 
 ## Correcting with OPRA's presets
 

@@ -1,9 +1,10 @@
-//! The about window: the version, the commit and the time of the build, the contact, the
-//! homepage, the licenses, and the third-party software with its license texts, which
-//! `build.rs` collects.
+//! The about window: the version, the plugin format, the commit and the time of the build,
+//! whether GitHub Actions built it, the contact, the homepage, the downloads, the licenses, and
+//! the third-party software with its license texts, which `build.rs` collects.
 
 use audioref_core::about::{Component, utc};
 use audioref_core::i18n::{About, Lang};
+use nih_plug::prelude::PluginApi;
 use nih_plug_egui::egui;
 
 // COMPONENTS and TEXTS, written by build.rs.
@@ -24,28 +25,41 @@ const COMMIT: &str = env!("AUDIOREF_COMMIT");
 /// The time of the build, in seconds since 1970 in UTC; 0 if unknown.
 const BUILD_TIME: &str = env!("AUDIOREF_BUILD_TIME");
 
-/// The source's repository, for the link to the commit.
+/// The number of the run of GitHub Actions that built the plugin; empty for another build.
+const CI_RUN_NUMBER: &str = env!("AUDIOREF_CI_RUN_NUMBER");
+
+/// The address of that run's page; empty for another build.
+const CI_RUN_URL: &str = env!("AUDIOREF_CI_RUN_URL");
+
+/// The source's repository, for the links to the commit and to the releases.
 const REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
 
-/// Draws the window while `open`; its cross closes it.
-pub fn window(ctx: &egui::Context, lang: Lang, open: &mut bool) {
+/// Draws the window while `open`; its cross closes it. `api` is the format the host loaded.
+pub fn window(ctx: &egui::Context, lang: Lang, api: PluginApi, open: &mut bool) {
     egui::Window::new(About::Title.text(lang))
         .open(open)
         .collapsible(false)
         .resizable(false)
         .default_width(600.0)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-        .show(ctx, |ui| contents(ui, lang));
+        .show(ctx, |ui| contents(ui, lang, api));
 }
 
 /// What the window shows.
-fn contents(ui: &mut egui::Ui, lang: Lang) {
+fn contents(ui: &mut egui::Ui, lang: Lang, api: PluginApi) {
     ui.heading("AudioRef");
     ui.label(About::Description.text(lang));
     ui.add_space(6.0);
     egui::Grid::new("about").num_columns(2).show(ui, |ui| {
         ui.label(About::Version.text(lang));
         ui.label(env!("CARGO_PKG_VERSION"));
+        ui.end_row();
+        ui.label(About::Format.text(lang));
+        ui.label(match api {
+            PluginApi::Clap => "CLAP",
+            PluginApi::Vst3 => "VST3",
+            PluginApi::Standalone => About::Standalone.text(lang),
+        });
         ui.end_row();
         ui.label(About::Commit.text(lang));
         if COMMIT.is_empty() {
@@ -62,6 +76,17 @@ fn contents(ui: &mut egui::Ui, lang: Lang) {
             _ => ui.label(About::Unknown.text(lang)),
         };
         ui.end_row();
+        ui.label(About::BuiltByCi.text(lang));
+        if CI_RUN_URL.is_empty() {
+            ui.label(About::BuiltByCiNo.text(lang));
+        } else {
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = 4.0;
+                ui.label(About::BuiltByCiYes.text(lang));
+                ui.hyperlink_to(format!("#{CI_RUN_NUMBER}"), CI_RUN_URL);
+            });
+        }
+        ui.end_row();
         ui.label(About::Contact.text(lang));
         ui.hyperlink_to(
             format!("{CONTACT_NAME} <{CONTACT_ADDRESS}>"),
@@ -70,6 +95,11 @@ fn contents(ui: &mut egui::Ui, lang: Lang) {
         ui.end_row();
         ui.label(About::Homepage.text(lang));
         ui.hyperlink(HOMEPAGE);
+        ui.end_row();
+        ui.label(About::Downloads.text(lang));
+        let releases = format!("{REPOSITORY}/releases");
+        ui.hyperlink_to(&releases, &releases)
+            .on_hover_text(About::DownloadsHint.text(lang));
         ui.end_row();
     });
     ui.add_space(6.0);
@@ -85,7 +115,8 @@ fn contents(ui: &mut egui::Ui, lang: Lang) {
     ui.label(egui::RichText::new(About::ThirdPartyHint.text(lang)).small());
     egui::ScrollArea::vertical()
         .id_salt("third party")
-        .max_height(300.0)
+        // What is left of the plugin's window, so the window fits into it.
+        .max_height(ui.available_height().min(300.0))
         .auto_shrink([false, true])
         .show(ui, |ui| {
             for (index, component) in COMPONENTS.iter().enumerate() {
