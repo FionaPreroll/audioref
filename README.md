@@ -27,11 +27,17 @@ Download the archive for your system from the [latest release](https://github.co
 
 Then let your DAW rescan its plugins. In Bitwig, use the CLAP version.
 
-On macOS, the bundles are signed ad hoc but not notarized, so macOS may refuse to load them. Allow them once with:
+On macOS, the bundles are signed ad hoc but not notarized, so macOS may refuse to load them:
+
+<img src="docs/images/macos-not-opened.png" alt="macOS: “AudioRef.vst3” Not Opened. Apple could not verify “AudioRef.vst3” is free of malware. Buttons: Move to Trash, Done." width="280">
+
+Click **Done**, not **Move to Trash**, and allow them once with:
 
 ```sh
 xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/AudioRef.vst3 ~/Library/Audio/Plug-Ins/CLAP/AudioRef.clap
 ```
+
+Then let your DAW rescan its plugins again.
 
 ## Using AudioRef
 

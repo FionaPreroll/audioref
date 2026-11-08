@@ -43,6 +43,18 @@ The fuzz targets in `fuzz/` feed random input to the parsers of what AudioRef re
 They need a nightly toolchain and [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz); `make fuzz` runs each of them for a minute, see [fuzz/README.md](../fuzz/README.md).
 Every new parser of input from outside gets a target, with a smoke test in the crate's `src/fuzz.rs` that `cargo test` runs.
 
+## Screenshots
+
+`make screenshots` takes pictures of the window without a DAW and without a graphics card, on Linux: `en-empty.png`, `en-correction.png` and the same in German, in `target/screenshots`. Install what it needs once with `utils/install-linux-deps.sh --screenshots`. It works in CI and in the cloud sandbox of Claude Code alike.
+
+- `screenshots/` holds AudioRef as a standalone program, with nih-plug's host for standalone plugins (`nih_export_standalone`), in a workspace and with a `Cargo.lock` of its own, like `fuzz/`, so the plugin's dependencies stay free of its audio backends. It runs with `--backend dummy`, without sound.
+- `utils/screenshots.sh` starts it on Xvfb, a virtual X server, where Mesa's llvmpipe draws the OpenGL. xdotool types the path of `screenshots/demo_database.jsonl`, a small synthetic database in OPRA's format, clicks Load, the first headphones and their first preset, and ImageMagick's `import` takes the pictures. The language follows the locale it sets.
+- nih-plug's window asks for a framebuffer with sRGB, which Mesa's software rendering doesn't offer under Xvfb, so the window wouldn't open ("Could not fetch framebuffer config"). The script copies nih-plug, at the commit `Cargo.toml` pins, to `screenshots/target/nih-plug`, asks for a framebuffer without sRGB there, and `screenshots/Cargo.toml` patches nih-plug with the copy. egui turns the sRGB conversion off anyway, so the window looks the same as in a DAW. The plugin itself is built with nih-plug unchanged.
+- The clicks go to fixed points of the window (at the top of the script). When the layout in `crates/audioref/src/editor.rs` changes, check that the pictures still show a chosen preset, and move the points.
+- When the plugin's dependencies change, Cargo updates `screenshots/Cargo.lock` to match: commit that change too.
+
+The workflow `screenshots.yml` takes them for every pull request and keeps them as the artifact `screenshots` of its run, for the pull request's "How to see it".
+
 ## Dependency Checks
 
 [cargo-deny](https://github.com/EmbarkStudios/cargo-deny) checks the dependencies for known vulnerabilities, unmaintained crates, licenses that don't go with the GPL, and sources other than crates.io and AudioRef's fork of nih-plug with the git repositories it pins, as configured in `deny.toml`:
@@ -61,6 +73,7 @@ make deny
 | `coverage.yml` | pull requests, `main` | 100 % of lines and functions of the core; the summary is on the run's page, the reports are an artifact and go to Codecov |
 | `deny.yml`, `audit.yml` | pull requests, `main`, weekly | the dependencies, with cargo-deny and cargo-audit |
 | `fuzz.yml` | pull requests (30 s per target), weekly (15 min), by hand | the fuzz targets |
+| `screenshots.yml` | pull requests, `main`, by hand | that the window opens, without a graphics card; the screenshots in English and German are an artifact, see [Screenshots](#screenshots) |
 | `codeql.yml` | pull requests, `main`, weekly | CodeQL's analysis of the Rust code and of the workflows |
 | `zizmor.yml` | pull requests, `main`, weekly | the workflows, with zizmor: e.g. template injection, permissions, known vulnerable actions |
 | `release.yml` | pull requests, `main`, version tags | the tests and the VST3 and CLAP bundles on Windows, macOS (universal, signed ad hoc) and Linux, the CLAP bundles checked with clap-validator, the VST3 bundles with pluginval at strictness 10; publishes them for `main` as the pre-release `snapshot` and for version tags as releases, see [Changelog and versions](#changelog-and-versions) |

@@ -3,3 +3,6 @@
 
 ## Release workflow, when run by hand: archives of the bundled plugins
 /dist
+
+## Screenshots of the window: the copy of nih-plug and the build, see utils/screenshots.sh
+/screenshots/target
