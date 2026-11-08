@@ -10,6 +10,7 @@ How AudioRef is built inside: its crates, its threads and the path of the signal
 | `crates/audioref` | The plugin: nih-plug, the parameters, the language of the system, the window (`editor`, with egui), reading OPRA's file and designing the corrections in the background (`background`), the saved state | `audioref-core`, nih-plug, nih_plug_egui, rtrb, sys-locale |
 | `xtask` | The bundler, `cargo xtask bundle audioref --release` | nih-plug's xtask |
 | `fuzz` | The fuzz targets, a workspace of its own, see [fuzz/README.md](../fuzz/README.md) | `audioref-core`, libfuzzer-sys |
+| `screenshots` | The plugin as a standalone program, for screenshots of the window, a workspace of its own, see Screenshots in [DEVELOPMENT.md](DEVELOPMENT.md#screenshots) | `audioref`, nih-plug's standalone host |
 
 The core can be tested without a host, to 100 % of its lines and functions. The plugin crate only translates between nih-plug and the core.
 
