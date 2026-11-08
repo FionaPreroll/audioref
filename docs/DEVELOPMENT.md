@@ -34,7 +34,7 @@ builds the plugin in release mode and writes `AudioRef.vst3` and `AudioRef.clap`
 `make coverage` runs the tests with [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov) and fails if they cover less than 100 % of the lines or of the functions (`COVERAGE_MIN` in the `Makefile`).
 It prints a summary per file, writes an HTML report with the covered lines to `target/llvm-cov/html` and an LCOV report to `target/llvm-cov/lcov.info`.
 
-- Coverage leaves out `crates/audioref` and `xtask` (`COVERAGE_EXCLUDE` in the `Makefile`): a test can't build nih-plug's `Buffer` or `Transport` without `unsafe`, so it can't call `process`, and `xtask` only hands over to nih-plug's bundler. The plugin crate stays a thin translation; clap-validator and pluginval check it in CI. Everything that can be tested without a host goes into `audioref-core`.
+- Coverage leaves out `crates/audioref` and `xtask` (`COVERAGE_EXCLUDE` in the `Makefile`): a test can't build nih-plug's `Buffer` or `Transport` without `unsafe`, so it can't call `process`, and `xtask` hands over to nih-plug's bundler or runs curl and writes files (`fetch-profiles`); the addresses and the reading of AutoEQ's name index that `fetch-profiles` uses are in `audioref_core::profiles`, which is covered. The plugin crate stays a thin translation; clap-validator and pluginval check it in CI. Everything that can be tested without a host goes into `audioref-core`.
 - The coverage of a generic function is that of its best instantiation, not of all of them together. Functions that the tests need to call with other types, e.g. readers that fail, take trait objects (`&mut dyn Read`) instead.
 
 ## Fuzzing

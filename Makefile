@@ -49,7 +49,7 @@ CORE_FORBIDDEN = nih_plug|nih-plug|clap-sys|vst3|baseview|egui|vizia|iced|sys-lo
 
 # Crates whose tests can't reach all of their code without a host, and which coverage leaves out:
 # the plugin, which only translates between nih-plug and audioref-core, and xtask, which hands
-# over to nih-plug's bundler. clap-validator and pluginval check the plugin in CI instead, see
+# over to nih-plug's bundler or runs curl (fetch-profiles). clap-validator and pluginval check the plugin in CI instead, see
 # Tests and Coverage in docs/DEVELOPMENT.md.
 COVERAGE_EXCLUDE = --exclude audioref --exclude xtask
 
