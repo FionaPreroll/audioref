@@ -1,19 +1,22 @@
 //! The processing of the plugin: the correction, the output level and the bypass, each faded
 //! over [`RAMP_SECONDS`](crate::gain::RAMP_SECONDS), so changing them doesn't click.
 //!
-//! A new correction is designed in the background as a [`Cascade`] and handed to
-//! [`Engine::set_correction`], which cross-fades from the one before. The engine never allocates
-//! or frees: it hands back the cascade it no longer needs, to be freed outside the audio thread.
+//! A new correction is designed in the background as a [`Filter`], the biquads of a preset or the
+//! FIR of a designed correction, and handed to [`Engine::set_correction`], which cross-fades from
+//! the one before. The engine never allocates or frees: it hands back the filter it no longer
+//! needs, to be freed outside the audio thread.
 //!
 //! ```
 //! use audioref_core::cascade::Cascade;
 //! use audioref_core::engine::Engine;
 //! use audioref_core::eq::ParametricEq;
+//! use audioref_core::filter::Filter;
 //!
 //! let mut engine = Engine::new(48_000.0);
 //! engine.set_output_db(-6.0);
 //! let eq = ParametricEq::new(-3.0, Vec::new())?;
-//! assert!(engine.set_correction(Some(Box::new(Cascade::new(&eq, 48_000.0)))).is_none());
+//! let filter = Filter::from(Cascade::new(&eq, 48_000.0));
+//! assert!(engine.set_correction(Some(Box::new(filter))).is_none());
 //! engine.reset();
 //! let mut left = [1.0_f32; 4];
 //! let mut right = [0.5_f32; 4];
@@ -22,7 +25,7 @@
 //! # Ok::<(), audioref_core::eq::EqError>(())
 //! ```
 
-use crate::cascade::Cascade;
+use crate::filter::Filter;
 use crate::gain::{Ramp, db_to_gain, ramp_samples};
 
 /// The processing of the plugin: the correction, the output level and the bypass.
@@ -34,10 +37,10 @@ pub struct Engine {
     /// From 0, the previous correction, to 1, the current one.
     fade: Ramp,
     /// The correction, none for a flat response.
-    current: Option<Box<Cascade>>,
+    current: Option<Box<Filter>>,
     /// The correction before, while the fade runs, and kept until the next one comes, so the
     /// audio thread never frees it.
-    previous: Option<Box<Cascade>>,
+    previous: Option<Box<Filter>>,
 }
 
 impl Engine {
@@ -76,7 +79,7 @@ impl Engine {
     /// Cross-fades to a correction, or to none, and hands back the one it kept from before,
     /// to be freed outside the audio thread. A fade that still runs starts over from the
     /// correction that was current.
-    pub fn set_correction(&mut self, correction: Option<Box<Cascade>>) -> Option<Box<Cascade>> {
+    pub fn set_correction(&mut self, correction: Option<Box<Filter>>) -> Option<Box<Filter>> {
         let current = std::mem::replace(&mut self.current, correction);
         let stale = std::mem::replace(&mut self.previous, current);
         self.fade.restart(0.0, 1.0);
@@ -85,7 +88,7 @@ impl Engine {
 
     /// The current correction, if there is one.
     #[must_use]
-    pub fn correction(&self) -> Option<&Cascade> {
+    pub fn correction(&self) -> Option<&Filter> {
         self.current.as_deref()
     }
 
@@ -94,11 +97,11 @@ impl Engine {
         self.gain.finish();
         self.wet.finish();
         self.fade.finish();
-        for cascade in [&mut self.current, &mut self.previous]
+        for filter in [&mut self.current, &mut self.previous]
             .into_iter()
             .flatten()
         {
-            cascade.reset();
+            filter.reset();
         }
     }
 
@@ -116,12 +119,12 @@ impl Engine {
                 let new = self
                     .current
                     .as_deref_mut()
-                    .map_or(input, |cascade| cascade.process(index, input));
+                    .map_or(input, |filter| filter.process(index, input));
                 let corrected = if mix < 1.0 {
                     let old = self
                         .previous
                         .as_deref_mut()
-                        .map_or(input, |cascade| cascade.process(index, input));
+                        .map_or(input, |filter| filter.process(index, input));
                     old + f64::from(mix) * (new - old)
                 } else {
                     new
@@ -147,15 +150,16 @@ mod tests {
     use super::Engine;
     use crate::cascade::Cascade;
     use crate::eq::{Band, ParametricEq};
+    use crate::filter::Filter;
 
     fn close(a: f32, b: f32) -> bool {
         (a - b).abs() < 1e-5
     }
 
     /// A cascade at 200 Hz, so a fade takes 4 samples, of a flat EQ with an overall gain.
-    fn flat(gain_db: f64) -> Cascade {
+    fn flat(gain_db: f64) -> Filter {
         let eq = ParametricEq::new(gain_db, Vec::new()).expect("accepted");
-        Cascade::new(&eq, 200.0)
+        Filter::from(Cascade::new(&eq, 200.0))
     }
 
     #[test]
@@ -237,11 +241,9 @@ mod tests {
         assert!(close(samples[0], 0.775));
         assert!(close(samples[3], 0.1));
         assert!(close(samples[4], 0.1));
-        assert!(
-            engine
-                .correction()
-                .is_some_and(|cascade| cascade.headroom_db() == 0.0)
-        );
+        assert!(engine.correction().is_some_and(
+            |filter| matches!(filter, Filter::Biquads(cascade) if cascade.headroom_db() == 0.0)
+        ));
 
         // The next one fades from this one, which the engine keeps until the one after.
         assert!(engine.set_correction(Some(Box::new(flat(0.0)))).is_none());
@@ -250,7 +252,7 @@ mod tests {
         assert!(close(samples[0], 0.325));
         assert!(close(samples[3], 1.0));
         let stale = engine.set_correction(None);
-        assert!(stale.is_some_and(|cascade| (cascade.response_db(100.0) + 20.0).abs() < 1e-9));
+        assert!(stale.is_some_and(|filter| matches!(*filter, Filter::Biquads(cascade) if (cascade.response_db(100.0) + 20.0).abs() < 1e-9)));
         assert!(engine.correction().is_none());
     }
 
@@ -266,7 +268,7 @@ mod tests {
             }],
         )
         .expect("accepted");
-        engine.set_correction(Some(Box::new(Cascade::new(&eq, 200.0))));
+        engine.set_correction(Some(Box::new(Filter::from(Cascade::new(&eq, 200.0)))));
         let mut warm = [1.0_f32; 3];
         engine.process(&mut [&mut warm]);
         engine.reset();

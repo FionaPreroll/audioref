@@ -9,9 +9,11 @@ pub mod autoeq;
 pub mod biquad;
 pub mod bundled;
 pub mod cascade;
+pub mod convolver;
 pub mod design;
 pub mod engine;
 pub mod eq;
+pub mod filter;
 pub mod fir;
 #[cfg(any(test, fuzzing))]
 pub mod fuzz;

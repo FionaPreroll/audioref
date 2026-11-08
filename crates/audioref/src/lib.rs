@@ -224,14 +224,14 @@ impl AudioRef {
             };
             let unused = match correction {
                 // Designed for another sample rate, before the host activated the plugin again.
-                Some(cascade) if cascade.sample_rate().to_bits() != self.sample_rate.to_bits() => {
-                    Some(cascade)
+                Some(filter) if filter.sample_rate().to_bits() != self.sample_rate.to_bits() => {
+                    Some(filter)
                 }
                 correction => self.engine.set_correction(correction),
             };
-            if let Some(cascade) = unused {
+            if let Some(filter) = unused {
                 // There is room, see above, so this hands nothing back.
-                drop(self.queues.returns.push(cascade));
+                drop(self.queues.returns.push(filter));
             }
         }
     }
