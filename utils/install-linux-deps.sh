@@ -3,9 +3,9 @@
 # OpenGL, which baseview and egui link to. CI runs it on Ubuntu; on other distributions, install
 # the same libraries with their package manager. See Getting Started in docs/DEVELOPMENT.md.
 #
-# With --screenshots, also what utils/screenshots.sh needs: ALSA for nih-plug's standalone host,
-# Xvfb with Mesa's software OpenGL, xdotool, ImageMagick and jq. See Screenshots in
-# docs/DEVELOPMENT.md.
+# With --screenshots, also what utils/screenshots.sh needs: the headers of ALSA and JACK for
+# nih-plug's standalone host, Xvfb with Mesa's software OpenGL, xdotool, ImageMagick and jq. See
+# Screenshots in docs/DEVELOPMENT.md.
 
 set -euo pipefail
 
@@ -27,6 +27,7 @@ case "${1:-}" in
         jq
         libasound2-dev
         libgl1-mesa-dri
+        libjack-jackd2-dev
         xauth
         xdotool
         xvfb
