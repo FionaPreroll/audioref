@@ -1,5 +1,6 @@
-//! The processing of the plugin: the correction, the output level and the bypass, each faded
-//! over [`RAMP_SECONDS`](crate::gain::RAMP_SECONDS), so changing them doesn't click.
+//! The processing of the plugin: the stereo stage ([`crate::stereo`]), the correction, the output
+//! level and the bypass, each faded over [`RAMP_SECONDS`](crate::gain::RAMP_SECONDS), so changing
+//! them doesn't click.
 //!
 //! A new correction is designed in the background as a [`Filter`], the biquads of a preset or the
 //! FIR of a designed correction, and handed to [`Engine::set_correction`], which cross-fades from
@@ -27,10 +28,14 @@
 
 use crate::filter::Filter;
 use crate::gain::{Ramp, db_to_gain, ramp_samples};
+use crate::stereo::{Channels, Crossfeed, Stereo};
 
-/// The processing of the plugin: the correction, the output level and the bypass.
+/// The processing of the plugin: the stereo stage, the correction, the output level and the
+/// bypass.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Engine {
+    /// The routing of the channels and the crossfeed.
+    stereo: Stereo,
     gain: Ramp,
     /// 1 while processing, 0 while bypassed.
     wet: Ramp,
@@ -44,11 +49,13 @@ pub struct Engine {
 }
 
 impl Engine {
-    /// An engine at 0 dB, without a correction, not bypassed, for a sample rate in Hz.
+    /// An engine at 0 dB, in stereo without crossfeed, without a correction, not bypassed, for a
+    /// sample rate in Hz.
     #[must_use]
     pub fn new(sample_rate: f32) -> Self {
         let length = ramp_samples(sample_rate);
         Self {
+            stereo: Stereo::new(sample_rate),
             gain: Ramp::new(1.0, length),
             wet: Ramp::new(1.0, length),
             fade: Ramp::new(1.0, length),
@@ -61,6 +68,7 @@ impl Engine {
     /// again for it.
     pub fn set_sample_rate(&mut self, sample_rate: f32) {
         let length = ramp_samples(sample_rate);
+        self.stereo.set_sample_rate(sample_rate);
         self.gain.set_length(length);
         self.wet.set_length(length);
         self.fade.set_length(length);
@@ -69,6 +77,16 @@ impl Engine {
     /// Fades to an output level in dB.
     pub fn set_output_db(&mut self, db: f32) {
         self.gain.set_target(db_to_gain(db));
+    }
+
+    /// Fades to a routing of the channels.
+    pub fn set_channels(&mut self, channels: Channels) {
+        self.stereo.set_channels(channels);
+    }
+
+    /// Fades to a strength of the crossfeed.
+    pub fn set_crossfeed(&mut self, crossfeed: Crossfeed) {
+        self.stereo.set_crossfeed(crossfeed);
     }
 
     /// Fades to the unchanged signal, or back to the processed one.
@@ -94,6 +112,7 @@ impl Engine {
 
     /// Ends all fades at once and empties the filters, e.g. when playback starts again.
     pub fn reset(&mut self) {
+        self.stereo.reset();
         self.gain.finish();
         self.wet.finish();
         self.fade.finish();
@@ -105,43 +124,68 @@ impl Engine {
         }
     }
 
-    /// Processes one block in place: one slice per channel, all of the same length.
+    /// Processes one block in place: one slice per channel, all of the same length. The first two
+    /// channels are left and right; one alone is mono, and channels after the first two pass
+    /// unchanged.
     pub fn process(&mut self, channels: &mut [&mut [f32]]) {
-        let samples = channels.first().map_or(0, |channel| channel.len());
-        for (index, channel) in channels.iter_mut().enumerate() {
-            // Each channel runs through the same fades, which then move on once for the block.
-            let mut gain = self.gain;
-            let mut wet = self.wet;
-            let mut fade = self.fade;
-            for sample in channel.iter_mut() {
-                let input = f64::from(*sample);
-                let mix = fade.next_value();
-                let new = self
-                    .current
-                    .as_deref_mut()
-                    .map_or(input, |filter| filter.process(index, input));
-                let corrected = if mix < 1.0 {
-                    let old = self
-                        .previous
-                        .as_deref_mut()
-                        .map_or(input, |filter| filter.process(index, input));
-                    old + f64::from(mix) * (new - old)
-                } else {
-                    new
-                };
-                let wet = f64::from(wet.next_value());
-                let processed = f64::from(gain.next_value()) * corrected;
-                #[expect(
-                    clippy::cast_possible_truncation,
-                    reason = "the host takes 32-bit samples; the filters run with 64 bits"
-                )]
-                let output = (input + wet * (processed - input)) as f32;
-                *sample = output;
+        match channels {
+            [] => {}
+            [mono] => {
+                for sample in mono.iter_mut() {
+                    (*sample, _) = self.frame(*sample, *sample);
+                }
+            }
+            [left, right, ..] => {
+                for (left, right) in left.iter_mut().zip(right.iter_mut()) {
+                    (*left, *right) = self.frame(*left, *right);
+                }
             }
         }
-        self.gain.advance(samples);
-        self.wet.advance(samples);
-        self.fade.advance(samples);
+    }
+
+    /// Processes one sample of each channel: the stereo stage, the correction, the level and the
+    /// bypass.
+    fn frame(&mut self, left: f32, right: f32) -> (f32, f32) {
+        let input = [f64::from(left), f64::from(right)];
+        let (routed_left, routed_right) = self.stereo.process(f64::from(left), f64::from(right));
+        let mix = f64::from(self.fade.next_value());
+        let gain = f64::from(self.gain.next_value());
+        let wet = f64::from(self.wet.next_value());
+        let mut output = [0.0_f32; 2];
+        for (index, ((out, dry), routed)) in output
+            .iter_mut()
+            .zip(input)
+            .zip([routed_left, routed_right])
+            .enumerate()
+        {
+            let processed = gain * self.correct(index, routed, mix);
+            #[expect(
+                clippy::cast_possible_truncation,
+                reason = "the host takes 32-bit samples; the filters run with 64 bits"
+            )]
+            let sample = (dry + wet * (processed - dry)) as f32;
+            *out = sample;
+        }
+        let [left, right] = output;
+        (left, right)
+    }
+
+    /// One sample of a channel through the correction, cross-faded from the one before while
+    /// `mix` is below 1.
+    fn correct(&mut self, channel: usize, input: f64, mix: f64) -> f64 {
+        let new = self
+            .current
+            .as_deref_mut()
+            .map_or(input, |filter| filter.process(channel, input));
+        if mix < 1.0 {
+            let old = self
+                .previous
+                .as_deref_mut()
+                .map_or(input, |filter| filter.process(channel, input));
+            old + mix * (new - old)
+        } else {
+            new
+        }
     }
 }
 
@@ -151,6 +195,7 @@ mod tests {
     use crate::cascade::Cascade;
     use crate::eq::{Band, ParametricEq};
     use crate::filter::Filter;
+    use crate::stereo::{Channels, Crossfeed};
 
     fn close(a: f32, b: f32) -> bool {
         (a - b).abs() < 1e-5
@@ -279,5 +324,38 @@ mod tests {
         let mut second = [1.0_f32, 0.0, 0.0];
         engine.process(&mut [&mut second]);
         assert!(first.iter().zip(&second).all(|(a, b)| close(*a, *b)));
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp, reason = "routed and passed samples are exact")]
+    fn the_stereo_stage_comes_first_and_further_channels_pass() {
+        let mut engine = Engine::new(48_000.0);
+        engine.set_channels(Channels::Swapped);
+        engine.set_output_db(-20.0);
+        engine.reset();
+        let mut left = [1.0_f32; 2];
+        let mut right = [0.0_f32; 2];
+        let mut third = [0.5_f32; 2];
+        engine.process(&mut [&mut left, &mut right, &mut third]);
+        assert!(left.iter().all(|sample| close(*sample, 0.0)));
+        assert!(right.iter().all(|sample| close(*sample, 0.1)));
+        assert_eq!(third, [0.5; 2]);
+
+        // Bypassed, both channels are where they were.
+        engine.set_bypass(true);
+        engine.reset();
+        let mut left = [1.0_f32];
+        let mut right = [0.0_f32];
+        engine.process(&mut [&mut left, &mut right]);
+        assert_eq!((left, right), ([1.0], [0.0]));
+
+        // Mono stays as it is, whatever the stage does.
+        let mut engine = Engine::new(48_000.0);
+        engine.set_channels(Channels::Mono);
+        engine.set_crossfeed(Crossfeed::Strong);
+        engine.reset();
+        let mut mono = [0.25_f32, -0.5, 1.0];
+        engine.process(&mut [&mut mono]);
+        assert_eq!(mono, [0.25, -0.5, 1.0]);
     }
 }

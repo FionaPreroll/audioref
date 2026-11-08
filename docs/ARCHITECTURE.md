@@ -6,7 +6,7 @@ How AudioRef is built inside: its crates, its threads and the path of the signal
 
 | Crate | Holds | Depends on |
 |---|---|---|
-| `crates/audioref-core` | The logic as plain Rust: the texts (`i18n`), the saved correction (`state`), the signal processing (`engine`, `gain`, the filters in `biquad`, `cascade` and `convolver`, one of them as a `filter`), parametric EQs with the ranges of their values (`eq`), OPRA's database (`opra`) and the presets built in from it (`bundled`), AutoEQ's curves (`autoeq`), the design of a correction from them (`design`) and its minimum-phase filter (`fir`) | No crate with plugin APIs, GUI or I/O; `make lint` checks it |
+| `crates/audioref-core` | The logic as plain Rust: the texts (`i18n`), the saved correction (`state`), the signal processing (`engine`, `gain`, the channels and the crossfeed in `stereo`, the filters in `biquad`, `cascade` and `convolver`, one of them as a `filter`), parametric EQs with the ranges of their values (`eq`), OPRA's database (`opra`) and the presets built in from it (`bundled`), AutoEQ's curves (`autoeq`), the design of a correction from them (`design`) and its minimum-phase filter (`fir`) | No crate with plugin APIs, GUI or I/O; `make lint` checks it |
 | `crates/audioref` | The plugin: nih-plug, the parameters, the language of the system, the window (`editor`, with egui), reading OPRA's file and designing the corrections in the background (`background`), the saved state | `audioref-core`, nih-plug, nih_plug_egui, rtrb, sys-locale |
 | `xtask` | The bundler, `cargo xtask bundle audioref --release` | nih-plug's xtask |
 | `fuzz` | The fuzz targets, a workspace of its own, see [fuzz/README.md](../fuzz/README.md) | `audioref-core`, libfuzzer-sys |
@@ -19,8 +19,8 @@ The core can be tested without a host, to 100 % of its lines and functions. The 
 ```text
  GUI thread (editor)            background                         audio thread
  ───────────────────            ────────────────────               ────────────
- pick headphones, mode,  ──▶    read OPRA's file,          ──▶     correction → crossfeed
- target, controls               design the filters                 → level → limiter
+ pick headphones, mode,  ──▶    read OPRA's file,          ──▶     channels → crossfeed
+ target, controls               design the filters                 → correction → level
                                 (core: opra, biquad,       lock-free (core: engine,
                                  cascade)                  hand-over  cascade)
 ```
@@ -35,13 +35,12 @@ The core can be tested without a host, to 100 % of its lines and functions. The 
 
 Stereo in, stereo out, with a latency of 0 samples. In this order, the parts not built yet marked *planned*:
 
-1. Automatic headroom: the overall gain of the correction is lowered by its largest boost between 20 Hz and 20 kHz, on AutoEQ's grid, so it boosts nothing (`audioref_core::cascade`). Most of OPRA's presets bring enough of their own; the most any needs is 5.4 dB.
-2. The correction: a cascade of biquads for OPRA's presets (`audioref_core::cascade`), computed with 64 bits, or the minimum-phase FIR of a correction designed from AutoEQ's curves (`audioref_core::fir`, see [Designing a correction](#designing-a-correction)), computed with 32 bits and convolved without latency (`audioref_core::convolver`): the first 128 taps in the time domain, sample by sample, the others in partitions of 128 taps with FFTs of 256 points, whose share of a block depends only on the blocks before, so it is ready when the block starts. The FFTs work in buffers made with the filter, so the audio thread doesn't allocate. On one core of the sandbox, both channels take 1.2 % at 48 kHz (4096 taps), 2.2 % at 96 kHz and 5.8 % at 192 kHz (16384 taps).
+1. The channels as they are, in mono (both at half the level in both ears) or swapped, and the crossfeed, off or in three strengths (`audioref_core::stereo`). The crossfeed follows Bauer's idea, as bs2b does, in a form that leaves the middle alone: a first-order lowpass at 700 Hz of the difference of the channels, taken from the left and added to the right, `L' = L − g·LP(L − R)`, `R' = R + g·LP(L − R)`. What both channels share passes unchanged; below the lowpass each ear hears the other channel 9.5, 6 or 4.5 dB below its own (Jan Meier's, Chu Moy's and bs2b's levels), above it less and less. The lowpass gives the crossfed part a delay of about 0.2 ms, near the time sound takes around the head. As the correction is the same in both channels, it doesn't matter whether this stage comes before or after it. A change of the routing or the strength fades over 20 ms.
+2. Automatic headroom: the overall gain of the correction is lowered by its largest boost between 20 Hz and 20 kHz, on AutoEQ's grid, so it boosts nothing (`audioref_core::cascade`). Most of OPRA's presets bring enough of their own; the most any needs is 5.4 dB.
+3. The correction: a cascade of biquads for OPRA's presets (`audioref_core::cascade`), computed with 64 bits, or the minimum-phase FIR of a correction designed from AutoEQ's curves (`audioref_core::fir`, see [Designing a correction](#designing-a-correction)), computed with 32 bits and convolved without latency (`audioref_core::convolver`): the first 128 taps in the time domain, sample by sample, the others in partitions of 128 taps with FFTs of 256 points, whose share of a block depends only on the blocks before, so it is ready when the block starts. The FFTs work in buffers made with the filter, so the audio thread doesn't allocate. On one core of the sandbox, both channels take 1.2 % at 48 kHz (4096 taps), 2.2 % at 96 kHz and 5.8 % at 192 kHz (16384 taps).
    The biquads follow Vicanek's matched design (`audioref_core::biquad`), as the usual formulas bend above about 10 kHz at 44.1 kHz: the poles of the analog filter, and zeros that give the analog magnitude at 0 Hz, at the band's frequency and at half the sample rate. Peaks and shelves up to 10 kHz stay within 0.75 dB of the analog filter up to half the sample rate. Bands at or above half the sample rate are left out.
-3. *Planned:* crossfeed, optional, in three strengths.
-4. *Planned:* mono and swapped channels.
-5. The output level and the bypass, both faded over 20 ms (`audioref_core::engine`), the length adapted to the sample rate.
-6. *Planned:* a limiter at −0.3 dBFS, with a display when it acts.
+4. The output level and the bypass, both faded over 20 ms (`audioref_core::engine`), the length adapted to the sample rate.
+5. *Planned:* a limiter at −0.3 dBFS, with a display when it acts.
 
 ## Headphone data
 
@@ -78,7 +77,7 @@ Hosts that export in real time don't say so, which is why the window also shows 
 - **OPRA presets:** OPRA's file and whether it loaded, or the built-in presets, the search for headphones, and the presets of the chosen ones.
 - **Own curves (AutoEQ):** the files of a measurement and a target, each read in the background, with its name and number of points or why it can't be used beside it, and the button that makes them the correction.
 
-Below them the current correction: for a preset its author ("EQ by …, from OPRA, CC BY-SA 4.0", and a link to OPRA's repository, as OPRA asks), for a design the names of the measurement and the target and the sliders of the tilt, the bass and the limit for boosts; then the headroom and the curve from 20 Hz to 20 kHz, the parameters, and the notices. The curve follows a slider at once, designed in the window; the filter is designed in the background once the slider is let go, as that takes up to 10 ms. The window only reads and shows; the search, the texts and the curve's values come from the core.
+Below them the current correction: for a preset its author ("EQ by …, from OPRA, CC BY-SA 4.0", and a link to OPRA's repository, as OPRA asks), for a design the names of the measurement and the target and the sliders of the tilt, the bass and the limit for boosts; then the headroom and the curve from 20 Hz to 20 kHz, the parameters (the output level, the bypasses, and lists for the channels and the crossfeed, whose names the host shows too), and the notices. The curve follows a slider at once, designed in the window; the filter is designed in the background once the slider is let go, as that takes up to 10 ms. The window only reads and shows; the search, the texts and the curve's values come from the core.
 On Linux, the window needs X11 and OpenGL; `utils/install-linux-deps.sh` installs the libraries to build it.
 
 ## Saved state
@@ -91,4 +90,4 @@ The project saves, besides the parameters:
 - `measurement-path`, `target-path`: the paths of the files of the measurement and the target, for the window's fields.
 - `editor-state`: the size of the window.
 
-Parameter IDs and these keys never change; the names of the parameters are in the system's language.
+Parameter IDs and these keys never change; the names of the parameters and of the choices of `channels` and `crossfeed` are in the system's language, and hosts that let users type a value take a name in either language or its index.

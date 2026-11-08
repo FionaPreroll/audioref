@@ -11,6 +11,8 @@
 //! assert_eq!(Param::Output.name(Lang::from_locale("en-GB")), "Output");
 //! ```
 
+use crate::stereo::{Channels, Crossfeed};
+
 /// A language of AudioRef's texts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Lang {
@@ -47,11 +49,21 @@ pub enum Param {
     Bypass,
     /// Bypasses AudioRef while the host exports offline, see `crate::render`.
     BypassOnExport,
+    /// The routing of the channels, see [`Channels`].
+    Channels,
+    /// The strength of the crossfeed, see [`Crossfeed`].
+    Crossfeed,
 }
 
 impl Param {
     /// All parameters, e.g. for tests.
-    pub const ALL: [Self; 3] = [Self::Output, Self::Bypass, Self::BypassOnExport];
+    pub const ALL: [Self; 5] = [
+        Self::Output,
+        Self::Bypass,
+        Self::BypassOnExport,
+        Self::Channels,
+        Self::Crossfeed,
+    ];
 
     /// The parameter's name in a language.
     #[must_use]
@@ -67,6 +79,8 @@ impl Param {
             Self::Output => "Output",
             Self::Bypass => "Bypass",
             Self::BypassOnExport => "Bypass on export",
+            Self::Channels => "Channels",
+            Self::Crossfeed => "Crossfeed",
         }
     }
 
@@ -75,8 +89,70 @@ impl Param {
             Self::Output => "Ausgang",
             Self::Bypass => "Umgehen",
             Self::BypassOnExport => "Beim Export umgehen",
+            Self::Channels => "Kanäle",
+            Self::Crossfeed => "Crossfeed",
         }
     }
+}
+
+impl Channels {
+    /// The name of the routing, as the host and the window show it.
+    #[must_use]
+    pub fn text(self, lang: Lang) -> &'static str {
+        match (self, lang) {
+            (Self::Stereo, _) => "Stereo",
+            (Self::Mono, _) => "Mono",
+            (Self::Swapped, Lang::En) => "Swapped",
+            (Self::Swapped, Lang::De) => "Vertauscht",
+        }
+    }
+
+    /// The routing a user typed into the host: its name in either language, in any case, or its
+    /// index.
+    #[must_use]
+    pub fn from_text(text: &str) -> Option<Self> {
+        find(&Self::ALL, text, &|channels, lang| channels.text(lang)).map(Self::from_index)
+    }
+}
+
+impl Crossfeed {
+    /// The name of the strength, as the host and the window show it.
+    #[must_use]
+    pub fn text(self, lang: Lang) -> &'static str {
+        match (self, lang) {
+            (Self::Off, Lang::En) => "Off",
+            (Self::Off, Lang::De) => "Aus",
+            (Self::Light, Lang::En) => "Light",
+            (Self::Light, Lang::De) => "Leicht",
+            (Self::Medium, Lang::En) => "Medium",
+            (Self::Medium, Lang::De) => "Mittel",
+            (Self::Strong, Lang::En) => "Strong",
+            (Self::Strong, Lang::De) => "Stark",
+        }
+    }
+
+    /// The strength a user typed into the host: its name in either language, in any case, or its
+    /// index.
+    #[must_use]
+    pub fn from_text(text: &str) -> Option<Self> {
+        find(&Self::ALL, text, &|crossfeed, lang| crossfeed.text(lang)).map(Self::from_index)
+    }
+}
+
+/// The index of the choice whose name in some language is `text`, or of the index `text` names.
+fn find<T: Copy>(choices: &[T], text: &str, name: &dyn Fn(T, Lang) -> &'static str) -> Option<i32> {
+    let text = text.trim();
+    let named = (0..).zip(choices).find_map(|(index, choice)| {
+        Lang::ALL
+            .iter()
+            .any(|lang| name(*choice, *lang).eq_ignore_ascii_case(text))
+            .then_some(index)
+    });
+    named.or_else(|| {
+        text.parse::<i32>()
+            .ok()
+            .filter(|index| usize::try_from(*index).is_ok_and(|index| index < choices.len()))
+    })
 }
 
 /// Notices the plugin shows, e.g. in its window.
@@ -504,6 +580,7 @@ fn in_parentheses(details: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{CurveMessage, Lang, Message, Notice, Param, Text};
+    use crate::stereo::{Channels, Crossfeed};
 
     #[test]
     fn german_locales() {
@@ -651,5 +728,29 @@ mod tests {
             designed.text(Lang::De),
             "AKG K240 Studio, korrigiert auf Harman over-ear 2018"
         );
+    }
+
+    #[test]
+    fn choices_have_names_and_hosts_find_them_again() {
+        for lang in Lang::ALL {
+            for channels in Channels::ALL {
+                assert_eq!(Channels::from_text(channels.text(lang)), Some(channels));
+                let index = channels.index().to_string();
+                assert_eq!(Channels::from_text(&index), Some(channels));
+            }
+            for crossfeed in Crossfeed::ALL {
+                assert_eq!(Crossfeed::from_text(crossfeed.text(lang)), Some(crossfeed));
+                let index = crossfeed.index().to_string();
+                assert_eq!(Crossfeed::from_text(&index), Some(crossfeed));
+            }
+        }
+        assert_eq!(Channels::from_text(" vertauscht "), Some(Channels::Swapped));
+        assert_eq!(Crossfeed::from_text("STRONG"), Some(Crossfeed::Strong));
+        assert_eq!(Channels::Swapped.text(Lang::De), "Vertauscht");
+        assert_eq!(Crossfeed::Off.text(Lang::De), "Aus");
+        for wrong in ["", "3", "-1", "wide", "99999999999"] {
+            assert_eq!(Channels::from_text(wrong), None, "{wrong}");
+        }
+        assert_eq!(Crossfeed::from_text("4"), None);
     }
 }

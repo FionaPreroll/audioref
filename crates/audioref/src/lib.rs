@@ -27,6 +27,7 @@ use audioref_core::engine::Engine;
 use audioref_core::i18n::{Lang, Param};
 use audioref_core::render::{self, Processing};
 use audioref_core::state::{SavedCorrection, SavedDesign};
+use audioref_core::stereo::{Channels, Crossfeed};
 use nih_plug::prelude::*;
 use nih_plug_egui::EguiState;
 
@@ -77,6 +78,12 @@ pub struct AudioRefParams {
     /// setting, not for automation.
     #[id = "bypass_on_export"]
     pub bypass_on_export: BoolParam,
+    /// The routing of the channels: stereo, mono or swapped, see `audioref_core::stereo`.
+    #[id = "channels"]
+    pub channels: IntParam,
+    /// The strength of the crossfeed, off by default.
+    #[id = "crossfeed"]
+    pub crossfeed: IntParam,
     /// The chosen preset with its bands, so the project opens with it without OPRA's file. Its
     /// values are checked again before it is used, see `audioref_core::state`.
     #[persist = "correction"]
@@ -117,6 +124,34 @@ impl AudioRefParams {
             bypass: BoolParam::new(Param::Bypass.name(lang), false).make_bypass(),
             bypass_on_export: BoolParam::new(Param::BypassOnExport.name(lang), true)
                 .non_automatable(),
+            channels: IntParam::new(
+                Param::Channels.name(lang),
+                Channels::default().index(),
+                IntRange::Linear {
+                    min: 0,
+                    max: Channels::Swapped.index(),
+                },
+            )
+            .with_value_to_string(Arc::new(move |index| {
+                Channels::from_index(index).text(lang).to_owned()
+            }))
+            .with_string_to_value(Arc::new(|text| {
+                Channels::from_text(text).map(Channels::index)
+            })),
+            crossfeed: IntParam::new(
+                Param::Crossfeed.name(lang),
+                Crossfeed::default().index(),
+                IntRange::Linear {
+                    min: 0,
+                    max: Crossfeed::Strong.index(),
+                },
+            )
+            .with_value_to_string(Arc::new(move |index| {
+                Crossfeed::from_index(index).text(lang).to_owned()
+            }))
+            .with_string_to_value(Arc::new(|text| {
+                Crossfeed::from_text(text).map(Crossfeed::index)
+            })),
             correction: RwLock::new(None),
             opra_path: RwLock::new(String::new()),
             design: RwLock::new(None),
@@ -245,6 +280,10 @@ impl AudioRef {
 
     /// Hands the parameters to the engine, which fades to them.
     fn apply_params(&mut self) {
+        self.engine
+            .set_channels(Channels::from_index(self.params.channels.value()));
+        self.engine
+            .set_crossfeed(Crossfeed::from_index(self.params.crossfeed.value()));
         self.engine.set_output_db(self.params.output.value());
         self.engine.set_bypass(render::bypassed(
             self.params.bypass.value(),
@@ -285,6 +324,7 @@ nih_export_vst3!(AudioRef);
 mod tests {
     use super::{AudioRef, AudioRefParams, system_lang};
     use audioref_core::i18n::{Lang, Param};
+    use audioref_core::stereo::{Channels, Crossfeed};
     use nih_plug::prelude::{Param as _, Plugin as _};
 
     #[test]
@@ -297,6 +337,17 @@ mod tests {
                 params.bypass_on_export.name(),
                 Param::BypassOnExport.name(lang)
             );
+            assert_eq!(params.channels.name(), Param::Channels.name(lang));
+            assert_eq!(params.crossfeed.name(), Param::Crossfeed.name(lang));
+            // Hosts show the choices by name, and take them back typed in.
+            assert_eq!(params.channels.to_string(), Channels::Stereo.text(lang));
+            assert_eq!(params.crossfeed.to_string(), Crossfeed::Off.text(lang));
+            assert_eq!(
+                params
+                    .crossfeed
+                    .string_to_normalized_value(Crossfeed::Strong.text(lang)),
+                Some(1.0)
+            );
         }
     }
 
@@ -306,6 +357,8 @@ mod tests {
         assert!(params.output.value().abs() < f32::EPSILON);
         assert!(!params.bypass.value());
         assert!(params.bypass_on_export.value());
+        assert_eq!(params.channels.value(), Channels::Stereo.index());
+        assert_eq!(params.crossfeed.value(), Crossfeed::Off.index());
     }
 
     #[test]
@@ -317,7 +370,16 @@ mod tests {
             .into_iter()
             .map(|(id, ..)| id)
             .collect();
-        assert_eq!(ids, ["output", "bypass", "bypass_on_export"]);
+        assert_eq!(
+            ids,
+            [
+                "output",
+                "bypass",
+                "bypass_on_export",
+                "channels",
+                "crossfeed"
+            ]
+        );
         // Whatever the system's locale, it is one of the languages.
         assert!(Lang::ALL.contains(&system_lang()));
     }
