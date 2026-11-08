@@ -74,6 +74,11 @@ struct State {
     results: Option<(String, Arc<Database>, Vec<String>)>,
     /// The chosen headphones.
     product: Option<String>,
+    /// Whether the headphones of the saved preset were chosen again since the window opened, or
+    /// there is nothing to choose.
+    reselected: bool,
+    /// Whether the list of headphones still has to scroll to the chosen ones.
+    scroll_to_product: bool,
     /// The curve of the current correction.
     curve: Option<Curve>,
     /// What the limiter's display shows, in dB.
@@ -222,6 +227,9 @@ fn database(
         }
         Load::Loaded(database) => (database, true),
     };
+    if !state.reselected {
+        reselect(state, &database, params);
+    }
     ui.horizontal(|ui| {
         let presets = database.presets().len();
         let headphones = database.products().len();
@@ -262,6 +270,29 @@ fn database(
     });
 }
 
+/// Chooses the headphones of the saved preset again when the window opens, so the browser shows
+/// the preset selected; searches for their name if the search wouldn't list them. Tries again
+/// with each database until one has the preset.
+fn reselect(state: &mut State, database: &Database, params: &AudioRefParams) {
+    if state.product.is_some() || current_design(params).is_some() {
+        state.reselected = true;
+        return;
+    }
+    let Some(saved) = current(params) else {
+        state.reselected = true;
+        return;
+    };
+    let Some(product) = database.product_of(&saved.preset_id) else {
+        return;
+    };
+    if !database.search(&state.query, RESULTS).contains(&product) {
+        state.query = database.headphones(product);
+    }
+    state.product = Some(product.to_owned());
+    state.scroll_to_product = true;
+    state.reselected = true;
+}
+
 /// The headphones the search found.
 fn headphones(ui: &mut egui::Ui, lang: Lang, state: &mut State, database: &Database) {
     let Some((_, _, found)) = &state.results else {
@@ -277,10 +308,12 @@ fn headphones(ui: &mut egui::Ui, lang: Lang, state: &mut State, database: &Datab
         .show(ui, |ui| {
             for id in found {
                 let selected = state.product.as_deref() == Some(id.as_str());
-                if ui
-                    .selectable_label(selected, database.headphones(id))
-                    .clicked()
-                {
+                let response = ui.selectable_label(selected, database.headphones(id));
+                if selected && state.scroll_to_product {
+                    response.scroll_to_me(Some(egui::Align::Center));
+                    state.scroll_to_product = false;
+                }
+                if response.clicked() {
                     chosen = Some(id.clone());
                 }
             }

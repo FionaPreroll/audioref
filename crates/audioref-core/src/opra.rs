@@ -171,6 +171,14 @@ impl Database {
             .map(|(id, preset)| (id.as_str(), preset))
     }
 
+    /// The ID of the product a preset is for, if the database has the preset.
+    #[must_use]
+    pub fn product_of(&self, preset_id: &str) -> Option<&str> {
+        self.presets
+            .get(preset_id)
+            .map(|preset| preset.product_id.as_str())
+    }
+
     /// The name of a product with its vendor's, e.g. "Sony WH-1000XM4 (ANC on)": only the
     /// product's if OPRA has no vendor for it, the ID if it has no product for it.
     #[must_use]
@@ -447,6 +455,8 @@ mod tests {
         assert_eq!(database.presets().len(), 1);
         assert_eq!(database.skipped(), 0);
         assert_eq!(database.presets_of("acme::two").count(), 0);
+        assert_eq!(database.product_of(presets[0].0), Some("acme::one"));
+        assert_eq!(database.product_of("acme:one::unknown"), None);
     }
 
     #[test]
