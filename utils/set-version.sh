@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Prepares a release: sets the version in Cargo.toml, updates Cargo.lock (and fuzz/Cargo.lock, once
-# there are fuzz targets), and turns the section [Unreleased] of CHANGELOG.md into one for the
-# version, with today's date. See Changelog and versions in docs/DEVELOPMENT.md.
+# Prepares a release: sets the version in Cargo.toml, updates Cargo.lock and fuzz/Cargo.lock, and
+# turns the section [Unreleased] of CHANGELOG.md into one for the version, with today's date. See Changelog and versions in docs/DEVELOPMENT.md.
 #
 # Usage: utils/set-version.sh 0.1.0
 

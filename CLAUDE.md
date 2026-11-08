@@ -22,7 +22,7 @@ The README describes the plugin for its users. `docs/` holds the rest: `docs/PLA
 - No `unsafe`: the workspace forbids it. No `unwrap`, `expect`, `panic!`, indexing or slicing outside tests: nothing a host, a file or a user sends may stop the plugin, which would take the host down with it.
 - The audio thread (`process` and all it calls) never allocates, locks, waits, reads files or parses. Work like that runs in the background, and its results reach the audio thread without locks.
 - Tests cover 100 % of lines and functions of the core, without exceptions. Seams that tests replace, e.g. a reader that fails, take trait objects: the coverage of a generic function counts only its best instantiation.
-- Every parser of input from outside (measurement and target files, OPRA's database, the plugin's saved state) gets a fuzz target in `fuzz/`, with a smoke test in the crate's `src/fuzz.rs`. The first parser brings `fuzz/` and its README, modelled on PuppyBot's.
+- Every parser of input from outside (measurement and target files, OPRA's database, the plugin's saved state) gets a fuzz target in `fuzz/`, with a smoke test in the crate's `src/fuzz.rs`, see `fuzz/README.md`.
 - Every text users see is a typed text in `crates/audioref-core` (see its module `i18n`), with an English and a German version. Parameter IDs never change, as hosts save projects by them; their names are texts.
 - The plugin's IDs, `CLAP_ID` and `VST3_CLASS_ID` in `crates/audioref`, never change: hosts find saved plugins by them.
 - Headphone data, e.g. AutoEQ's or OPRA's, is never committed or bundled: users import the files they downloaded themselves, see the disclaimer in the README. Tests use small synthetic curves.

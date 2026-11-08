@@ -1,17 +1,5 @@
-//! The output level and the bypass, both faded over [`RAMP_SECONDS`], so changing them doesn't
-//! click.
-//!
-//! ```
-//! use audioref_core::gain::Engine;
-//!
-//! let mut engine = Engine::new(48_000.0);
-//! engine.set_output_db(-6.0);
-//! engine.reset();
-//! let mut left = [1.0_f32; 4];
-//! let mut right = [0.5_f32; 4];
-//! engine.process(&mut [&mut left, &mut right]);
-//! assert!((left[0] - 0.501).abs() < 0.001);
-//! ```
+//! Levels in dB, and ramps that fade a value over [`RAMP_SECONDS`], so changing the level, the
+//! bypass or the correction doesn't click.
 
 /// How long a change of the level or of the bypass takes, in seconds.
 pub const RAMP_SECONDS: f32 = 0.02;
@@ -82,6 +70,13 @@ impl Ramp {
         self.step = (target - self.current) / f32::from(self.length);
     }
 
+    /// Jumps to `from` and starts moving to `to`, e.g. for a cross-fade that starts over.
+    pub fn restart(&mut self, from: f32, to: f32) {
+        self.current = from;
+        self.target = from;
+        self.set_target(to);
+    }
+
     /// Jumps to the target, e.g. when playback starts again.
     pub fn finish(&mut self) {
         self.current = self.target;
@@ -109,68 +104,9 @@ impl Ramp {
     }
 }
 
-/// The processing of the plugin so far: the output level and the bypass.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Engine {
-    gain: Ramp,
-    /// 1 while processing, 0 while bypassed.
-    wet: Ramp,
-}
-
-impl Engine {
-    /// An engine at 0 dB, not bypassed, for a sample rate in Hz.
-    #[must_use]
-    pub fn new(sample_rate: f32) -> Self {
-        let length = ramp_samples(sample_rate);
-        Self {
-            gain: Ramp::new(1.0, length),
-            wet: Ramp::new(1.0, length),
-        }
-    }
-
-    /// Adapts the length of the fades to a new sample rate in Hz.
-    pub fn set_sample_rate(&mut self, sample_rate: f32) {
-        let length = ramp_samples(sample_rate);
-        self.gain.set_length(length);
-        self.wet.set_length(length);
-    }
-
-    /// Fades to an output level in dB.
-    pub fn set_output_db(&mut self, db: f32) {
-        self.gain.set_target(db_to_gain(db));
-    }
-
-    /// Fades to the unchanged signal, or back to the processed one.
-    pub fn set_bypass(&mut self, bypass: bool) {
-        self.wet.set_target(if bypass { 0.0 } else { 1.0 });
-    }
-
-    /// Ends all fades at once, e.g. when playback starts again.
-    pub fn reset(&mut self) {
-        self.gain.finish();
-        self.wet.finish();
-    }
-
-    /// Processes one block in place: one slice per channel, all of the same length.
-    pub fn process(&mut self, channels: &mut [&mut [f32]]) {
-        let samples = channels.first().map_or(0, |channel| channel.len());
-        for channel in channels.iter_mut() {
-            // Each channel runs through the same fades, which then move on once for the block.
-            let mut gain = self.gain;
-            let mut wet = self.wet;
-            for sample in channel.iter_mut() {
-                let wet = wet.next_value();
-                *sample *= 1.0 + wet * (gain.next_value() - 1.0);
-            }
-        }
-        self.gain.advance(samples);
-        self.wet.advance(samples);
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{Engine, Ramp, db_to_gain, ramp_samples};
+    use super::{Ramp, db_to_gain, ramp_samples};
 
     fn close(a: f32, b: f32) -> bool {
         (a - b).abs() < 1e-5
@@ -221,6 +157,18 @@ mod tests {
     }
 
     #[test]
+    fn a_ramp_restarts_from_a_value() {
+        let mut ramp = Ramp::new(1.0, 2);
+        ramp.restart(0.0, 1.0);
+        assert!(close(ramp.value(), 0.0));
+        assert!(close(ramp.next_value(), 0.5));
+        assert!(close(ramp.next_value(), 1.0));
+        // Restarting to where it is already rests there.
+        ramp.restart(1.0, 1.0);
+        assert!(close(ramp.next_value(), 1.0));
+    }
+
+    #[test]
     fn finish_and_advance() {
         let mut ramp = Ramp::new(0.0, 10);
         ramp.set_target(1.0);
@@ -239,74 +187,5 @@ mod tests {
         assert_eq!(a, b);
         a.advance(100);
         assert!(close(a.value(), 1.0));
-    }
-
-    #[test]
-    #[allow(clippy::float_cmp, reason = "unchanged means the very same samples")]
-    fn unity_passes_the_signal_through() {
-        let mut engine = Engine::new(48_000.0);
-        let mut left = [0.1, -0.2, 0.3];
-        let mut right = [1.0, 0.0, -1.0];
-        engine.process(&mut [&mut left, &mut right]);
-        assert_eq!(left, [0.1, -0.2, 0.3]);
-        assert_eq!(right, [1.0, 0.0, -1.0]);
-    }
-
-    #[test]
-    #[allow(
-        clippy::float_cmp,
-        reason = "both channels must get the very same factors"
-    )]
-    fn the_level_fades_the_same_in_every_channel() {
-        let mut engine = Engine::new(200.0); // 4 samples per fade
-        engine.set_output_db(20.0);
-        let mut left = [1.0_f32; 6];
-        let mut right = [1.0_f32; 6];
-        engine.process(&mut [&mut left, &mut right]);
-        assert_eq!(left, right);
-        assert!(close(left[0], 3.25));
-        assert!(close(left[3], 10.0));
-        assert!(close(left[5], 10.0));
-
-        // The next block goes on where the fade ended.
-        let mut mono = [1.0_f32; 2];
-        engine.process(&mut [&mut mono]);
-        assert!(close(mono[0], 10.0));
-    }
-
-    #[test]
-    fn bypass_fades_to_the_unchanged_signal() {
-        let mut engine = Engine::new(200.0);
-        engine.set_output_db(20.0);
-        engine.reset();
-        engine.set_bypass(true);
-        let mut samples = [1.0_f32; 5];
-        engine.process(&mut [&mut samples]);
-        assert!(close(samples[0], 7.75));
-        assert!(close(samples[3], 1.0));
-        assert!(close(samples[4], 1.0));
-    }
-
-    #[test]
-    fn a_new_sample_rate_changes_the_length_of_the_fades() {
-        let mut engine = Engine::new(48_000.0);
-        engine.set_sample_rate(100.0); // 2 samples per fade
-        engine.set_output_db(20.0);
-        let mut samples = [1.0_f32; 3];
-        engine.process(&mut [&mut samples]);
-        assert!(close(samples[0], 5.5));
-        assert!(close(samples[1], 10.0));
-    }
-
-    #[test]
-    fn no_channels_and_empty_blocks() {
-        let mut engine = Engine::new(48_000.0);
-        engine.set_output_db(-6.0);
-        engine.process(&mut []);
-        let mut empty: [f32; 0] = [];
-        engine.process(&mut [&mut empty]);
-        let before = engine.clone();
-        engine.process(&mut []);
-        assert_eq!(engine, before);
     }
 }
