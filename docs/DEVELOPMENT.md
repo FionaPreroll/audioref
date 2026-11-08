@@ -57,7 +57,7 @@ The workflow `screenshots.yml` takes them for every pull request and keeps them 
 
 ## Dependency Checks
 
-[cargo-deny](https://github.com/EmbarkStudios/cargo-deny) checks the dependencies for known vulnerabilities, unmaintained crates, licenses that don't go with the GPL, and sources other than crates.io and the git repositories that nih-plug pins, as configured in `deny.toml`:
+[cargo-deny](https://github.com/EmbarkStudios/cargo-deny) checks the dependencies for known vulnerabilities, unmaintained crates, licenses that don't go with the GPL, and sources other than crates.io and AudioRef's fork of nih-plug with the git repositories it pins, as configured in `deny.toml`:
 
 ```sh
 make deny
@@ -78,9 +78,19 @@ make deny
 | `zizmor.yml` | pull requests, `main`, weekly | the workflows, with zizmor: e.g. template injection, permissions, known vulnerable actions |
 | `release.yml` | pull requests, `main`, version tags | the tests and the VST3 and CLAP bundles on Windows, macOS (universal, signed ad hoc) and Linux, the CLAP bundles checked with clap-validator, the VST3 bundles with pluginval at strictness 10; publishes them for `main` as the pre-release `snapshot` and for version tags as releases, see [Changelog and versions](#changelog-and-versions) |
 
-clap-validator and pluginval are pinned in `release.yml` (pluginval's archives by their SHA-256), as Dependabot doesn't update them. Four tests of clap-validator are left out because of two bugs of nih-plug, see Dependencies in [PLAN.md](PLAN.md#dependencies).
+clap-validator and pluginval are pinned in `release.yml` (pluginval's archives by their SHA-256), as Dependabot doesn't update them. clap-validator runs all its tests.
 
-Dependabot proposes updates of the crates, those of the fuzz targets and the GitHub Actions once a week, each kind in one pull request, and only for versions at least a week old. It doesn't move nih-plug, which is pinned to a git commit, see Dependencies in [PLAN.md](PLAN.md#dependencies).
+Dependabot proposes updates of the crates, those of the fuzz targets and the GitHub Actions once a week, each kind in one pull request, and only for versions at least a week old. It doesn't move nih-plug, which is pinned to a git commit of AudioRef's fork, see Dependencies in [PLAN.md](PLAN.md#dependencies). To take in upstream's new commits:
+
+```sh
+git clone https://github.com/FionaPreroll/nih-plug && cd nih-plug
+git switch audioref
+git remote add upstream https://github.com/robbert-vdh/nih-plug
+git fetch upstream && git merge upstream/master
+git push origin audioref
+```
+
+Then set the three `rev`s in `Cargo.toml` to the new commit, run `cargo update -p nih_plug`, and open a pull request: CI checks the bundles with clap-validator and pluginval. A fix of the fork goes onto `audioref` as a commit of its own, with the upstream issue or pull request it comes from in its message.
 All GitHub Actions are pinned to the SHA of their commit, and no workflow gets more permissions than it needs.
 
 Settings of the repository that the workflows rely on, made once by an admin:

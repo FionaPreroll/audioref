@@ -66,11 +66,11 @@ allow-wildcard-paths = true
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-# nih-plug isn't on crates.io, and pins these repositories itself: nih-plug, its CLAP and VST3
-# bindings, reflink for its bundler, and baseview and egui-baseview for nih_plug_egui's windows.
-# Nothing else may come from git.
+# nih-plug isn't on crates.io: AudioRef uses its fork of it, see Dependencies in docs/PLAN.md. The
+# fork pins these repositories itself: its CLAP and VST3 bindings, reflink for its bundler, and
+# baseview and egui-baseview for nih_plug_egui's windows. Nothing else may come from git.
 allow-git = [
-    "https://github.com/robbert-vdh/nih-plug.git",
+    "https://github.com/FionaPreroll/nih-plug.git",
     "https://github.com/micahrj/clap-sys.git",
     "https://github.com/robbert-vdh/vst3-sys.git",
     "https://github.com/nicokoch/reflink.git",
