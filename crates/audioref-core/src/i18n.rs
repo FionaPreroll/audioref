@@ -148,11 +148,35 @@ pub enum Text {
     NoCorrection,
     /// The button that turns the correction off.
     TurnOff,
+    /// The tab with OPRA's presets.
+    SourceOpra,
+    /// The tab with the own measurement and target.
+    SourceCurves,
+    /// What the files of the own curves are, and that users download them themselves.
+    CurvesHint,
+    /// The label of the measurement's file.
+    Measurement,
+    /// The label of the target's file.
+    Target,
+    /// The file has no lines with a frequency and a level.
+    NotCurve,
+    /// The file has more points than AudioRef takes, see [`crate::autoeq::MAX_POINTS`].
+    TooManyPoints,
+    /// The button that makes the measurement and the target the correction.
+    UseCurves,
+    /// The name of the tilt, see [`crate::design::Settings`].
+    Tilt,
+    /// The name of the bass shelf.
+    Bass,
+    /// The name of the limit for boosts.
+    MaxBoost,
+    /// The unit of the tilt, with a space before it.
+    DbPerOctave,
 }
 
 impl Text {
     /// All texts, e.g. for tests.
-    pub const ALL: [Self; 12] = [
+    pub const ALL: [Self; 24] = [
         Self::Database,
         Self::DatabaseHint,
         Self::Load,
@@ -165,6 +189,18 @@ impl Text {
         Self::Correction,
         Self::NoCorrection,
         Self::TurnOff,
+        Self::SourceOpra,
+        Self::SourceCurves,
+        Self::CurvesHint,
+        Self::Measurement,
+        Self::Target,
+        Self::NotCurve,
+        Self::TooManyPoints,
+        Self::UseCurves,
+        Self::Tilt,
+        Self::Bass,
+        Self::MaxBoost,
+        Self::DbPerOctave,
     ];
 
     /// The text in a language.
@@ -192,6 +228,22 @@ impl Text {
             Self::Correction => "Correction",
             Self::NoCorrection => "No correction: the signal passes unchanged.",
             Self::TurnOff => "Off",
+            Self::SourceOpra => "OPRA presets",
+            Self::SourceCurves => "Own curves (AutoEQ)",
+            Self::CurvesHint => {
+                "A measurement of your headphones and a target, as CSV files that you downloaded yourself, e.g. from AutoEQ's repository: measurements/oratory1990/data/over-ear/… and targets/…."
+            }
+            Self::Measurement => "Measurement",
+            Self::Target => "Target",
+            Self::NotCurve => {
+                "This file isn't a curve: it has no lines with a frequency and a level."
+            }
+            Self::TooManyPoints => "This file has more than 100,000 points.",
+            Self::UseCurves => "Use as correction",
+            Self::Tilt => "Tilt",
+            Self::Bass => "Bass",
+            Self::MaxBoost => "Max. boost",
+            Self::DbPerOctave => " dB/oct",
         }
     }
 
@@ -211,6 +263,22 @@ impl Text {
             Self::Correction => "Korrektur",
             Self::NoCorrection => "Keine Korrektur: Das Signal bleibt unverändert.",
             Self::TurnOff => "Aus",
+            Self::SourceOpra => "OPRA-Presets",
+            Self::SourceCurves => "Eigene Kurven (AutoEQ)",
+            Self::CurvesHint => {
+                "Eine Messung deiner Kopfhörer und eine Zielkurve, als CSV-Dateien, die du selbst heruntergeladen hast, z. B. aus AutoEQs Repository: measurements/oratory1990/data/over-ear/… und targets/…."
+            }
+            Self::Measurement => "Messung",
+            Self::Target => "Zielkurve",
+            Self::NotCurve => {
+                "Diese Datei ist keine Kurve: Sie hat keine Zeilen mit Frequenz und Pegel."
+            }
+            Self::TooManyPoints => "Diese Datei hat mehr als 100.000 Punkte.",
+            Self::UseCurves => "Als Korrektur verwenden",
+            Self::Tilt => "Neigung",
+            Self::Bass => "Bass",
+            Self::MaxBoost => "Max. Anhebung",
+            Self::DbPerOctave => " dB/Okt.",
         }
     }
 }
@@ -331,6 +399,62 @@ impl Message<'_> {
     }
 }
 
+/// The texts of the window about the curves of a measurement and a target.
+#[derive(Debug, Clone, PartialEq)]
+pub enum CurveMessage<'a> {
+    /// A curve was loaded, with so many points.
+    Points(usize),
+    /// The curve doesn't reach across [`crate::autoeq::REQUIRED_HZ`].
+    TooNarrow {
+        /// Its lowest frequency, in Hz.
+        from_hz: f64,
+        /// Its highest frequency, in Hz.
+        to_hz: f64,
+    },
+    /// The correction designed from a measurement and a target, by their names.
+    Designed {
+        /// The name of the measurement.
+        measurement: &'a str,
+        /// The name of the target.
+        target: &'a str,
+    },
+}
+
+impl CurveMessage<'_> {
+    /// The text in a language.
+    #[must_use]
+    pub fn text(&self, lang: Lang) -> String {
+        match (self, lang) {
+            (Self::Points(points), Lang::En) => format!("{} points", number(*points, lang)),
+            (Self::Points(points), Lang::De) => format!("{} Punkte", number(*points, lang)),
+            (Self::TooNarrow { from_hz, to_hz }, Lang::En) => format!(
+                "The curve only reaches from {} to {} Hz, but needs 100 to 10,000 Hz.",
+                hertz(*from_hz, lang),
+                hertz(*to_hz, lang)
+            ),
+            (Self::TooNarrow { from_hz, to_hz }, Lang::De) => format!(
+                "Die Kurve reicht nur von {} bis {} Hz, braucht aber 100 bis 10.000 Hz.",
+                hertz(*from_hz, lang),
+                hertz(*to_hz, lang)
+            ),
+            (
+                Self::Designed {
+                    measurement,
+                    target,
+                },
+                Lang::En,
+            ) => format!("{measurement}, corrected to {target}"),
+            (
+                Self::Designed {
+                    measurement,
+                    target,
+                },
+                Lang::De,
+            ) => format!("{measurement}, korrigiert auf {target}"),
+        }
+    }
+}
+
 /// A count, with the thousands separated as the language does: 12,594 or 12.594.
 fn number(count: usize, lang: Lang) -> String {
     let separator = match lang {
@@ -346,6 +470,17 @@ fn number(count: usize, lang: Lang) -> String {
         grouped.push(digit);
     }
     grouped
+}
+
+/// A frequency in whole Hz, with the thousands separated as the language does.
+fn hertz(frequency: f64, lang: Lang) -> String {
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "frequencies of curves, from 1 Hz to 100 kHz"
+    )]
+    let whole = frequency.round().max(0.0) as usize;
+    number(whole, lang)
 }
 
 /// A number with one decimal, with the language's decimal mark: 2.5 or 2,5.
@@ -368,7 +503,7 @@ fn in_parentheses(details: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{Lang, Message, Notice, Param, Text};
+    use super::{CurveMessage, Lang, Message, Notice, Param, Text};
 
     #[test]
     fn german_locales() {
@@ -490,5 +625,31 @@ mod tests {
             details: "",
         };
         assert_eq!(bare.text(Lang::De), "EQ von AutoEQ, aus OPRA, CC BY-SA 4.0");
+        assert_eq!(CurveMessage::Points(695).text(Lang::En), "695 points");
+        assert_eq!(CurveMessage::Points(1695).text(Lang::De), "1.695 Punkte");
+        let narrow = CurveMessage::TooNarrow {
+            from_hz: 199.6,
+            to_hz: 20_000.0,
+        };
+        assert_eq!(
+            narrow.text(Lang::En),
+            "The curve only reaches from 200 to 20,000 Hz, but needs 100 to 10,000 Hz."
+        );
+        assert_eq!(
+            narrow.text(Lang::De),
+            "Die Kurve reicht nur von 200 bis 20.000 Hz, braucht aber 100 bis 10.000 Hz."
+        );
+        let designed = CurveMessage::Designed {
+            measurement: "AKG K240 Studio",
+            target: "Harman over-ear 2018",
+        };
+        assert_eq!(
+            designed.text(Lang::En),
+            "AKG K240 Studio, corrected to Harman over-ear 2018"
+        );
+        assert_eq!(
+            designed.text(Lang::De),
+            "AKG K240 Studio, korrigiert auf Harman over-ear 2018"
+        );
     }
 }

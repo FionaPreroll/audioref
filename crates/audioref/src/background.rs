@@ -1,5 +1,5 @@
-//! The work outside the audio thread: reading OPRA's file, designing the corrections, and freeing
-//! the ones the audio thread is done with. Without a file, the presets built into AudioRef are
+//! The work outside the audio thread: reading OPRA's file and the files of a measurement and a
+//! target, designing the corrections, and freeing the ones the audio thread is done with. Without a file, the presets built into AudioRef are
 //! used, see `audioref_core::bundled`.
 //!
 //! The corrections travel through two lock-free queues: new ones from the background to the audio
@@ -17,12 +17,12 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::thread::{self, JoinHandle};
 
+use audioref_core::autoeq::{self, Curve};
 use audioref_core::bundled;
 use audioref_core::cascade::Cascade;
 use audioref_core::filter::Filter;
 use audioref_core::i18n::Lang;
 use audioref_core::opra::{Database, ParseError};
-use audioref_core::state::SavedCorrection;
 
 use crate::AudioRefParams;
 
@@ -38,6 +38,8 @@ pub type Correction = Option<Box<Filter>>;
 pub enum Task {
     /// Reads and parses OPRA's file at this path, or goes back to the built-in presets.
     Load(Option<PathBuf>),
+    /// Reads and parses the file of a measurement or a target.
+    LoadCurve(Which, PathBuf),
     /// Designs the saved correction for the current sample rate and sends it to the audio thread.
     Design,
 }
@@ -58,6 +60,29 @@ pub enum Load {
     NotOpra,
 }
 
+/// One of the two curves a correction is designed from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Which {
+    /// The measurement of the headphones.
+    Measurement,
+    /// The target.
+    Target,
+}
+
+/// Where the file of a curve stands.
+#[derive(Debug, Clone, Default)]
+pub enum CurveLoad {
+    /// No file.
+    #[default]
+    None,
+    /// Read: the curve, with the name of its file.
+    Loaded(String, Arc<Curve>),
+    /// The file couldn't be read, with the system's reason.
+    ReadFailed(String),
+    /// The file isn't a curve AudioRef takes.
+    Invalid(autoeq::ParseError),
+}
+
 /// What the plugin, the background and the window share.
 pub struct Shared {
     /// The language of the window, the system's.
@@ -68,6 +93,10 @@ pub struct Shared {
     pub database: Mutex<Load>,
     /// The presets built into AudioRef, for when no file is loaded.
     pub bundled: Arc<Database>,
+    /// The file of the measurement.
+    pub measurement: Mutex<CurveLoad>,
+    /// The file of the target.
+    pub target: Mutex<CurveLoad>,
     /// The end of the queue of new corrections that the background sends into.
     outgoing: Mutex<rtrb::Producer<Correction>>,
     /// The end of the queue of old corrections that the background frees.
@@ -141,6 +170,8 @@ impl Shared {
             sample_rate: AtomicU32::new(48_000.0_f32.to_bits()),
             database: Mutex::new(Load::None),
             bundled: Arc::new(bundled::database()),
+            measurement: Mutex::new(CurveLoad::None),
+            target: Mutex::new(CurveLoad::None),
             outgoing: Mutex::new(outgoing),
             returned: Mutex::new(returned),
             tasks,
@@ -173,14 +204,17 @@ impl Shared {
         match task {
             Task::Load(Some(path)) => self.load(&path),
             Task::Load(None) => *lock(&self.database) = Load::None,
-            Task::Design => {
-                let saved = params
-                    .correction
-                    .read()
-                    .unwrap_or_else(PoisonError::into_inner)
-                    .clone();
-                self.send(design(saved.as_ref(), self.sample_rate()));
-            }
+            Task::LoadCurve(which, path) => *lock(self.curve(which)) = load_curve(&path),
+            Task::Design => self.send(design(params, self.sample_rate())),
+        }
+    }
+
+    /// Where the file of a curve stands.
+    #[must_use]
+    pub fn curve(&self, which: Which) -> &Mutex<CurveLoad> {
+        match which {
+            Which::Measurement => &self.measurement,
+            Which::Target => &self.target,
         }
     }
 
@@ -209,10 +243,40 @@ impl Shared {
     }
 }
 
-/// The filter of a saved correction at a sample rate, none for no correction or one whose values
-/// are out of range.
+/// Reads and parses the file of a curve, and names it after the file.
+fn load_curve(path: &Path) -> CurveLoad {
+    match std::fs::read_to_string(path) {
+        Err(error) => CurveLoad::ReadFailed(error.to_string()),
+        Ok(text) => match Curve::parse(&text) {
+            Ok(curve) => {
+                let name = path
+                    .file_stem()
+                    .map_or_else(String::new, |stem| stem.to_string_lossy().into_owned());
+                CurveLoad::Loaded(name, Arc::new(curve))
+            }
+            Err(error) => CurveLoad::Invalid(error),
+        },
+    }
+}
+
+/// The filter of the saved correction at a sample rate: the FIR of the design if there is one,
+/// else the cascade of the preset. None for no correction or one whose values are out of range.
 #[must_use]
-pub fn design(saved: Option<&SavedCorrection>, sample_rate: f32) -> Correction {
-    let eq = saved?.eq()?;
+pub fn design(params: &AudioRefParams, sample_rate: f32) -> Correction {
+    let design = params
+        .design
+        .read()
+        .unwrap_or_else(PoisonError::into_inner)
+        .clone();
+    if let Some(design) = design {
+        let correction = design.correction()?;
+        return Filter::fir(&correction, sample_rate).map(Box::new);
+    }
+    let preset = params
+        .correction
+        .read()
+        .unwrap_or_else(PoisonError::into_inner)
+        .clone();
+    let eq = preset?.eq()?;
     Some(Box::new(Filter::from(Cascade::new(&eq, sample_rate))))
 }
