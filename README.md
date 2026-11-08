@@ -25,6 +25,8 @@ Download the archive for your system from the [latest release](https://github.co
 | macOS (Intel and Apple silicon) | `audioref-macos-universal.zip` | `~/Library/Audio/Plug-Ins/VST3` | `~/Library/Audio/Plug-Ins/CLAP` |
 | Linux (x86_64) | `audioref-linux-x86_64.zip` | `~/.vst3` | `~/.clap` |
 
+Each archive also holds the user manual as PDF, in English and German.
+
 Then let your DAW rescan its plugins. In Bitwig, use the CLAP version.
 
 On macOS, the bundles are signed ad hoc but not notarized, so macOS may refuse to load them:
@@ -40,6 +42,8 @@ xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/AudioRef.vst3 ~/Lib
 Then let your DAW rescan its plugins again.
 
 ## Using AudioRef
+
+The [user manual](#documentation) describes all of this in more detail, in English and German.
 
 1. Open AudioRef's window. It lists the headphones with built-in presets: the Bose QC25, the Sony WH-1000XM4 and the AKG K240 Studio. If yours are among them, go on with step 3.
 2. For other headphones, download OPRA's database, the file [`dist/database_v1.jsonl`](https://github.com/opra-project/OPRA/tree/main/dist) from OPRA's repository (about 12 MB), and keep it anywhere. Open **OPRA database** below the lists, paste the file's path into its field, and click **Load**. AudioRef remembers the path and loads the file again the next time; **Load** with an empty field goes back to the built-in presets.
@@ -89,6 +93,7 @@ Changes of every parameter fade over 20 ms, so they don't click. Rest the pointe
 
 ## Documentation
 
+- **User manual**, as PDF from the latest build: [English](https://github.com/FionaPreroll/audioref/releases/download/snapshot/audioref-manual-en.pdf), [Deutsch](https://github.com/FionaPreroll/audioref/releases/download/snapshot/audioref-manual-de.pdf). Every archive and every release holds it too; its source is [docs/manual/en.md](docs/manual/en.md) and [docs/manual/de.md](docs/manual/de.md).
 - [docs/PLAN.md](docs/PLAN.md): what was decided in planning, and the next steps
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): how the plugin works inside
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): building, testing, CI and releasing, and how to contribute

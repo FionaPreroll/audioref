@@ -14,6 +14,7 @@
 #   zizmor        : Audit the GitHub Actions workflows for security problems (needs zizmor).
 #   fuzz          : Run each fuzz target for FUZZ_SECONDS seconds (needs nightly Rust and cargo-fuzz).
 #   screenshots   : Take screenshots of the window, in English and German, to target/screenshots (Linux).
+#   manual        : Render the user manual, docs/manual, as PDF in English and German to target/manual (needs pandoc and LuaLaTeX).
 #   clean         : Clean build artifacts using Cargo's built-in clean command.
 #   version       : Prepare a release: set VERSION in Cargo.toml, Cargo.lock and CHANGELOG.md.
 #
@@ -30,11 +31,14 @@
 #   make screenshots
 #       Writes en-correction.png, de-correction.png and the others to target/screenshots.
 #
+#   make manual
+#       Writes audioref-manual-en.pdf and audioref-manual-de.pdf to target/manual.
+#
 #   make version VERSION=0.1.0
 #       Prepares the release of version 0.1.0.
 #############################################
 
-.PHONY: all build bundle lint lint_fix check test coverage deny zizmor fuzz screenshots clean version
+.PHONY: all build bundle lint lint_fix check test coverage deny zizmor fuzz screenshots manual clean version
 
 # Seconds to run each fuzz target for, see the target fuzz.
 FUZZ_SECONDS ?= 60
@@ -167,6 +171,13 @@ fuzz:
 # * (This target is called by CI as well.)
 screenshots:
 	@./utils/screenshots.sh
+
+# Render the user manual, docs/manual/en.md and de.md, as PDF with pandoc and LuaLaTeX, to
+# target/manual, see User manual in docs/DEVELOPMENT.md.
+# Install the tools with: utils/install-linux-deps.sh --manual
+# * (This target is called by CI as well.)
+manual:
+	@./utils/build-manual.sh
 
 # Prepare a release, e.g. make version VERSION=0.1.0, see Changelog and versions in
 # docs/DEVELOPMENT.md.

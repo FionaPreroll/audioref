@@ -1,6 +1,6 @@
 # Notes for Claude
 
-The README describes the plugin for its users. `docs/` holds the rest: `docs/PLAN.md` what was decided in planning and the next steps, `docs/ARCHITECTURE.md` how the code is laid out, `docs/DEVELOPMENT.md` how to build, test and release it, and the project's conventions. These rules hold in every session:
+The README describes the plugin for its users. `docs/` holds the rest: `docs/PLAN.md` what was decided in planning and the next steps, `docs/ARCHITECTURE.md` how the code is laid out, `docs/DEVELOPMENT.md` how to build, test and release it, and the project's conventions, `docs/manual/` the user manual. These rules hold in every session:
 
 ## Branches
 
@@ -12,6 +12,7 @@ The README describes the plugin for its users. `docs/` holds the rest: `docs/PLA
 
 - A change that users can see, the people who use the plugin in their DAW, goes into `CHANGELOG.md`, under `## [Unreleased]`, in the section it belongs to (`### Added`, `### Changed`, `### Fixed` or `### Removed`). Write it for users, in English.
 - Changes only developers notice (tests, tooling, CI, refactoring) need no entry.
+- Such a change also goes into the user manual, `docs/manual/en.md` and `docs/manual/de.md`, in both languages, with `make manual` to check the PDF (see "User manual" in `docs/DEVELOPMENT.md`).
 - A new version is made only when asked: see "Changelog and versions" in `docs/DEVELOPMENT.md`.
 
 ## Code

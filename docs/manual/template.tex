@@ -1,0 +1,161 @@
+% The LaTeX template of the user manual, for pandoc and LuaLaTeX, see utils/build-manual.sh and
+% User manual in docs/DEVELOPMENT.md. It takes the variables title, product, subtitle, version, commit,
+% lang (babel-lang), title-image, toc-title, tagline and license-note, and the body of the manual.
+\documentclass[paper=a4,fontsize=11pt,oneside,open=any,parskip=half-,headings=normal,
+  toc=chapterentrydotfill,DIV=12]{scrreprt}
+
+% Fonts: Latin Modern, the fonts of LaTeX, with their optical sizes, as OpenType through fontspec.
+\usepackage{fontspec}
+\usepackage[$babel-lang$]{babel}
+\usepackage{newunicodechar}
+% Characters Latin Modern Roman lacks, from its mathematical fonts.
+\newunicodechar{∞}{\ensuremath{\infty}}
+\newunicodechar{→}{\ensuremath{\rightarrow}}
+\newunicodechar{≤}{\ensuremath{\leq}}
+\newunicodechar{≥}{\ensuremath{\geq}}
+\newunicodechar{±}{\ensuremath{\pm}}
+\newunicodechar{×}{\ensuremath{\times}}
+\usepackage[protrusion=true,expansion=true,tracking=true]{microtype}
+\usepackage{selnolig}
+
+\usepackage{xcolor}
+% The plugin's accent, #BE03FD, darkened to read well on paper.
+\definecolor{accent}{HTML}{7A0BA8}
+\definecolor{accentlight}{HTML}{F5EBFA}
+\definecolor{rule}{HTML}{BBBBBB}
+\definecolor{muted}{HTML}{555555}
+
+\usepackage{graphicx}
+\makeatletter
+% Pictures as wide as the text at most, and never taller than half a page.
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>0.5\textheight0.5\textheight\else\Gin@nat@height\fi}
+\makeatother
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+% pandoc 3.2 and later wrap pictures in \pandocbounded.
+\providecommand{\pandocbounded}[1]{#1}
+\usepackage{float}
+\makeatletter
+\def\fps@figure{!htbp}
+\makeatother
+% Let figures share pages with text rather than leave pages half empty.
+\renewcommand{\topfraction}{0.85}
+\renewcommand{\bottomfraction}{0.6}
+\renewcommand{\textfraction}{0.12}
+\renewcommand{\floatpagefraction}{0.75}
+\usepackage[font={small,color=muted},labelfont={bf,color=accent},labelsep=period,
+  skip=6pt]{caption}
+
+% Tables as pandoc writes them, with the rules of booktabs.
+\usepackage{longtable,booktabs,array,calc}
+\setlength{\LTpre}{8pt}
+\setlength{\LTpost}{8pt}
+\renewcommand{\arraystretch}{1.25}
+\AtBeginEnvironment{longtable}{\small}
+
+\usepackage{needspace}
+\usepackage{enumitem}
+\setlist{itemsep=2pt,topsep=4pt}
+\providecommand{\tightlist}{\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+\usepackage{fvextra}
+% Long lines of code wrap, at spaces, with a mark at the end of the line.
+\fvset{fontsize=\small,breaklines=true}
+$if(highlighting-macros)$
+$highlighting-macros$
+$endif$
+
+% Notes, tips and warnings: blocks with a bar in the accent, see manual.lua.
+\usepackage[most]{tcolorbox}
+\newtcolorbox{callout}[1]{enhanced,breakable,colback=accentlight,colframe=accent,
+  boxrule=0pt,leftrule=2.5pt,arc=0pt,outer arc=0pt,left=10pt,right=10pt,top=6pt,bottom=6pt,
+  before skip=10pt,after skip=10pt,fontupper=\small,
+  title={#1},attach title to upper={\par\smallskip},
+  fonttitle=\sffamily\bfseries\small,coltitle=accent}
+% Code blocks: on a light grey ground.
+\definecolor{shadecolor}{HTML}{F4F4F4}
+\makeatletter
+\@ifundefined{Shaded}{\newenvironment{Shaded}{}{}}{}
+\makeatother
+\renewenvironment{Shaded}{\begin{tcolorbox}[enhanced,breakable,colback=shadecolor,
+  boxrule=0pt,arc=2pt,left=8pt,right=8pt,top=4pt,bottom=4pt,before skip=8pt,after skip=8pt]}
+  {\end{tcolorbox}}
+
+% Headings in the accent, chapters with their number large.
+\setkomafont{disposition}{\normalfont\bfseries\color{accent}}
+\setkomafont{chapter}{\huge}
+\setkomafont{section}{\Large}
+\setkomafont{subsection}{\large}
+\setkomafont{descriptionlabel}{\bfseries}
+\RedeclareSectionCommand[beforeskip=0pt,afterskip=1.6\baselineskip]{chapter}
+\RedeclareSectionCommand[beforeskip=-1.4\baselineskip,afterskip=0.6\baselineskip]{section}
+\RedeclareSectionCommand[beforeskip=-1.1\baselineskip,afterskip=0.4\baselineskip]{subsection}
+\renewcommand*{\chapterformat}{%
+  {\fontsize{40}{40}\selectfont\color{accent!45}\thechapter}\enskip}
+\renewcommand*{\chapterlinesformat}[3]{%
+  \parbox[b]{\linewidth}{\raggedright #2#3}\par\nobreak\vspace{4pt}%
+  {\color{accent}\rule{\linewidth}{0.8pt}}}
+\setcounter{secnumdepth}{2}
+\setcounter{tocdepth}{1}
+\setkomafont{chapterentry}{\bfseries\color{accent}}
+
+% Headers and footers: the manual's name, the chapter, and the page.
+\usepackage[headsepline=0.4pt,plainfootsepline=false]{scrlayer-scrpage}
+\pagestyle{scrheadings}
+\clearpairofpagestyles
+\automark{chapter}
+\renewcommand*{\chaptermarkformat}{\thechapter\enskip}
+\ihead{\textcolor{muted}{\small\sffamily $title$}}
+\ohead{\textcolor{muted}{\small\sffamily\leftmark}}
+\cfoot*{\small\pagemark}
+\addtokomafont{pageheadfoot}{\normalfont}
+\setkomafont{pagenumber}{\sffamily}
+\addtokomafont{headsepline}{\color{rule}}
+
+\usepackage{xurl}
+\usepackage[hidelinks,unicode,pdfusetitle]{hyperref}
+\hypersetup{
+  pdftitle={$title$},
+  pdfauthor={$author$},
+  pdfsubject={$subtitle$},
+  pdflang={$lang$},
+  colorlinks=true,linkcolor=accent,urlcolor=accent,citecolor=accent,
+  bookmarksnumbered=true,bookmarksopen=true,pdfstartview=FitH}
+\usepackage{bookmark}
+\urlstyle{same}
+
+\title{$title$}
+\date{\today}
+
+\begin{document}
+
+\begin{titlepage}
+  \raggedright
+  {\color{accent}\rule{\linewidth}{2pt}}\par\vspace{14mm}
+  {\fontsize{46}{50}\selectfont\bfseries\color{accent}$product$\par}
+  \vspace{4mm}
+  {\LARGE $subtitle$\par}
+  \vspace{6mm}
+  {\large\color{muted}$tagline$\par}
+  \vfill
+  \begin{center}
+    \includegraphics[width=0.86\linewidth,height=0.42\textheight,keepaspectratio]{$title-image$}
+  \end{center}
+  \vfill
+  {\color{accent}\rule{\linewidth}{0.6pt}}\par\vspace{3mm}
+  {\small\sffamily
+  \begin{tabular}{@{}l@{\hspace{8mm}}l@{}}
+    $version-label$ & $version$ \\
+    $date-label$ & \today \\
+    $commit-label$ & \texttt{$commit$} \\
+  \end{tabular}\par}
+  \vspace{5mm}
+  {\footnotesize\color{muted}$license-note$\par}
+\end{titlepage}
+
+\renewcommand*{\contentsname}{$toc-title$}
+\tableofcontents
+
+$body$
+
+\end{document}

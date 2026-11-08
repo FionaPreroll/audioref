@@ -7,6 +7,10 @@ name: Plugin bundles and releases
 # CHANGELOG.md as notes, see Changelog and versions in docs/DEVELOPMENT.md. Pull requests only
 # build and check them, so a change that breaks them shows before it is merged.
 #
+# The user manual, docs/manual, is rendered as PDF in English and German once, on Linux, and goes
+# into every archive and, as files of their own, into the releases, see User manual in
+# docs/DEVELOPMENT.md.
+#
 # The pre-release "snapshot" changes, so release immutability must stay off (Settings, General,
 # Releases). An immutable release takes no new files, its tag doesn't move, and GitHub never lets
 # its tag name be used again, not even after the release and the tag are deleted.
@@ -37,8 +41,31 @@ env:
   # with the new checksums.
   PLUGINVAL_VERSION: "v1.0.4"
 jobs:
+  manual:
+    name: User manual (PDF)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pandoc and LuaLaTeX
+        run: utils/install-linux-deps.sh --manual
+      - name: Render the manual
+        run: make manual
+      - name: Upload the manual
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: audioref-manual
+          path: target/manual/audioref-manual-*.pdf
+          if-no-files-found: error
+          # Re-running the job replaces the manual of the previous attempt.
+          overwrite: true
+
   build:
     name: Bundle and check (${{ matrix.name }})
+    # For the manual in the archives.
+    needs: manual
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     strategy:
@@ -129,11 +156,18 @@ jobs:
         run: |
           "$PLUGINVAL_EXE" --strictness-level 10 --skip-gui-tests --validate-in-process \
             --validate target/bundled/AudioRef.vst3
+      - name: Download the manual
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: audioref-manual
+          path: manual
       - name: Pack the bundles
         run: |
           rm -rf pluginval pluginval.zip
           mkdir -p "$ARCHIVE"
           cp -R target/bundled/AudioRef.vst3 target/bundled/AudioRef.clap README.md CHANGELOG.md LICENSE "$ARCHIVE/"
+          # The user manual, in English and German.
+          cp manual/audioref-manual-en.pdf manual/audioref-manual-de.pdf "$ARCHIVE/"
           # The source, the authors and the license of the built-in presets, as CC BY-SA 4.0 asks.
           cp data/opra/README.md "$ARCHIVE/OPRA-PRESETS.md"
           if [ "$RUNNER_OS" = Windows ]; then
@@ -195,7 +229,8 @@ jobs:
             echo "::error::CHANGELOG.md has no section for $version. Rename the section [Unreleased] to [$version] with the date."
             exit 1
           fi
-      - name: Download archives
+      - name: Download archives and the manual
+        # The archives, audioref-<system>.zip, and the manual, audioref-manual-en.pdf and -de.pdf.
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: audioref-*
@@ -203,11 +238,13 @@ jobs:
           path: dist
       - name: Write checksums
         working-directory: dist
-        run: sha256sum audioref-*.zip | tee SHA256SUMS
+        run: sha256sum audioref-*.zip audioref-manual-*.pdf | tee SHA256SUMS
       - name: Attest build provenance
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
-          subject-path: dist/audioref-*.zip
+          subject-path: |
+            dist/audioref-*.zip
+            dist/audioref-manual-*.pdf
       - name: Describe the downloads
         # For the notes of both kinds of releases.
         run: |
@@ -218,7 +255,12 @@ jobs:
           | macOS, Intel and Apple silicon | \`audioref-macos-universal.zip\` |
           | Linux, x86_64 | \`audioref-linux-x86_64.zip\` |
 
-          Each archive holds \`AudioRef.vst3\` and \`AudioRef.clap\`, with the README, the changelog, the license, and the source and license of the built-in presets (\`OPRA-PRESETS.md\`). See [Installing]($GITHUB_SERVER_URL/$GH_REPO#installing) in the README for where they go.
+          Each archive holds \`AudioRef.vst3\` and \`AudioRef.clap\`, with the user manual in English and German, the README, the changelog, the license, and the source and license of the built-in presets (\`OPRA-PRESETS.md\`). See [Installing]($GITHUB_SERVER_URL/$GH_REPO#installing) in the README for where they go.
+
+          | User manual | File |
+          |---|---|
+          | English | \`audioref-manual-en.pdf\` |
+          | Deutsch | \`audioref-manual-de.pdf\` |
 
           **AudioRef is for private, non-commercial use only**, see the [disclaimer]($GITHUB_SERVER_URL/$GH_REPO#disclaimer).
 
