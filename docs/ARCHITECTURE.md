@@ -42,7 +42,7 @@ Stereo in, stereo out, with a latency of 0 samples. In this order, the parts not
    The biquads follow Vicanek's matched design (`audioref_core::biquad`), as the usual formulas bend above about 10 kHz at 44.1 kHz: the poles of the analog filter, and zeros that give the analog magnitude at 0 Hz, at the band's frequency and at half the sample rate. Peaks and shelves up to 10 kHz stay within 0.75 dB of the analog filter up to half the sample rate. Bands at or above half the sample rate are left out.
 4. The output level and the bypass, both faded over 20 ms (`audioref_core::engine`), the length adapted to the sample rate.
 5. The limiter (`audioref_core::limiter`), on by default: both channels together stay at or below −0.3 dBFS, the peak of their samples. It has no lookahead, so no latency: when a sample would go above the ceiling, the gain drops at once to just what keeps it there, and comes back with a time constant of 100 ms. Off, it only lets the gain come back, so turning it off doesn't click. The bypass fades to the unprocessed input, around the limiter too.
-   The audio thread notes the most it lowered the signal in each block in an atomic of `Shared`, keeping the largest until the window takes it, so no lock is needed. In the same way it notes the peak of the output's samples, after the limiter (`Engine::take_peak`). The window draws itself 30 times a second, holds both values and lets the reduction fall by 10 dB and the level by 20 dB per second.
+   The audio thread notes the most it lowered the signal in each block in an atomic of `Shared`, keeping the largest until the window takes it, so no lock is needed. In the same way it notes the peak of the output's samples, after the limiter (`Engine::take_peak`). The window draws itself 30 times a second, holds both values and lets the reduction fall by 10 dB and the level by 20 dB per second. A click on either bar turns both displays off, for slow graphics (`meters`, saved with the project): the window then takes the values without showing them and is only drawn again when egui needs it, e.g. for the pointer.
 
 ## Headphone data
 
@@ -92,6 +92,7 @@ The project saves, besides the parameters:
 - `opra-path`: the path of OPRA's file, which the window loads again when it opens; empty for the built-in presets.
 - `design`: a correction designed from a measurement and a target (`audioref_core::state::SavedDesign`): their names, both curves on AutoEQ's grid, and the tilt, the bass and the limit for boosts, so a project opens with its correction without the files and the settings can still change. If there is one, it is the correction, not the preset; choosing a preset removes it, and using a design removes the preset. The fuzz target `saved_design` reads it.
 - `measurement-path`, `target-path`: the paths of the files of the measurement and the target, for the window's fields.
+- `meters`: whether the window shows the level and the limiter's reduction; on unless turned off by a click on a bar.
 - `editor-state`: the size of the window.
 
 Parameter IDs and these keys never change; the names of the parameters and of the choices of `channels` and `crossfeed` are in the system's language, and hosts that let users type a value take a name in either language or its index.

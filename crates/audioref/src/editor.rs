@@ -7,6 +7,7 @@
 //! see [`crate::background`].
 
 use std::path::PathBuf;
+use std::sync::atomic::Ordering;
 use std::sync::{Arc, PoisonError};
 use std::time::Duration;
 
@@ -147,18 +148,25 @@ pub fn create(params: Arc<AudioRefParams>, shared: Arc<Shared>) -> Option<Box<dy
         },
         move |ctx, setter, state| {
             let lang = shared.lang;
-            // The display holds the most the limiter acted, and falls back slowly.
-            let falling = METER_FALL_DB_PER_SECOND * ctx.input(|input| input.stable_dt).min(0.1);
-            state.meter = shared
-                .take_reduction()
-                .max(state.meter - falling)
-                .clamp(0.0, METER_DB);
-            let falling = LEVEL_FALL_DB_PER_SECOND * ctx.input(|input| input.stable_dt).min(0.1);
-            state.level = gain_to_db(shared.take_peak())
-                .max(state.level - falling)
-                .max(floor_db());
-            // The displays follow the signal.
-            ctx.request_repaint_after(METER_FRAME);
+            // Taken even with the displays off, so they don't start with what came meanwhile.
+            let reduction = shared.take_reduction();
+            let peak = shared.take_peak();
+            if params.meters.load(Ordering::Relaxed) {
+                // The displays hold the most, and fall back slowly.
+                let dt = ctx.input(|input| input.stable_dt).min(0.1);
+                state.meter = reduction
+                    .max(state.meter - METER_FALL_DB_PER_SECOND * dt)
+                    .clamp(0.0, METER_DB);
+                state.level = gain_to_db(peak)
+                    .max(state.level - LEVEL_FALL_DB_PER_SECOND * dt)
+                    .max(floor_db());
+                // The displays follow the signal.
+                ctx.request_repaint_after(METER_FRAME);
+            } else {
+                // Off, the window is only drawn again when something changes in it.
+                state.meter = 0.0;
+                state.level = floor_db();
+            }
             egui::TopBottomPanel::top("notice").show(ctx, |ui| {
                 ui.horizontal(|ui| {
                     ui.heading("AudioRef");
@@ -762,10 +770,14 @@ fn parameters(
             Hint::Crossfeed.text(lang),
         );
         ui.add_space(12.0);
-        level(ui, lang, state.level);
+        let on = params.meters.load(Ordering::Relaxed);
+        let mut clicked = level(ui, lang, on, state.level);
         ui.add_space(12.0);
         toggle(ui, &params.limiter, setter, Hint::Limiter.text(lang));
-        reduction(ui, lang, state.meter);
+        clicked |= reduction(ui, lang, on, state.meter);
+        if clicked {
+            params.meters.store(!on, Ordering::Relaxed);
+        }
     });
 }
 
@@ -776,20 +788,40 @@ fn floor_db() -> f32 {
     floor
 }
 
-/// A bar of a display, filled to a share from 0 to 1, with a hint.
-fn bar(ui: &mut egui::Ui, share: f32, color: Color32, hint: &str) {
-    let (rect, response) = ui.allocate_exact_size(Vec2::new(BAR_WIDTH, 10.0), egui::Sense::hover());
-    response.on_hover_text(hint);
+/// A bar of a display, filled to a share from 0 to 1, with a hint; crossed out if the displays
+/// are off. Whether it was clicked, which turns the displays on or off.
+fn bar(ui: &mut egui::Ui, lang: Lang, on: bool, share: f32, color: Color32, hint: &str) -> bool {
+    let (rect, response) = ui.allocate_exact_size(Vec2::new(BAR_WIDTH, 10.0), egui::Sense::click());
     let painter = ui.painter();
     painter.rect_filled(rect, 2.0, Color32::from_gray(40));
-    let mut filled = rect;
-    filled.set_width(rect.width() * share.clamp(0.0, 1.0));
-    painter.rect_filled(filled, 2.0, color);
+    if on {
+        let mut filled = rect;
+        filled.set_width(rect.width() * share.clamp(0.0, 1.0));
+        painter.rect_filled(filled, 2.0, color);
+    } else {
+        let stroke = egui::Stroke::new(1.5_f32, Color32::GRAY);
+        painter.line_segment([rect.left_bottom(), rect.right_top()], stroke);
+        painter.line_segment([rect.left_top(), rect.right_bottom()], stroke);
+    }
+    let click = if on { Hint::MetersOn } else { Hint::MetersOff };
+    response
+        .on_hover_cursor(egui::CursorIcon::PointingHand)
+        .on_hover_text(format!("{hint}\n\n{}", click.text(lang)))
+        .clicked()
+}
+
+/// The space of a display's number, empty while the displays are off.
+fn number(ui: &mut egui::Ui, on: bool, text: String, color: Color32) {
+    let text = if on { text } else { String::new() };
+    ui.add_sized(
+        [52.0, 14.0],
+        egui::Label::new(egui::RichText::new(text).small().color(color)),
+    );
 }
 
 /// The peak level of the output: a bar from [`LEVEL_FLOOR_DB`] to 0 dB of full scale, and the
 /// number.
-fn level(ui: &mut egui::Ui, lang: Lang, db: f32) {
+fn level(ui: &mut egui::Ui, lang: Lang, on: bool, db: f32) -> bool {
     let floor = floor_db();
     let hint = Hint::Level.text(lang);
     ui.label(Text::Level.text(lang)).on_hover_text(hint);
@@ -798,19 +830,19 @@ fn level(ui: &mut egui::Ui, lang: Lang, db: f32) {
     } else {
         Color32::from_rgb(110, 200, 120)
     };
-    bar(ui, (db - floor) / -floor, color, hint);
+    let clicked = bar(ui, lang, on, (db - floor) / -floor, color, hint);
     let text = Message::Level(f64::from(db)).text(lang);
-    ui.add_sized(
-        [52.0, 14.0],
-        egui::Label::new(egui::RichText::new(text).small().color(Color32::GRAY)),
-    );
+    number(ui, on, text, Color32::GRAY);
+    clicked
 }
 
 /// How much the limiter lowers the signal: a bar from 0 to [`METER_DB`], the number, and from
 /// [`LOWER_OUTPUT_DB`] on the hint to lower the output level.
-fn reduction(ui: &mut egui::Ui, lang: Lang, db: f32) {
-    bar(
+fn reduction(ui: &mut egui::Ui, lang: Lang, on: bool, db: f32) -> bool {
+    let clicked = bar(
         ui,
+        lang,
+        on,
         db / METER_DB,
         Color32::from_rgb(255, 170, 60),
         Hint::Limiter.text(lang),
@@ -821,7 +853,7 @@ fn reduction(ui: &mut egui::Ui, lang: Lang, db: f32) {
     } else {
         Color32::GRAY
     };
-    ui.label(egui::RichText::new(text).small().color(color));
+    number(ui, on, text, color);
     if db >= LOWER_OUTPUT_DB {
         ui.label(
             egui::RichText::new(Hint::LowerOutput.text(lang))
@@ -829,6 +861,7 @@ fn reduction(ui: &mut egui::Ui, lang: Lang, db: f32) {
                 .color(color),
         );
     }
+    clicked
 }
 
 /// A list to choose a value of a parameter from, each value with its name; the host learns of a

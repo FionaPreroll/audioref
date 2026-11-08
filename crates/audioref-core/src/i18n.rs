@@ -415,11 +415,15 @@ pub enum Hint {
     Limiter,
     /// The limiter lowers the signal by much: what to do.
     LowerOutput,
+    /// A click on a display turns the displays off.
+    MetersOn,
+    /// The displays are off; a click turns them on.
+    MetersOff,
 }
 
 impl Hint {
     /// All hints, e.g. for tests.
-    pub const ALL: [Self; 21] = [
+    pub const ALL: [Self; 23] = [
         Self::LoadDatabase,
         Self::Search,
         Self::PickHeadphones,
@@ -441,6 +445,8 @@ impl Hint {
         Self::Level,
         Self::Limiter,
         Self::LowerOutput,
+        Self::MetersOn,
+        Self::MetersOff,
     ];
 
     /// The hint in a language.
@@ -509,6 +515,12 @@ impl Hint {
                 "Keeps the output at or below −0.3 dBFS, without latency. Its bar shows by how much it lowers the signal: it only moves when the level would go above."
             }
             Self::LowerOutput => "Lower the output level",
+            Self::MetersOn => {
+                "Click to turn both displays off, e.g. on slow graphics: the window is then only drawn again when something in it changes."
+            }
+            Self::MetersOff => {
+                "The displays are off, so the window isn't drawn again and again. Click to turn them on."
+            }
         }
     }
 
@@ -569,6 +581,12 @@ impl Hint {
                 "Hält den Ausgang bei höchstens −0,3 dBFS, ohne Latenz. Sein Balken zeigt, um wie viel er das Signal absenkt: Er bewegt sich nur, wenn der Pegel darüber ginge."
             }
             Self::LowerOutput => "Senke den Ausgang",
+            Self::MetersOn => {
+                "Klicke, um beide Anzeigen abzuschalten, z. B. bei schwacher Grafik: Das Fenster wird dann nur neu gezeichnet, wenn sich darin etwas ändert."
+            }
+            Self::MetersOff => {
+                "Die Anzeigen sind aus, damit das Fenster nicht ständig neu gezeichnet wird. Klicke, um sie einzuschalten."
+            }
         }
     }
 }
