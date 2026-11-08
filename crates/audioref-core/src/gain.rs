@@ -10,6 +10,13 @@ pub fn db_to_gain(db: f32) -> f32 {
     10.0_f32.powf(db / 20.0)
 }
 
+/// The level in dB of a linear factor, e.g. about −6 for 0.5; −∞ for 0, NaN for a negative
+/// factor.
+#[must_use]
+pub fn gain_to_db(gain: f32) -> f32 {
+    20.0 * gain.log10()
+}
+
 /// The number of samples a ramp takes at a sample rate, at least 1.
 #[must_use]
 pub fn ramp_samples(sample_rate: f32) -> u16 {
@@ -106,7 +113,7 @@ impl Ramp {
 
 #[cfg(test)]
 mod tests {
-    use super::{Ramp, db_to_gain, ramp_samples};
+    use super::{Ramp, db_to_gain, gain_to_db, ramp_samples};
 
     fn close(a: f32, b: f32) -> bool {
         (a - b).abs() < 1e-5
@@ -117,6 +124,9 @@ mod tests {
         assert!(close(db_to_gain(0.0), 1.0));
         assert!(close(db_to_gain(20.0), 10.0));
         assert!(close(db_to_gain(-6.0), 0.501_187_2));
+        assert!(close(gain_to_db(10.0), 20.0));
+        assert!(close(gain_to_db(db_to_gain(-6.0)), -6.0));
+        assert!(gain_to_db(0.0).is_infinite() && gain_to_db(0.0) < 0.0);
     }
 
     #[test]
