@@ -2,6 +2,7 @@
 //! sets, and for the tests, which run each of them on a few inputs: a smoke test that needs
 //! neither nightly Rust nor cargo-fuzz. See `fuzz/README.md`.
 
+use crate::autoeq::{Curve, FREQUENCY_HZ as CURVE_HZ, LEVEL_DB, MAX_POINTS, REQUIRED_HZ};
 use crate::cascade::{Cascade, grid};
 use crate::eq::{FREQUENCY_HZ, GAIN_DB, MAX_BANDS, ParametricEq};
 use crate::opra::Database;
@@ -60,6 +61,60 @@ pub fn saved_correction(data: &[u8]) {
     }
 }
 
+/// The text of a measurement or target in AutoEQ's CSV format, as bytes.
+///
+/// Checks beyond not crashing: a curve that [`Curve::parse`] accepts has from 2 to [`MAX_POINTS`]
+/// points, with rising frequencies and levels in their ranges, reaching across [`REQUIRED_HZ`];
+/// its points and the lines it left out are no more than the lines of the text; and its level on
+/// the grid is finite and between its lowest and its highest point.
+///
+/// # Panics
+///
+/// If one of these checks fails, which is what the fuzz target looks for.
+pub fn autoeq_curve(data: &[u8]) {
+    let Ok(text) = std::str::from_utf8(data) else {
+        return;
+    };
+    let Ok(curve) = Curve::parse(text) else {
+        return;
+    };
+    let points = curve.points();
+    assert!((2..=MAX_POINTS).contains(&points.len()));
+    assert!(
+        points
+            .iter()
+            .zip(points.iter().skip(1))
+            .all(|((a, _), (b, _))| a < b)
+    );
+    assert!(
+        points
+            .iter()
+            .all(|(frequency, level)| CURVE_HZ.contains(frequency) && LEVEL_DB.contains(level))
+    );
+    assert!(
+        points
+            .first()
+            .is_some_and(|(from, _)| from <= REQUIRED_HZ.start())
+    );
+    assert!(points.last().is_some_and(|(to, _)| to >= REQUIRED_HZ.end()));
+    assert!(points.len() + curve.skipped() <= text.lines().count());
+    let lowest = points
+        .iter()
+        .map(|(_, level)| *level)
+        .fold(f64::INFINITY, f64::min);
+    let highest = points
+        .iter()
+        .map(|(_, level)| *level)
+        .fold(f64::NEG_INFINITY, f64::max);
+    for frequency in grid() {
+        let level = curve.value_db(frequency);
+        assert!(
+            level.is_finite() && level >= lowest - 1e-9 && level <= highest + 1e-9,
+            "{level} dB at {frequency} Hz"
+        );
+    }
+}
+
 /// Asserts that an EQ holds no value outside its range.
 fn check_eq(eq: &ParametricEq) {
     assert!(GAIN_DB.contains(&eq.gain_db()));
@@ -88,6 +143,21 @@ not json"#,
         ];
         for input in inputs {
             super::opra_database(input);
+        }
+    }
+
+    #[test]
+    fn autoeq_curve_smoke_test() {
+        let inputs: [&[u8]; 6] = [
+            b"",
+            b"\xff\xfe",
+            b"frequency,raw\n20,0\n20000,0\n",
+            b"frequency,raw\n20,0\n1000,1\n1000,2\nx\n20000,-3\n",
+            b"* REW\n20.0\t85.1\n20000.0 80.0\n",
+            b"Freq(Hz);SPL(dB)\n20;80,5\n200;1e400\n20000;70\n",
+        ];
+        for input in inputs {
+            super::autoeq_curve(input);
         }
     }
 

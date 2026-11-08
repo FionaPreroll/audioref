@@ -6,7 +6,7 @@ How AudioRef is built inside: its crates, its threads and the path of the signal
 
 | Crate | Holds | Depends on |
 |---|---|---|
-| `crates/audioref-core` | The logic as plain Rust: the texts (`i18n`), the saved correction (`state`), the signal processing (`engine`, `gain`, the filters in `biquad` and `cascade`; *planned:* the convolution), parametric EQs with the ranges of their values (`eq`), OPRA's database (`opra`) and the presets built in from it (`bundled`); *planned:* AutoEQ's curves and the design of the correction | No crate with plugin APIs, GUI or I/O; `make lint` checks it |
+| `crates/audioref-core` | The logic as plain Rust: the texts (`i18n`), the saved correction (`state`), the signal processing (`engine`, `gain`, the filters in `biquad` and `cascade`; *planned:* the convolution), parametric EQs with the ranges of their values (`eq`), OPRA's database (`opra`) and the presets built in from it (`bundled`), AutoEQ's curves (`autoeq`); *planned:* the design of the correction | No crate with plugin APIs, GUI or I/O; `make lint` checks it |
 | `crates/audioref` | The plugin: nih-plug, the parameters, the language of the system, the window (`editor`, with egui), reading OPRA's file and designing the corrections in the background (`background`), the saved state | `audioref-core`, nih-plug, nih_plug_egui, rtrb, sys-locale |
 | `xtask` | The bundler, `cargo xtask bundle audioref --release` | nih-plug's xtask |
 | `fuzz` | The fuzz targets, a workspace of its own, see [fuzz/README.md](../fuzz/README.md) | `audioref-core`, libfuzzer-sys |
@@ -50,6 +50,8 @@ A line it doesn't understand, e.g. of a kind a later OPRA adds, a band type it d
 The plugin reads the file in the background, and the window shows each preset's author, as OPRA's license (CC BY-SA 4.0) asks.
 
 Without a file, the window uses the presets built into the plugin (`audioref_core::bundled`): `data/opra/presets.jsonl`, an excerpt of OPRA's database with the Bose QC25, the Sony WH-1000XM4 and the AKG K240 Studio in all their modes, about 20 KB, compiled in with `include_str!` and parsed once when the plugin starts. When a file can't be read, the window says so and keeps the built-in presets; loading with an empty path goes back to them. `data/opra/README.md` names the source, the commit and the authors; `utils/bundle-opra-presets.py` makes the excerpt again from a newer database.
+
+`audioref_core::autoeq` reads measurements and targets in AutoEQ's CSV format, a header `frequency,raw` and one line per frequency, and what other tools write: more columns (it takes `raw`, or else the column after the frequency), no header, `;` with a decimal comma, tabs or spaces, comments starting with `#` or `*`. Like OPRA's database, a line it doesn't understand is left out and counted. A curve has from 2 to 100,000 points with rising frequencies from 1 Hz to 100 kHz and levels of ±200 dB, so sound pressure levels pass too, and must reach from 100 Hz to 10 kHz; between its points the level runs straight on a logarithmic frequency axis, and beyond its ends it stays flat. The fuzz target `autoeq_curve` reads it.
 
 ## Designing a correction (planned)
 

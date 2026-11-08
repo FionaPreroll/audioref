@@ -17,6 +17,13 @@ audioref-core = { path = "../crates/audioref-core" }
 members = ["."]
 
 [[bin]]
+name = "autoeq_curve"
+path = "fuzz_targets/autoeq_curve.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "opra_database"
 path = "fuzz_targets/opra_database.rs"
 test = false

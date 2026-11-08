@@ -5,6 +5,7 @@
 //! `crates/audioref`, connects it to the hosts through nih-plug. The dependencies of this crate are
 //! only crates without plugin APIs, GUI or I/O; `make lint` checks that.
 
+pub mod autoeq;
 pub mod biquad;
 pub mod bundled;
 pub mod cascade;
