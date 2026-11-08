@@ -66,6 +66,13 @@ A Cargo workspace, see [ARCHITECTURE.md](ARCHITECTURE.md):
 - Every parser of outside input gets a fuzz target.
 - Dependencies checked by cargo deny and cargo audit; workflows by zizmor and CodeQL; all actions pinned to commits.
 
+## Tested in DAWs
+
+What Fiona tried by hand, beyond clap-validator and pluginval in CI:
+
+- **Bitwig 6** (2026-11-08): CLAP and VST3; output level and bypass work in both, after the fork's fix of the VST3 process mode. The audio export, offline, came out as expected with both: the render guard bypasses AudioRef.
+- **FL Studio on Windows** (2026-11-08): tested, no problems reported.
+
 ## Next Steps
 
 Each milestone ends with bundles from CI.
