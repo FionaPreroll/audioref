@@ -1,5 +1,6 @@
 //! The work outside the audio thread: reading OPRA's file, designing the corrections, and freeing
-//! the ones the audio thread is done with.
+//! the ones the audio thread is done with. Without a file, the presets built into AudioRef are
+//! used, see `audioref_core::bundled`.
 //!
 //! The corrections travel through two lock-free queues: new ones from the background to the audio
 //! thread, which never waits for them, and old ones back, so the audio thread never frees memory.
@@ -16,6 +17,7 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::thread::{self, JoinHandle};
 
+use audioref_core::bundled;
 use audioref_core::cascade::Cascade;
 use audioref_core::i18n::Lang;
 use audioref_core::opra::{Database, ParseError};
@@ -33,8 +35,8 @@ pub type Correction = Option<Box<Cascade>>;
 /// What the background does.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Task {
-    /// Reads and parses OPRA's file at this path.
-    Load(PathBuf),
+    /// Reads and parses OPRA's file at this path, or goes back to the built-in presets.
+    Load(Option<PathBuf>),
     /// Designs the saved correction for the current sample rate and sends it to the audio thread.
     Design,
 }
@@ -42,7 +44,7 @@ pub enum Task {
 /// Where OPRA's file stands.
 #[derive(Debug, Clone, Default)]
 pub enum Load {
-    /// Not loaded yet.
+    /// No file: the built-in presets are used.
     #[default]
     None,
     /// Being read.
@@ -63,6 +65,8 @@ pub struct Shared {
     sample_rate: AtomicU32,
     /// OPRA's file.
     pub database: Mutex<Load>,
+    /// The presets built into AudioRef, for when no file is loaded.
+    pub bundled: Arc<Database>,
     /// The end of the queue of new corrections that the background sends into.
     outgoing: Mutex<rtrb::Producer<Correction>>,
     /// The end of the queue of old corrections that the background frees.
@@ -135,6 +139,7 @@ impl Shared {
             lang,
             sample_rate: AtomicU32::new(48_000.0_f32.to_bits()),
             database: Mutex::new(Load::None),
+            bundled: Arc::new(bundled::database()),
             outgoing: Mutex::new(outgoing),
             returned: Mutex::new(returned),
             tasks,
@@ -165,7 +170,8 @@ impl Shared {
     /// Does a task, on the background thread.
     pub fn run(&self, task: Task, params: &AudioRefParams) {
         match task {
-            Task::Load(path) => self.load(&path),
+            Task::Load(Some(path)) => self.load(&path),
+            Task::Load(None) => *lock(&self.database) = Load::None,
             Task::Design => {
                 let saved = params
                     .correction

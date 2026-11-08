@@ -15,7 +15,7 @@ What was decided in the planning of AudioRef on 2026-11-07, with the versions of
 
 ## Headphone data
 
-AudioRef ships no data: users point it to files they downloaded themselves, and `cargo xtask fetch-profiles` will fetch them into a folder outside the repository.
+AudioRef ships OPRA's presets for the three headphones above, so they correct without a download (decided on 2026-11-08 for version 1.0): an excerpt of OPRA's database in `data/opra/`, under CC BY-SA 4.0, built into the plugin. For other headphones, users point it to files they downloaded themselves, and `cargo xtask fetch-profiles` will fetch them into a folder outside the repository. oratory1990's raw measurements have no license and are not shipped; his EQ presets come through OPRA, where he publishes them himself.
 
 | Source | Format | Holds | Terms |
 |---|---|---|---|

@@ -125,7 +125,8 @@ impl Notice {
 pub enum Text {
     /// The heading of the part where OPRA's file is loaded.
     Database,
-    /// What the file is, and that users download it themselves.
+    /// What the file is for, that users download it themselves, and how to go back to the
+    /// built-in presets.
     DatabaseHint,
     /// The button that loads the file.
     Load,
@@ -179,7 +180,7 @@ impl Text {
         match self {
             Self::Database => "OPRA database",
             Self::DatabaseHint => {
-                "The path of database_v1.jsonl from OPRA's repository, which you downloaded yourself."
+                "Optional, for more headphones: the path of database_v1.jsonl from OPRA's repository, which you downloaded yourself. Load with an empty path to go back to the built-in presets."
             }
             Self::Load => "Load",
             Self::Loading => "Loading…",
@@ -198,7 +199,7 @@ impl Text {
         match self {
             Self::Database => "OPRA-Datenbank",
             Self::DatabaseHint => {
-                "Der Pfad von database_v1.jsonl aus OPRAs Repository, die du selbst heruntergeladen hast."
+                "Optional, für weitere Kopfhörer: der Pfad von database_v1.jsonl aus OPRAs Repository, die du selbst heruntergeladen hast. Laden mit leerem Pfad führt zurück zu den eingebauten Presets."
             }
             Self::Load => "Laden",
             Self::Loading => "Wird geladen …",
@@ -219,6 +220,13 @@ impl Text {
 pub enum Message<'a> {
     /// The database was loaded, with so many presets for so many headphones.
     Loaded {
+        /// The number of presets.
+        presets: usize,
+        /// The number of products.
+        headphones: usize,
+    },
+    /// The built-in presets are in use: so many for so many headphones, see [`crate::bundled`].
+    BuiltIn {
         /// The number of presets.
         presets: usize,
         /// The number of products.
@@ -261,6 +269,28 @@ impl Message<'_> {
                 Lang::De,
             ) => format!(
                 "{} Presets für {} Kopfhörer",
+                number(*presets, lang),
+                number(*headphones, lang)
+            ),
+            (
+                Self::BuiltIn {
+                    presets,
+                    headphones,
+                },
+                Lang::En,
+            ) => format!(
+                "Built in: {} presets for {} headphones",
+                number(*presets, lang),
+                number(*headphones, lang)
+            ),
+            (
+                Self::BuiltIn {
+                    presets,
+                    headphones,
+                },
+                Lang::De,
+            ) => format!(
+                "Eingebaut: {} Presets für {} Kopfhörer",
                 number(*presets, lang),
                 number(*headphones, lang)
             ),
@@ -419,6 +449,18 @@ mod tests {
             headphones: 1_000_000,
         };
         assert_eq!(few.text(Lang::En), "7 presets for 1,000,000 headphones");
+        let built_in = Message::BuiltIn {
+            presets: 20,
+            headphones: 7,
+        };
+        assert_eq!(
+            built_in.text(Lang::En),
+            "Built in: 20 presets for 7 headphones"
+        );
+        assert_eq!(
+            built_in.text(Lang::De),
+            "Eingebaut: 20 Presets für 7 Kopfhörer"
+        );
         assert_eq!(
             Message::Skipped(3).text(Lang::En),
             "3 lines left out, which AudioRef doesn't understand"
