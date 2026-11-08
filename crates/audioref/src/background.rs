@@ -92,6 +92,9 @@ pub struct Shared {
     /// The most the limiter lowered the signal since the window last looked, in dB, as the bits
     /// of an `f32`: the audio thread writes it without a lock.
     reduction: AtomicU32,
+    /// The highest absolute sample of the output since the window last looked, as the bits of an
+    /// `f32`, written by the audio thread without a lock.
+    peak: AtomicU32,
     /// OPRA's file.
     pub database: Mutex<Load>,
     /// The presets built into AudioRef, for when no file is loaded.
@@ -172,6 +175,7 @@ impl Shared {
             lang,
             sample_rate: AtomicU32::new(48_000.0_f32.to_bits()),
             reduction: AtomicU32::new(0.0_f32.to_bits()),
+            peak: AtomicU32::new(0.0_f32.to_bits()),
             database: Mutex::new(Load::None),
             bundled: Arc::new(bundled::database()),
             measurement: Mutex::new(CurveLoad::None),
@@ -209,6 +213,20 @@ impl Shared {
     /// The most the limiter lowered the signal since this was last asked, in dB.
     pub fn take_reduction(&self) -> f32 {
         f32::from_bits(self.reduction.swap(0.0_f32.to_bits(), Ordering::AcqRel))
+    }
+
+    /// Notes the highest absolute sample of the output in a block, keeping the highest until the
+    /// window takes it. Lock-free, for the audio thread.
+    pub fn note_peak(&self, peak: f32) {
+        // As above: the bits of floats of 0 or more grow with their values.
+        if peak > 0.0 {
+            self.peak.fetch_max(peak.to_bits(), Ordering::AcqRel);
+        }
+    }
+
+    /// The highest absolute sample of the output since this was last asked.
+    pub fn take_peak(&self) -> f32 {
+        f32::from_bits(self.peak.swap(0.0_f32.to_bits(), Ordering::AcqRel))
     }
 
     /// Has the background do a task. Without a background, as when the system couldn't start
