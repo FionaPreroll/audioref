@@ -28,6 +28,7 @@ MEASUREMENT_LOAD=(565 99)
 TARGET_FIELD=(300 129)
 TARGET_LOAD=(565 129)
 USE_BUTTON=(87 158)
+LINEAR_PHASE=(715 213)
 CROSSFEED_LIST=(390 625)
 ABOUT_BUTTON=(724 24)
 ABOUT_FIRST_CRATE=(120 533)
@@ -151,6 +152,9 @@ for lang in en de; do
     click "${TARGET_LOAD[@]}"
     sleep 1
     click "${USE_BUTTON[@]}"
+    sleep 1
+    # Linear phase on: its latency shows beside the switch.
+    click "${LINEAR_PHASE[@]}"
     sleep 1
     shoot "$lang-curves"
 

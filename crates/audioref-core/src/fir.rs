@@ -10,8 +10,8 @@
 //! [`minimum_phase`] allocates and takes a few milliseconds, so it runs in the background.
 //!
 //! [`linear_phase`] makes the linear-phase filter of any response instead: symmetric around its
-//! middle, so it shifts no phase and delays every frequency by the same [`latency`], about 43 ms
-//! at every sample rate, which the plugin reports to the host.
+//! middle, so it shifts no phase and delays every frequency by the same [`latency`], 43 to 46 ms
+//! depending on the sample rate, which the plugin reports to the host.
 //!
 //! ```
 //! use audioref_core::design::Correction;
@@ -53,7 +53,8 @@ pub fn taps(sample_rate: f64) -> usize {
 }
 
 /// The delay of a linear-phase filter at a sample rate in Hz, in samples: the middle of its
-/// [`taps`], of which it uses all but the last, so it is symmetric around one tap. About 43 ms.
+/// [`taps`], of which it uses all but the last, so it is symmetric around one tap: 43 ms at 48, 96 and 192 kHz, 46 ms at 44.1, 88.2 and
+/// 176.4 kHz.
 #[must_use]
 pub fn latency(sample_rate: f64) -> usize {
     taps(sample_rate) / 2 - 1

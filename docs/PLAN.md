@@ -81,4 +81,4 @@ Each milestone ends with bundles from CI.
 2. **First correction:** import of OPRA presets, a cascade of biquads, automatic headroom, the render guard (bypass while the host exports offline, checked in Bitwig and FL Studio), and a first window: choosing headphones and mode, the curve, the notice "Private, non-commercial use only".
 3. **Own targets:** import of AutoEQ's CSV files and targets (and asking oratory1990 whether AudioRef may ship his measurements of the three headphones; until he agrees, users import them), smoothing, a limit for boosts, a minimum-phase FIR with zero-latency convolution, tilt and bass controls.
 4. **Comfort:** crossfeed, mono and swapped channels, a limiter with its display, hints in context, `cargo xtask fetch-profiles`.
-5. **Later, maybe:** a linear-phase mode that reports its latency, targets that imitate other speakers (translation check), speaker simulation with BRIRs from SOFA files.
+5. **Later, maybe:** a linear-phase mode that reports its latency (done, see Linear phase in [ARCHITECTURE.md](ARCHITECTURE.md#linear-phase)), targets that imitate other speakers (translation check), speaker simulation with BRIRs from SOFA files.

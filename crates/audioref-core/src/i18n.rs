@@ -533,7 +533,7 @@ impl Hint {
                 "Keeps the output at or below −0.3 dBFS, without latency. Its bar shows by how much it lowers the signal: it only moves when the level would go above."
             }
             Self::LinearPhase => {
-                "Corrects without shifting the phase, but delays the sound by about 43 ms. Your DAW makes up for it in playback, not while you monitor a live input. Off: no latency, with the small phase shifts of an analog EQ."
+                "Corrects without shifting the phase, but delays the sound by 43 to 46 ms, depending on the sample rate. Your DAW makes up for it in playback, not while you monitor a live input. Off: no latency, with the small phase shifts of an analog EQ."
             }
             Self::LowerOutput => "Lower the output level",
             Self::MetersOn => {
@@ -602,7 +602,7 @@ impl Hint {
                 "Hält den Ausgang bei höchstens −0,3 dBFS, ohne Latenz. Sein Balken zeigt, um wie viel er das Signal absenkt: Er bewegt sich nur, wenn der Pegel darüber ginge."
             }
             Self::LinearPhase => {
-                "Korrigiert, ohne die Phase zu verschieben, verzögert den Klang aber um etwa 43 ms. Deine DAW gleicht das bei der Wiedergabe aus, nicht beim Abhören eines Live-Eingangs. Aus: keine Latenz, mit den kleinen Phasenverschiebungen eines analogen EQ."
+                "Korrigiert, ohne die Phase zu verschieben, verzögert den Klang aber um 43 bis 46 ms, je nach Abtastrate. Deine DAW gleicht das bei der Wiedergabe aus, nicht beim Abhören eines Live-Eingangs. Aus: keine Latenz, mit den kleinen Phasenverschiebungen eines analogen EQ."
             }
             Self::LowerOutput => "Senke den Ausgang",
             Self::MetersOn => {
