@@ -12,10 +12,10 @@ pub const CARD: Color32 = Color32::from_rgb(30, 33, 39);
 pub const CARD_EDGE: Color32 = Color32::from_rgb(44, 48, 57);
 /// The background of fields, lists and the curve.
 pub const DEEP: Color32 = Color32::from_rgb(16, 18, 21);
-/// The color of what is chosen or active: the curve, the selection, links.
-pub const ACCENT: Color32 = Color32::from_rgb(72, 196, 178);
+/// The color of what is chosen or active: the curve, the selection, links. Bright purple, #BE03FD.
+pub const ACCENT: Color32 = Color32::from_rgb(190, 3, 253);
 /// The accent, dimmed, for the area under the curve and the selection behind text.
-pub const ACCENT_DIM: Color32 = Color32::from_rgba_premultiplied(18, 49, 45, 64);
+pub const ACCENT_DIM: Color32 = Color32::from_rgba_premultiplied(48, 1, 64, 64);
 /// Text.
 pub const TEXT: Color32 = Color32::from_rgb(220, 224, 230);
 /// Text of less weight: notes, units, labels of the axes.
@@ -73,8 +73,8 @@ pub fn apply(ctx: &egui::Context) {
     visuals.hyperlink_color = ACCENT;
     visuals.warn_fg_color = WARM;
     visuals.error_fg_color = HOT;
-    visuals.selection.bg_fill = Color32::from_rgb(28, 86, 78);
-    visuals.selection.stroke = Stroke::new(1.0_f32, ACCENT);
+    visuals.selection.bg_fill = Color32::from_rgb(88, 22, 120);
+    visuals.selection.stroke = Stroke::new(1.0_f32, Color32::from_rgb(238, 204, 255));
     visuals.collapsing_header_frame = false;
     let widgets = &mut visuals.widgets;
     let radius = CornerRadius::same(RADIUS);
