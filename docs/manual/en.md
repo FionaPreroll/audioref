@@ -349,6 +349,8 @@ AudioRef corrects your headphones, not your mix, so it belongs in the monitoring
 
 Don't put AudioRef on single tracks or buses: it would correct them for your headphones only.
 
+To find it in your DAW's plugin browser: AudioRef calls itself a mastering effect, in the VST3 and the CLAP version alike, so DAWs that sort plugins by category list it under **Mastering**, some also under **EQ**.
+
 ### Exporting
 
 What you export must not contain the correction. AudioRef takes care of that where it can:

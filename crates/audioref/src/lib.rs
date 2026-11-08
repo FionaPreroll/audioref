@@ -336,18 +336,24 @@ impl ClapPlugin for AudioRef {
     const CLAP_MANUAL_URL: Option<&'static str> = Some(Self::URL);
     const CLAP_SUPPORT_URL: Option<&'static str> =
         Some("https://github.com/FionaPreroll/audioref/issues");
+    // Hosts usually sort by the first feature after the main one. AudioRef belongs last on the
+    // master track, in the monitoring path, so it is a mastering effect first.
     const CLAP_FEATURES: &'static [ClapFeature] = &[
         ClapFeature::AudioEffect,
+        ClapFeature::Mastering,
         ClapFeature::Equalizer,
-        ClapFeature::Stereo,
         ClapFeature::Utility,
+        ClapFeature::Stereo,
     ];
 }
 
 impl Vst3Plugin for AudioRef {
     const VST3_CLASS_ID: [u8; 16] = VST3_CLASS_ID;
+    // "Fx|Mastering|EQ|Stereo": hosts usually file a plugin under the first subcategory after
+    // "Fx", so AudioRef shows up under Mastering, like the CLAP version.
     const VST3_SUBCATEGORIES: &'static [Vst3SubCategory] = &[
         Vst3SubCategory::Fx,
+        Vst3SubCategory::Mastering,
         Vst3SubCategory::Eq,
         Vst3SubCategory::Stereo,
     ];
