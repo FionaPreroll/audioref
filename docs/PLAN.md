@@ -35,7 +35,7 @@ The rig matters: the Harman target was defined on a GRAS rig, which oratory1990 
 | GUI | egui through `nih_plug_egui` | egui 0.31 | The quickest to build, good for plotted curves, own knobs can be drawn, actively maintained. Vizia, styled with CSS, is the alternative; nih-plug pins a fork of 2024. The adapter for iced is outdated. |
 | FFT | realfft / rustfft | chosen in its step | Minimum-phase FIR by cepstrum, convolution |
 | Hand-over to the audio thread | rtrb or triple_buffer | chosen in its step | New filters reach the audio thread without locks |
-| Parsing | serde, serde_json; csv | serde 1.0.229, serde_json 1.0.154; csv chosen in its step | OPRA's JSON lines; AutoEQ's CSV files |
+| Parsing | serde, serde_json; AutoEQ's CSV by hand | serde 1.0.229, serde_json 1.0.154 | OPRA's JSON lines. AutoEQ's CSV files are two columns of numbers, read with the standard library: the csv crate wouldn't help with the separators and headers of other tools, and would be one more dependency. |
 | Texts | Typed texts in `audioref-core`: an enum per area, one exhaustive `match` per language | | A missing translation doesn't compile, nothing is parsed at run time, and tests reach every text. |
 | System language | sys-locale | 0.3.2 | Pure Rust, reads the locale of Windows, macOS and Linux |
 

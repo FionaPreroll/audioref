@@ -6,6 +6,7 @@ They run with [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) and libFuzze
 
 | Target | Input | Checks beyond not crashing |
 |---|---|---|
+| `autoeq_curve` | The text of a measurement or target in AutoEQ's CSV format, or another tool's | An accepted curve has from 2 to 100,000 points with rising frequencies and levels in their ranges, reaches from 100 Hz to 10 kHz, has no more points and left-out lines than the text has lines, and its level on the grid is finite and between its lowest and highest point. |
 | `opra_database` | The text of OPRA's `database_v1.jsonl` | Every preset that is accepted has at most 32 bands, and its gains, frequencies and Qs in their ranges; no ID is empty; every line that isn't empty is either an entry or counted as skipped. |
 | `saved_correction` | The JSON of the correction in the plugin's saved state | A correction that is used has its values in their ranges, and its filters at 44.1 kHz a finite response that boosts nothing on the grid where the headroom is measured. |
 
