@@ -782,9 +782,135 @@ fn in_parentheses(details: &str) -> String {
     }
 }
 
+/// The texts of the about window and of what opens it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum About {
+    /// The button at the top right that opens the window.
+    Button,
+    /// The hint of the button and of the plugin's name, which opens the window too.
+    Hint,
+    /// The window's title.
+    Title,
+    /// What AudioRef is.
+    Description,
+    /// The label of the version.
+    Version,
+    /// The label of the git commit it was built from.
+    Commit,
+    /// The label of the time of the build.
+    Built,
+    /// What isn't known of a build, e.g. its commit outside a git repository.
+    Unknown,
+    /// The label of the contact address.
+    Contact,
+    /// The label of the homepage.
+    Homepage,
+    /// What AudioRef is written in.
+    WrittenInRust,
+    /// AudioRef's own license.
+    License,
+    /// Where the built-in presets come from, and their license.
+    Presets,
+    /// The heading of the third-party software.
+    ThirdParty,
+    /// What the list of third-party software is.
+    ThirdPartyHint,
+    /// The build couldn't list the third-party software.
+    NoThirdParty,
+}
+
+impl About {
+    /// All texts, e.g. for tests.
+    pub const ALL: [Self; 16] = [
+        Self::Button,
+        Self::Hint,
+        Self::Title,
+        Self::Description,
+        Self::Version,
+        Self::Commit,
+        Self::Built,
+        Self::Unknown,
+        Self::Contact,
+        Self::Homepage,
+        Self::WrittenInRust,
+        Self::License,
+        Self::Presets,
+        Self::ThirdParty,
+        Self::ThirdPartyHint,
+        Self::NoThirdParty,
+    ];
+
+    /// The text in a language.
+    #[must_use]
+    pub fn text(self, lang: Lang) -> &'static str {
+        match lang {
+            Lang::En => self.en(),
+            Lang::De => self.de(),
+        }
+    }
+
+    fn en(self) -> &'static str {
+        match self {
+            Self::Button => "About",
+            Self::Hint => "Version, contact and licenses",
+            Self::Title => "About AudioRef",
+            Self::Description => "Headphone correction for monitoring, as a VST3 and CLAP plugin.",
+            Self::Version => "Version",
+            Self::Commit => "Commit",
+            Self::Built => "Built",
+            Self::Unknown => "unknown",
+            Self::Contact => "Contact",
+            Self::Homepage => "Homepage",
+            Self::WrittenInRust => "Written in Rust.",
+            Self::License => {
+                "AudioRef is free software under the GNU General Public License v3.0 only, for private, non-commercial use."
+            }
+            Self::Presets => {
+                "The built-in presets are an excerpt of OPRA's database, by oratory1990 and AutoEQ, under CC BY-SA 4.0."
+            }
+            Self::ThirdParty => "Third-party software",
+            Self::ThirdPartyHint => {
+                "AudioRef is built with these crates, under their licenses. Open one to read its license."
+            }
+            Self::NoThirdParty => {
+                "This build has no list of them: see the dependencies in Cargo.lock of AudioRef's source."
+            }
+        }
+    }
+
+    fn de(self) -> &'static str {
+        match self {
+            Self::Button => "Info",
+            Self::Hint => "Version, Kontakt und Lizenzen",
+            Self::Title => "Über AudioRef",
+            Self::Description => "Kopfhörerkorrektur für den Abhörweg, als VST3- und CLAP-Plugin.",
+            Self::Version => "Version",
+            Self::Commit => "Commit",
+            Self::Built => "Erstellt",
+            Self::Unknown => "unbekannt",
+            Self::Contact => "Kontakt",
+            Self::Homepage => "Website",
+            Self::WrittenInRust => "Geschrieben in Rust.",
+            Self::License => {
+                "AudioRef ist freie Software unter der GNU General Public License v3.0 only, für private, nicht-kommerzielle Nutzung."
+            }
+            Self::Presets => {
+                "Die eingebauten Presets sind ein Auszug aus OPRAs Datenbank, von oratory1990 und AutoEQ, unter CC BY-SA 4.0."
+            }
+            Self::ThirdParty => "Software von Dritten",
+            Self::ThirdPartyHint => {
+                "AudioRef ist mit diesen Crates gebaut, unter ihren Lizenzen. Öffne eines, um seine Lizenz zu lesen."
+            }
+            Self::NoThirdParty => {
+                "Dieser Build hat keine Liste davon: Siehe die Abhängigkeiten in Cargo.lock von AudioRefs Quelltext."
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{CurveMessage, Hint, Lang, Message, Notice, Param, Text};
+    use super::{About, CurveMessage, Hint, Lang, Message, Notice, Param, Text};
     use crate::stereo::{Channels, Crossfeed};
 
     #[test]
@@ -851,6 +977,16 @@ mod tests {
             }
         }
         assert_eq!(Text::Load.text(Lang::De), "Laden");
+    }
+
+    #[test]
+    fn every_text_of_the_about_window_exists_in_every_language() {
+        for text in About::ALL {
+            for lang in Lang::ALL {
+                assert!(!text.text(lang).is_empty(), "{text:?} in {lang:?}");
+            }
+        }
+        assert_eq!(About::Title.text(Lang::De), "Über AudioRef");
     }
 
     #[test]

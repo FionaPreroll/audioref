@@ -13,7 +13,7 @@ use std::time::Duration;
 use audioref_core::autoeq::ParseError;
 use audioref_core::cascade::{Cascade, grid};
 use audioref_core::design::{BASS_DB, MAX_BOOST_DB, Settings, TILT_DB_PER_OCTAVE};
-use audioref_core::i18n::{CurveMessage, Hint, Lang, Message, Notice, Text};
+use audioref_core::i18n::{About, CurveMessage, Hint, Lang, Message, Notice, Text};
 use audioref_core::opra::Database;
 use audioref_core::state::{SavedCorrection, SavedDesign};
 use audioref_core::stereo::{Channels, Crossfeed};
@@ -21,8 +21,8 @@ use nih_plug::prelude::{BoolParam, Editor, IntParam, Param, ParamSetter};
 use nih_plug_egui::egui::{self, Color32, Pos2, Rect, Stroke, Vec2};
 use nih_plug_egui::{EguiState, create_egui_editor, widgets};
 
-use crate::AudioRefParams;
 use crate::background::{CurveLoad, Load, Shared, Task, Which, lock};
+use crate::{AudioRefParams, about};
 
 /// The size of the window, in logical pixels.
 pub const SIZE: (u32, u32) = (760, 680);
@@ -78,6 +78,8 @@ struct State {
     curve: Option<Curve>,
     /// What the limiter's display shows, in dB.
     meter: f32,
+    /// Whether the about window is open.
+    about: bool,
 }
 
 /// What a curve is drawn for.
@@ -145,8 +147,27 @@ pub fn create(params: Arc<AudioRefParams>, shared: Arc<Shared>) -> Option<Box<dy
             }
             egui::TopBottomPanel::top("notice").show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    ui.heading("AudioRef");
+                    // The name opens the about window too.
+                    let name = egui::Label::new(egui::RichText::new("AudioRef").heading())
+                        .sense(egui::Sense::click());
+                    if ui
+                        .add(name)
+                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                        .on_hover_text(About::Hint.text(lang))
+                        .clicked()
+                    {
+                        state.about = true;
+                    }
                     ui.label(Notice::NonCommercial.text(lang));
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui
+                            .button(About::Button.text(lang))
+                            .on_hover_text(About::Hint.text(lang))
+                            .clicked()
+                        {
+                            state.about = !state.about;
+                        }
+                    });
                 });
             });
             egui::TopBottomPanel::bottom("parameters").show(ctx, |ui| {
@@ -166,6 +187,7 @@ pub fn create(params: Arc<AudioRefParams>, shared: Arc<Shared>) -> Option<Box<dy
                 ui.separator();
                 correction(ui, lang, state, &params, &shared);
             });
+            about::window(ctx, lang, &mut state.about);
         },
     )
 }

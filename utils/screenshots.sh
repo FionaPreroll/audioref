@@ -28,6 +28,8 @@ TARGET_FIELD=(300 116)
 TARGET_LOAD=(539 116)
 USE_BUTTON=(58 139)
 CROSSFEED_LIST=(300 656)
+ABOUT_BUTTON=(738 13)
+ABOUT_FIRST_CRATE=(120 431)
 
 # Outside Xvfb: prepare the copy of nih-plug, build the program and run this script again on Xvfb.
 if [[ "${AUDIOREF_SCREENSHOTS_XVFB:-}" != 1 ]]; then
@@ -136,6 +138,13 @@ for lang in en de; do
     xdotool mousemove --window "$window" "${CROSSFEED_LIST[@]}"
     sleep 1.5
     shoot "$lang-hint"
+
+    # The about window, opened by the button at the top right, with the license of a crate.
+    click "${ABOUT_BUTTON[@]}"
+    sleep 1
+    click "${ABOUT_FIRST_CRATE[@]}"
+    sleep 1
+    shoot "$lang-about"
 
     kill "$pid"
     wait "$pid" 2>/dev/null || true

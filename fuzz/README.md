@@ -1,12 +1,13 @@
 # Fuzzing
 
-The fuzz targets feed random input to the code that reads what AudioRef gets from outside: OPRA's database of headphone presets, AutoEQ's curves and name index, and the corrections that a project saves.
+The fuzz targets feed random input to the code that reads what AudioRef gets from outside: OPRA's database of headphone presets, AutoEQ's curves and name index, the corrections that a project saves, and the output of `cargo metadata` that the build reads for the about window.
 Every parser of input from outside, e.g. measurement and target files or the plugin's saved state, gets a target of its own.
 They run with [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) and libFuzzer.
 
 | Target | Input | Checks beyond not crashing |
 |---|---|---|
 | `autoeq_curve` | The text of a measurement or target in AutoEQ's CSV format, or another tool's | An accepted curve has from 2 to 100,000 points with rising frequencies and levels in their ranges, reaches from 100 Hz to 10 kHz, has no more points and left-out lines than the text has lines, and its level on the grid is finite and between its lowest and highest point. |
+| `cargo_metadata` | The output of `cargo metadata`, which the plugin's `build.rs` reads to list the crates and their licenses in the about window | The crates found are sorted, each once, their folders end in no manifest or separator, and the Rust written of them has one line per crate and per text, so their strings are escaped. |
 | `name_index` | The text of AutoEQ's `name_index.tsv` of oratory1990's measurements, which `cargo xtask fetch-profiles` reads | Every model has a name and a known form, none is listed twice, models and left-out lines are no more than the lines, each file name stays in its folder, and a model is found again by its name. |
 | `opra_database` | The text of OPRA's `database_v1.jsonl` | Every preset that is accepted has at most 32 bands, and its gains, frequencies and Qs in their ranges; no ID is empty; every line that isn't empty is either an entry or counted as skipped. |
 | `saved_correction` | The JSON of the correction in the plugin's saved state | A correction that is used has its values in their ranges, and its filters at 44.1 kHz a finite response that boosts nothing on the grid where the headroom is measured. |

@@ -19,5 +19,9 @@ nih_plug_egui.workspace = true
 rtrb.workspace = true
 sys-locale.workspace = true
 
+[build-dependencies]
+# The list of crates and their licenses for the about window, see build.rs.
+audioref-core.workspace = true
+
 [lints]
 workspace = true
