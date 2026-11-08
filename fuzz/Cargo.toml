@@ -22,3 +22,10 @@ path = "fuzz_targets/opra_database.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "saved_correction"
+path = "fuzz_targets/saved_correction.rs"
+test = false
+doc = false
+bench = false

@@ -30,3 +30,10 @@
 "\"band_pass\""
 "\"band_stop\""
 "\x0a"
+
+# The correction a project saves.
+"\"preset_id\":"
+"\"headphones\":"
+"\"type\":\"peak\""
+"\"db6\""
+"\"db36\""

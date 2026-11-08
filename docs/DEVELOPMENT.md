@@ -4,7 +4,7 @@ How to build, test and release AudioRef, and the conventions of the project. [AR
 
 ## Getting Started
 
-Install Rust with [rustup](https://rustup.rs); AudioRef builds with the current stable Rust. The checks need some tools:
+Install Rust with [rustup](https://rustup.rs); AudioRef builds with the current stable Rust. On Linux, the window needs the libraries of X11, XCB and OpenGL: `utils/install-linux-deps.sh` installs them on Ubuntu and Debian, as CI does. The checks need some tools:
 
 ```sh
 rustup component add llvm-tools-preview
@@ -39,7 +39,7 @@ It prints a summary per file, writes an HTML report with the covered lines to `t
 
 ## Fuzzing
 
-The fuzz targets in `fuzz/` feed random input to the parsers of what AudioRef reads from outside, so far OPRA's database.
+The fuzz targets in `fuzz/` feed random input to the parsers of what AudioRef reads from outside: OPRA's database, and the correction a project saves.
 They need a nightly toolchain and [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz); `make fuzz` runs each of them for a minute, see [fuzz/README.md](../fuzz/README.md).
 Every new parser of input from outside gets a target, with a smoke test in the crate's `src/fuzz.rs` that `cargo test` runs.
 

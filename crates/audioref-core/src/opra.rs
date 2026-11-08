@@ -171,6 +171,43 @@ impl Database {
             .map(|(id, preset)| (id.as_str(), preset))
     }
 
+    /// The name of a product with its vendor's, e.g. "Sony WH-1000XM4 (ANC on)": only the
+    /// product's if OPRA has no vendor for it, the ID if it has no product for it.
+    #[must_use]
+    pub fn headphones(&self, product_id: &str) -> String {
+        let Some(product) = self.products.get(product_id) else {
+            return product_id.to_owned();
+        };
+        match self.vendors.get(&product.vendor_id) {
+            Some(vendor) => format!("{} {}", vendor.name, product.name),
+            None => product.name.clone(),
+        }
+    }
+
+    /// The IDs of the products with presets whose name, with the vendor's, holds every word of
+    /// `query`, ignoring case, at most `limit` of them, by their names. An empty query finds all.
+    #[must_use]
+    pub fn search(&self, query: &str, limit: usize) -> Vec<&str> {
+        let words: Vec<String> = query.split_whitespace().map(str::to_lowercase).collect();
+        let with_presets: std::collections::BTreeSet<&str> = self
+            .presets
+            .values()
+            .map(|preset| preset.product_id.as_str())
+            .collect();
+        let mut found: Vec<(String, &str)> = self
+            .products
+            .keys()
+            .filter(|id| with_presets.contains(id.as_str()))
+            .map(|id| (self.headphones(id), id.as_str()))
+            .filter(|(name, _)| {
+                let name = name.to_lowercase();
+                words.iter().all(|word| name.contains(word.as_str()))
+            })
+            .collect();
+        found.sort();
+        found.into_iter().take(limit).map(|(_, id)| id).collect()
+    }
+
     /// The number of lines that were left out.
     #[must_use]
     pub fn skipped(&self) -> usize {
@@ -532,6 +569,36 @@ mod tests {
             (1, 1)
         );
         assert_eq!(database.skipped(), 0);
+    }
+
+    #[test]
+    fn names_and_finds_headphones() {
+        let two = r#"{"type":"product","id":"acme::two","data":{"name":"Two Pro","subtype":"in_ear","vendor_id":"acme"}}"#;
+        let orphan = r#"{"type":"product","id":"nobody::three","data":{"name":"Three","subtype":"in_ear","vendor_id":"nobody"}}"#;
+        let without_presets = r#"{"type":"product","id":"acme::four","data":{"name":"Four","subtype":"in_ear","vendor_id":"acme"}}"#;
+        let preset_two = preset("acme:two::tester", "").replace("acme::one", "acme::two");
+        let preset_three = preset("nobody:three::tester", "").replace("acme::one", "nobody::three");
+        let lines = [
+            VENDOR,
+            PRODUCT,
+            two,
+            orphan,
+            without_presets,
+            &preset("acme:one::tester", ""),
+            &preset_two,
+            &preset_three,
+        ];
+        let database = parse(&lines);
+        assert_eq!(database.headphones("acme::two"), "Acme Two Pro");
+        assert_eq!(database.headphones("nobody::three"), "Three");
+        assert_eq!(database.headphones("gone::five"), "gone::five");
+        assert_eq!(
+            database.search("", 10),
+            ["acme::one", "acme::two", "nobody::three"]
+        );
+        assert_eq!(database.search("ACME  pro", 10), ["acme::two"]);
+        assert_eq!(database.search("o", 2), ["acme::one", "acme::two"]);
+        assert_eq!(database.search("four", 10), Vec::<&str>::new());
     }
 
     #[test]

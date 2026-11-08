@@ -16,6 +16,8 @@
 
 use std::ops::RangeInclusive;
 
+use serde::{Deserialize, Serialize};
+
 /// The most bands an EQ keeps. OPRA sorts the bands of a preset by priority, and asks software
 /// with fewer bands to leave out the last ones; its presets have up to 20.
 pub const MAX_BANDS: usize = 32;
@@ -34,7 +36,8 @@ pub const GAIN_DB: RangeInclusive<f64> = -60.0..=30.0;
 pub const Q: RangeInclusive<f64> = 0.1..=100.0;
 
 /// The slope of a low or high pass, in dB per octave: the order of the filter times 6.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Slope {
     /// 6 dB per octave, first order.
     Db6,
@@ -89,8 +92,10 @@ impl Slope {
     }
 }
 
-/// A band of a parametric EQ, with its frequency in Hz and its gain in dB.
-#[derive(Debug, Clone, Copy, PartialEq)]
+/// A band of a parametric EQ, with its frequency in Hz and its gain in dB. A project saves the
+/// bands of its correction like this, see [`crate::state`].
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum Band {
     /// A peak or a dip around `frequency`.
     Peak {
