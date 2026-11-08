@@ -19,6 +19,18 @@ updates:
         patterns:
           - "*"
 
+  # The fuzz targets have a workspace and a Cargo.lock of their own.
+  - package-ecosystem: "cargo"
+    directory: "/fuzz"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    groups:
+      cargo-fuzz:
+        patterns:
+          - "*"
+
   # Keeps the SHA-pinned GitHub Actions in .github/workflows up to date.
   - package-ecosystem: "github-actions"
     directory: "/"
