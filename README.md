@@ -81,7 +81,7 @@ Put AudioRef last on your master track, after everything else. The correction is
 
 Left of the limiter, **Level** shows the peak level of the output, from −60 to 0 dBFS. It moves whenever sound plays; the limiter's bar only moves when the limiter has to lower the signal, so it often stays empty. On slow graphics, click either bar to cross both out: the window is then only drawn again when something in it changes. Click again to turn them on; the project saves the choice.
 
-Changes of every parameter fade over 20 ms, so they don't click. Rest the pointer on a control in the window to see what it does. The window and the parameter names follow the language of your operating system: German on German systems, English on all others.
+Changes of every parameter fade over 20 ms, so they don't click. Rest the pointer on a control in the window to see what it does. **About** at the top right, or a click on the name AudioRef, shows the version and the build, how to reach the author, and the licenses of AudioRef and of the software it is built with. The window and the parameter names follow the language of your operating system: German on German systems, English on all others.
 
 ## Documentation
 
@@ -92,4 +92,4 @@ Changes of every parameter fade over 20 ms, so they don't click. Rest the pointe
 
 ## License
 
-AudioRef is licensed under the [GNU General Public License v3.0 only](LICENSE). Its VST3 support uses nih-plug's VST3 bindings, which are licensed under the GPLv3 as well. The built-in EQ presets are an excerpt of [OPRA](https://github.com/opra-project/OPRA)'s database, by oratory1990 and AutoEQ, licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), see [data/opra](data/opra/README.md), which the archives hold as `OPRA-PRESETS.md`. The window uses the fonts that come with egui: Ubuntu Light under the [Ubuntu Font Licence 1.0](https://ubuntu.com/legal/font-licence), and Noto Emoji and emoji-icon-font under the [SIL Open Font License 1.1](https://openfontlicense.org).
+AudioRef is licensed under the [GNU General Public License v3.0 only](LICENSE). Its VST3 support uses nih-plug's VST3 bindings, which are licensed under the GPLv3 as well. The built-in EQ presets are an excerpt of [OPRA](https://github.com/opra-project/OPRA)'s database, by oratory1990 and AutoEQ, licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), see [data/opra](data/opra/README.md), which the archives hold as `OPRA-PRESETS.md`. The window uses the fonts that come with egui: Ubuntu Light under the [Ubuntu Font Licence 1.0](https://ubuntu.com/legal/font-licence), and Noto Emoji and emoji-icon-font under the [SIL Open Font License 1.1](https://openfontlicense.org). The about window in the plugin lists every crate AudioRef is built with, with its license texts.

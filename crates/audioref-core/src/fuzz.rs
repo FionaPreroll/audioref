@@ -2,6 +2,7 @@
 //! sets, and for the tests, which run each of them on a few inputs: a smoke test that needs
 //! neither nightly Rust nor cargo-fuzz. See `fuzz/README.md`.
 
+use crate::about::{code, packages};
 use crate::autoeq::{Curve, FREQUENCY_HZ as CURVE_HZ, LEVEL_DB, MAX_POINTS, REQUIRED_HZ};
 use crate::cascade::{Cascade, grid};
 use crate::design::{MAX_BOOST_DB, MAX_CUT_DB};
@@ -183,6 +184,44 @@ pub fn name_index(data: &[u8]) {
     }
 }
 
+/// The output of `cargo metadata`, which the plugin's build script reads for the about window.
+///
+/// Checks beyond not crashing: the crates found are sorted by name and version, each once, none
+/// has a folder that ends in its manifest or a separator, and the Rust written of them has one
+/// line per crate, so their strings are escaped.
+///
+/// # Panics
+///
+/// If one of these checks fails, which is what the fuzz target looks for.
+pub fn cargo_metadata(data: &[u8]) {
+    let Ok(text) = std::str::from_utf8(data) else {
+        return;
+    };
+    let Ok(found) = packages(text, "audioref") else {
+        return;
+    };
+    for (position, package) in found.iter().enumerate() {
+        assert!(found.iter().skip(position + 1).all(|later| {
+            (&package.name, &package.version) <= (&later.name, &later.version) && later != package
+        }));
+        assert!(!package.dir.ends_with("/Cargo.toml") && !package.dir.ends_with(['/', '\\']));
+    }
+    let with_texts: Vec<_> = found
+        .into_iter()
+        .map(|package| {
+            let text = format!("{}\n\"{}\"", package.name, package.license);
+            (package, vec![text])
+        })
+        .collect();
+    let rust = code(&with_texts);
+    let texts = with_texts
+        .iter()
+        .map(|(_, texts)| texts)
+        .collect::<std::collections::BTreeSet<_>>()
+        .len();
+    assert_eq!(rust.lines().count(), with_texts.len() + texts + 5);
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
@@ -250,6 +289,29 @@ not json"#,
         ];
         for input in inputs {
             super::saved_correction(input);
+        }
+    }
+
+    #[test]
+    fn cargo_metadata_smoke_test() {
+        let inputs: [&[u8]; 6] = [
+            b"",
+            b"\xff\xfe",
+            b"{}",
+            br#"{"packages": [{"id": "r", "name": "audioref", "version": "1", "source": null, "manifest_path": "/w/Cargo.toml"}]}"#,
+            br#"{"packages": [
+                {"id": "r", "name": "audioref", "version": "1", "source": null, "manifest_path": "/w/Cargo.toml"},
+                {"id": "a", "name": "a\n\"b\"", "version": "1", "license": "MIT\u0000", "source": "registry", "manifest_path": "/r/a/Cargo.toml"},
+                {"id": "b", "name": "a\n\"b\"", "version": "1", "license": "MIT\u0000", "source": "registry", "manifest_path": "/r/a/Cargo.toml"},
+                {"id": "c", "name": "c", "version": "1", "source": "git", "manifest_path": "/g/c/Cargo.toml"}
+            ], "resolve": {"nodes": [
+                {"id": "r", "deps": [{"pkg": "a", "dep_kinds": [{"kind": null}]}, {"pkg": "b", "dep_kinds": [{"kind": null}]}, {"pkg": "c", "dep_kinds": [{"kind": null}]}, {"pkg": "r", "dep_kinds": [{"kind": null}]}]},
+                {"id": "a", "deps": [{"pkg": "missing", "dep_kinds": [{"kind": null}]}]}
+            ]}}"#,
+            br#"{"packages": [{"id": "x", "name": "x", "version": "1", "source": null, "manifest_path": ""}], "resolve": null}"#,
+        ];
+        for input in inputs {
+            super::cargo_metadata(input);
         }
     }
 

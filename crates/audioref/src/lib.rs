@@ -17,6 +17,7 @@
     reason = "in the macros of vst3-sys, not in this crate"
 )]
 
+mod about;
 pub mod background;
 pub mod editor;
 

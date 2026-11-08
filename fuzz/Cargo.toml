@@ -31,6 +31,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "cargo_metadata"
+path = "fuzz_targets/cargo_metadata.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "opra_database"
 path = "fuzz_targets/opra_database.rs"
 test = false
