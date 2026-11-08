@@ -55,7 +55,25 @@ Every new parser of input from outside gets a target, with a smoke test in the c
 
 The workflow `screenshots.yml` takes them for every pull request and keeps them as the artifact `screenshots` of its run, for the pull request's "How to see it".
 
-`docs/screenshots/` holds the pictures of `make screenshots` in both languages, for the project's card on [fionapreroll.github.io](https://fionapreroll.github.io/#audioref), which fetches the English ones from `main`. Replace them with newer pictures under the same names, e.g. after changing the window; renaming or removing them breaks the card's screenshots.
+`docs/screenshots/` holds the pictures of `make screenshots` in both languages, for the project's card on [fionapreroll.github.io](https://fionapreroll.github.io/#audioref), which fetches the English ones from `main`, and for the [user manual](#user-manual). Replace them with newer pictures under the same names, e.g. after changing the window; renaming or removing them breaks the card's screenshots and the manual's figures.
+
+## User manual
+
+`docs/manual/en.md` and `docs/manual/de.md` are the user manual, in English and German, for the people who use AudioRef in their DAW: installing, the window, the presets and the own curves, linear phase, the parameters, AudioRef in a DAW, a reference of the parameters, the saved settings and the messages, and troubleshooting. Its figures are the pictures in `docs/screenshots/` and `docs/images/`. GitHub shows the Markdown as it is; CI renders it as PDF, which every archive holds and every release offers as `audioref-manual-en.pdf` and `audioref-manual-de.pdf`.
+
+```sh
+utils/install-linux-deps.sh --manual   # once: pandoc, LuaLaTeX, Latin Modern
+make manual
+```
+
+writes both PDFs to `target/manual`, in about 10 seconds each.
+
+- `utils/build-manual.sh` runs pandoc with LuaLaTeX, the template `docs/manual/template.tex` (KOMA-Script's `scrreprt`, the fonts Latin Modern, the title page, the headers, the look of headings, tables, code and boxes, in the plugin's purple, darkened) and the filter `docs/manual/manual.lua`. The `#` heading of each file is the title, each `##` a chapter. The texts of the title page in both languages, the version from `Cargo.toml` and the commit are in the script; the date is that of the commit, so a commit gives the same PDF.
+- GitHub's alerts, e.g. `> [!NOTE]`, `> [!TIP]` or `> [!WARNING]`, become boxes with a title in the manual's language. A table moves to the next page with its heading, unless it takes more than half a page.
+- pandoc's warnings fail the build, e.g. a missing picture or a character that Latin Modern lacks: the template maps the few it uses, e.g. `∞` and `→`, to the mathematical fonts.
+- Links within the manual go to the headings' identifiers, e.g. `[Headroom](#headroom)`, which GitHub and pandoc derive alike. Links to other files of the repository are full addresses on GitHub, as the PDF has no repository around it.
+
+A change users can see changes the manual too, in both languages, as the README and the changelog.
 
 ## Dependency Checks
 
@@ -78,7 +96,7 @@ make deny
 | `screenshots.yml` | pull requests, `main`, by hand | that the window opens, without a graphics card; the screenshots in English and German are an artifact, see [Screenshots](#screenshots) |
 | `codeql.yml` | pull requests, `main`, weekly | CodeQL's analysis of the Rust code and of the workflows |
 | `zizmor.yml` | pull requests, `main`, weekly | the workflows, with zizmor: e.g. template injection, permissions, known vulnerable actions |
-| `release.yml` | pull requests, `main`, version tags | the tests and the VST3 and CLAP bundles on Windows, macOS (universal, signed ad hoc) and Linux, the CLAP bundles checked with clap-validator, the VST3 bundles with pluginval at strictness 10; publishes them for `main` as the pre-release `snapshot` and for version tags as releases, see [Changelog and versions](#changelog-and-versions) |
+| `release.yml` | pull requests, `main`, version tags | the user manual as PDF, see [User manual](#user-manual); the tests and the VST3 and CLAP bundles on Windows, macOS (universal, signed ad hoc) and Linux, the CLAP bundles checked with clap-validator, the VST3 bundles with pluginval at strictness 10, each archive with the manual; publishes them and the manual for `main` as the pre-release `snapshot` and for version tags as releases, see [Changelog and versions](#changelog-and-versions) |
 
 clap-validator and pluginval are pinned in `release.yml` (pluginval's archives by their SHA-256), as Dependabot doesn't update them. clap-validator runs all its tests.
 

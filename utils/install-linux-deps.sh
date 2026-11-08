@@ -6,6 +6,10 @@
 # With --screenshots, also what utils/screenshots.sh needs: the headers of ALSA and JACK for
 # nih-plug's standalone host, Xvfb with Mesa's software OpenGL, xdotool, ImageMagick and jq. See
 # Screenshots in docs/DEVELOPMENT.md.
+#
+# With --manual, only what utils/build-manual.sh needs to render the user manual as PDF: pandoc,
+# LuaLaTeX with the packages of the template, the German hyphenation, and the fonts Latin Modern.
+# See User manual in docs/DEVELOPMENT.md.
 
 set -euo pipefail
 
@@ -33,8 +37,21 @@ case "${1:-}" in
         xvfb
     )
     ;;
+--manual)
+    # Not the libraries of the window: the manual needs no build of the plugin.
+    packages=(
+        fonts-lmodern
+        lmodern
+        pandoc
+        texlive-fonts-recommended
+        texlive-lang-german
+        texlive-latex-extra
+        texlive-latex-recommended
+        texlive-luatex
+    )
+    ;;
 *)
-    echo "Usage: $0 [--screenshots]" >&2
+    echo "Usage: $0 [--screenshots | --manual]" >&2
     exit 2
     ;;
 esac
