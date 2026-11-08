@@ -16,7 +16,7 @@ What was decided in the planning of AudioRef on 2026-11-07, with the versions of
 
 ## Headphone data
 
-AudioRef ships no data: users point it to files they downloaded themselves, and `cargo xtask fetch-profiles` will fetch them into a folder outside the repository.
+AudioRef ships OPRA's presets for the three headphones above, so they correct without a download (decided on 2026-11-08 for version 1.0): an excerpt of OPRA's database in `data/opra/`, under CC BY-SA 4.0, built into the plugin. For other headphones, users point it to files they downloaded themselves, and `cargo xtask fetch-profiles` will fetch them into a folder outside the repository. oratory1990's raw measurements have no license and are not shipped; his EQ presets come through OPRA, where he publishes them himself.
 
 | Source | Format | Holds | Terms |
 |---|---|---|---|
@@ -72,6 +72,6 @@ Each milestone ends with bundles from CI.
 
 1. **Frame (this version, 0.1):** the workspace, a plugin with output level and bypass, CI that builds VST3 and CLAP for Windows, macOS and Linux and checks them with clap-validator and pluginval, the README with the disclaimer.
 2. **First correction:** import of OPRA presets, a cascade of biquads, automatic headroom, the render guard (bypass while the host exports offline, checked in Bitwig and FL Studio), and a first window: choosing headphones and mode, the curve, the notice "Private, non-commercial use only".
-3. **Own targets:** import of AutoEQ's CSV files and targets, smoothing, a limit for boosts, a minimum-phase FIR with zero-latency convolution, tilt and bass controls.
+3. **Own targets:** import of AutoEQ's CSV files and targets (and asking oratory1990 whether AudioRef may ship his measurements of the three headphones; until he agrees, users import them), smoothing, a limit for boosts, a minimum-phase FIR with zero-latency convolution, tilt and bass controls.
 4. **Comfort:** crossfeed, mono and swapped channels, a limiter with its display, hints in context, `cargo xtask fetch-profiles`.
 5. **Later, maybe:** a linear-phase mode that reports its latency, targets that imitate other speakers (translation check), speaker simulation with BRIRs from SOFA files.

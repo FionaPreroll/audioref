@@ -22,6 +22,6 @@ system, the sample rate. For crashes or wrong sound, attach the host's log. -->
 - [ ] Every text users see is a typed text in `audioref-core`, in English and German
 - [ ] `audioref-core` stays free of nih-plug, GUI and I/O; `crates/audioref` only translates
 - [ ] Nothing in the audio thread allocates, locks or reads files
-- [ ] No headphone data in the repository; the plugin IDs and parameter IDs are unchanged
+- [ ] Headphone data only in `data/opra/`, from OPRA, with its authors named; the plugin IDs and parameter IDs are unchanged
 - [ ] No `unsafe`; a new dependency is needed, maintained and passes `cargo deny`
 - [ ] The README and `docs/` still say how things work

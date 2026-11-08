@@ -134,6 +134,8 @@ jobs:
           rm -rf pluginval pluginval.zip
           mkdir -p "$ARCHIVE"
           cp -R target/bundled/AudioRef.vst3 target/bundled/AudioRef.clap README.md CHANGELOG.md LICENSE "$ARCHIVE/"
+          # The source, the authors and the license of the built-in presets, as CC BY-SA 4.0 asks.
+          cp data/opra/README.md "$ARCHIVE/OPRA-PRESETS.md"
           if [ "$RUNNER_OS" = Windows ]; then
             7z a -tzip "$ARCHIVE.zip" "$ARCHIVE" > /dev/null
           else
@@ -216,7 +218,7 @@ jobs:
           | macOS, Intel and Apple silicon | \`audioref-macos-universal.zip\` |
           | Linux, x86_64 | \`audioref-linux-x86_64.zip\` |
 
-          Each archive holds \`AudioRef.vst3\` and \`AudioRef.clap\`, with the README, the changelog and the license. See [Installing]($GITHUB_SERVER_URL/$GH_REPO#installing) in the README for where they go.
+          Each archive holds \`AudioRef.vst3\` and \`AudioRef.clap\`, with the README, the changelog, the license, and the source and license of the built-in presets (\`OPRA-PRESETS.md\`). See [Installing]($GITHUB_SERVER_URL/$GH_REPO#installing) in the README for where they go.
 
           **AudioRef is for private, non-commercial use only**, see the [disclaimer]($GITHUB_SERVER_URL/$GH_REPO#disclaimer).
 

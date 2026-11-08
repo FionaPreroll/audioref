@@ -1,5 +1,5 @@
-//! The window, drawn with egui: OPRA's file, the search for headphones, their presets, the curve
-//! of the correction, the parameters and the notices.
+//! The window, drawn with egui: OPRA's file or the built-in presets, the search for headphones,
+//! their presets, the curve of the correction, the parameters and the notices.
 //!
 //! Only reading and showing: the file is read and the correction designed in the background, see
 //! [`crate::background`].
@@ -23,6 +23,9 @@ pub const SIZE: (u32, u32) = (760, 680);
 
 /// The most headphones the search lists.
 const RESULTS: usize = 200;
+
+/// OPRA's repository, linked under the preset's author, as OPRA asks.
+const OPRA_URL: &str = "https://github.com/opra-project/OPRA";
 
 /// The range of the curve, in dB: a correction boosts nothing, see the headroom.
 const CURVE_DB: (f32, f32) = (6.0, -24.0);
@@ -76,7 +79,7 @@ pub fn create(params: Arc<AudioRefParams>, shared: Arc<Shared>) -> Option<Box<dy
         move |_, state| {
             // Reads the file again that was loaded last time, once per window.
             if !state.path.is_empty() && matches!(*lock(&build_shared.database), Load::None) {
-                build_shared.execute(Task::Load(PathBuf::from(&state.path)), &build_params);
+                build_shared.execute(Task::Load(Some(PathBuf::from(&state.path))), &build_params);
             }
         },
         move |ctx, setter, state| {
@@ -100,7 +103,7 @@ pub fn create(params: Arc<AudioRefParams>, shared: Arc<Shared>) -> Option<Box<dy
     )
 }
 
-/// The file, its status, the search and the presets.
+/// The file or the built-in presets, the status, the search and the presets.
 fn database(
     ui: &mut egui::Ui,
     lang: Lang,
@@ -111,19 +114,25 @@ fn database(
     ui.strong(Text::Database.text(lang));
     ui.horizontal(|ui| {
         ui.add(egui::TextEdit::singleline(&mut state.path).desired_width(560.0));
-        if ui.button(Text::Load.text(lang)).clicked() && !state.path.is_empty() {
-            params
+        if ui.button(Text::Load.text(lang)).clicked() {
+            // An empty path goes back to the built-in presets.
+            let path = state.path.trim().to_owned();
+            if path.is_empty() {
+                state.path.clear();
+            }
+            let task = Task::Load((!path.is_empty()).then(|| PathBuf::from(&path)));
+            *params
                 .opra_path
                 .write()
-                .unwrap_or_else(PoisonError::into_inner)
-                .clone_from(&state.path);
-            shared.execute(Task::Load(PathBuf::from(&state.path)), params);
+                .unwrap_or_else(PoisonError::into_inner) = path;
+            shared.execute(task, params);
         }
     });
     ui.label(egui::RichText::new(Text::DatabaseHint.text(lang)).small());
     let load = lock(&shared.database).clone();
-    let database = match load {
-        Load::None => return,
+    // Without a file, or when it couldn't be loaded, the built-in presets.
+    let (database, from_file) = match load {
+        Load::None => (shared.bundled.clone(), false),
         Load::Loading => {
             ui.label(Text::Loading.text(lang));
             return;
@@ -133,20 +142,29 @@ fn database(
                 Color32::LIGHT_RED,
                 format!("{} {reason}", Text::ReadFailed.text(lang)),
             );
-            return;
+            (shared.bundled.clone(), false)
         }
         Load::NotOpra => {
             ui.colored_label(Color32::LIGHT_RED, Text::NotOpra.text(lang));
-            return;
+            (shared.bundled.clone(), false)
         }
-        Load::Loaded(database) => database,
+        Load::Loaded(database) => (database, true),
     };
     ui.horizontal(|ui| {
-        let loaded = Message::Loaded {
-            presets: database.presets().len(),
-            headphones: database.products().len(),
+        let presets = database.presets().len();
+        let headphones = database.products().len();
+        let status = if from_file {
+            Message::Loaded {
+                presets,
+                headphones,
+            }
+        } else {
+            Message::BuiltIn {
+                presets,
+                headphones,
+            }
         };
-        ui.label(loaded.text(lang));
+        ui.label(status.text(lang));
         if database.skipped() > 0 {
             ui.label(Message::Skipped(database.skipped()).text(lang));
         }
@@ -273,7 +291,10 @@ fn correction(
         author: &saved.author,
         details: &saved.details,
     };
-    ui.label(egui::RichText::new(attribution.text(lang)).small());
+    ui.horizontal(|ui| {
+        ui.label(egui::RichText::new(attribution.text(lang)).small());
+        ui.hyperlink_to(egui::RichText::new(OPRA_URL).small(), OPRA_URL);
+    });
     if let Some(shown) = &state.curve {
         if shown.headroom_db > 0.05 {
             ui.label(Message::Headroom(shown.headroom_db).text(lang));

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Takes screenshots of the plugin's window, without a DAW and without a graphics card. AudioRef
 # runs as a standalone program (screenshots/) on Xvfb, drawn by Mesa's software OpenGL; xdotool
-# loads a small synthetic database in OPRA's format (screenshots/demo_database.jsonl) and picks a
-# preset, and ImageMagick's import takes the pictures, in English and in German.
+# picks a built-in preset, then loads a small synthetic database in OPRA's format
+# (screenshots/demo_database.jsonl) and picks one of its presets, and ImageMagick's import takes
+# the pictures, in English and in German.
 #
 # Usage: utils/screenshots.sh [directory], by default target/screenshots.
 # Needs the libraries and tools from: utils/install-linux-deps.sh --screenshots
@@ -92,7 +93,12 @@ for lang in en de; do
         exit 1
     fi
     sleep 1
-    shoot "$lang-empty"
+    shoot "$lang-built-in"
+
+    click "${FIRST_HEADPHONES[@]}"
+    click "${FIRST_PRESET[@]}"
+    sleep 1
+    shoot "$lang-correction"
 
     click "${PATH_FIELD[@]}"
     xdotool type --delay 10 "$database"
@@ -101,7 +107,7 @@ for lang in en de; do
     click "${FIRST_HEADPHONES[@]}"
     click "${FIRST_PRESET[@]}"
     sleep 1
-    shoot "$lang-correction"
+    shoot "$lang-file"
 
     kill "$pid"
     wait "$pid" 2>/dev/null || true

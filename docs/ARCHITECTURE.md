@@ -6,7 +6,7 @@ How AudioRef is built inside: its crates, its threads and the path of the signal
 
 | Crate | Holds | Depends on |
 |---|---|---|
-| `crates/audioref-core` | The logic as plain Rust: the texts (`i18n`), the saved correction (`state`), the signal processing (`engine`, `gain`, the filters in `biquad` and `cascade`; *planned:* the convolution), parametric EQs with the ranges of their values (`eq`), OPRA's database (`opra`); *planned:* AutoEQ's curves and the design of the correction | No crate with plugin APIs, GUI or I/O; `make lint` checks it |
+| `crates/audioref-core` | The logic as plain Rust: the texts (`i18n`), the saved correction (`state`), the signal processing (`engine`, `gain`, the filters in `biquad` and `cascade`; *planned:* the convolution), parametric EQs with the ranges of their values (`eq`), OPRA's database (`opra`) and the presets built in from it (`bundled`); *planned:* AutoEQ's curves and the design of the correction | No crate with plugin APIs, GUI or I/O; `make lint` checks it |
 | `crates/audioref` | The plugin: nih-plug, the parameters, the language of the system, the window (`editor`, with egui), reading OPRA's file and designing the corrections in the background (`background`), the saved state | `audioref-core`, nih-plug, nih_plug_egui, rtrb, sys-locale |
 | `xtask` | The bundler, `cargo xtask bundle audioref --release` | nih-plug's xtask |
 | `fuzz` | The fuzz targets, a workspace of its own, see [fuzz/README.md](../fuzz/README.md) | `audioref-core`, libfuzzer-sys |
@@ -49,6 +49,8 @@ Stereo in, stereo out, with a latency of 0 samples. In this order, the parts not
 A line it doesn't understand, e.g. of a kind a later OPRA adds, a band type it doesn't know or a value outside the ranges of `audioref_core::eq`, is left out and counted, so one bad line doesn't cost the others. The ranges hold for every EQ that reaches the filters: frequencies from 1 Hz to 100 kHz, band gains of ±30 dB, Qs from 0.1 to 100, an overall gain from −60 to +30 dB, and at most 32 bands, the first ones, as OPRA sorts them by priority.
 The plugin reads the file in the background, and the window shows each preset's author, as OPRA's license (CC BY-SA 4.0) asks.
 
+Without a file, the window uses the presets built into the plugin (`audioref_core::bundled`): `data/opra/presets.jsonl`, an excerpt of OPRA's database with the Bose QC25, the Sony WH-1000XM4 and the AKG K240 Studio in all their modes, about 20 KB, compiled in with `include_str!` and parsed once when the plugin starts. When a file can't be read, the window says so and keeps the built-in presets; loading with an empty path goes back to them. `data/opra/README.md` names the source, the commit and the authors; `utils/bundle-opra-presets.py` makes the excerpt again from a newer database.
+
 ## Designing a correction (planned)
 
 1. Correction = target + tilt + bass shelf − measurement, on AutoEQ's grid of 1.01 steps.
@@ -63,7 +65,7 @@ Hosts that export in real time don't say so, which is why the window also shows 
 
 ## Window
 
-`crates/audioref/src/editor.rs` draws the window with egui, through nih_plug_egui, in the system's language: OPRA's file and whether it loaded, the search for headphones, the presets of the chosen ones, the current correction with its author ("EQ by …, from OPRA, CC BY-SA 4.0", as OPRA's license asks), its headroom and its curve from 20 Hz to 20 kHz, the parameters, and the notices. It only reads and shows; the search, the texts and the curve's values come from the core.
+`crates/audioref/src/editor.rs` draws the window with egui, through nih_plug_egui, in the system's language: OPRA's file and whether it loaded, or the built-in presets, the search for headphones, the presets of the chosen ones, the current correction with its author ("EQ by …, from OPRA, CC BY-SA 4.0", and a link to OPRA's repository, as OPRA asks), its headroom and its curve from 20 Hz to 20 kHz, the parameters, and the notices. It only reads and shows; the search, the texts and the curve's values come from the core.
 On Linux, the window needs X11 and OpenGL; `utils/install-linux-deps.sh` installs the libraries to build it.
 
 ## Saved state
@@ -71,7 +73,7 @@ On Linux, the window needs X11 and OpenGL; `utils/install-linux-deps.sh` install
 The project saves, besides the parameters:
 
 - `correction`: the chosen preset with its bands, author and headphones (`audioref_core::state::SavedCorrection`), so a project opens with its correction on a computer without OPRA's file. nih-plug stores it as JSON; its values are checked again before they are used, and the fuzz target `saved_correction` reads it.
-- `opra-path`: the path of OPRA's file, which the window loads again when it opens.
+- `opra-path`: the path of OPRA's file, which the window loads again when it opens; empty for the built-in presets.
 - `editor-state`: the size of the window.
 
 Parameter IDs and these keys never change; the names of the parameters are in the system's language.
