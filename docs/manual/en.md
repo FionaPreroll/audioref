@@ -157,7 +157,7 @@ Beside the search, the window says how many presets the list holds, e.g. "Built 
 
 For other headphones, download OPRA's whole database and let AudioRef read it:
 
-1. Download the file [`dist/database_v1.jsonl`](https://github.com/opra-project/OPRA/tree/main/dist) from OPRA's repository, about 12 MB, and keep it anywhere, e.g. in your documents.
+1. Download the file [`dist/database_v1.jsonl`](https://github.com/opra-project/OPRA/tree/main/dist) from OPRA's repository, about 12 MB, and keep it anywhere, e.g. in your documents. The note under the field in **OPRA database** links the file too: click `database_v1.jsonl` there to download it in your browser, or **OPRA's repository** to see where it comes from.
 2. In AudioRef's window, open **OPRA database** below the lists.
 3. Paste the file's path into the field, e.g. `C:\Users\you\Documents\database_v1.jsonl` or `/Users/you/Documents/database_v1.jsonl`, and click **Load**.
 
@@ -209,7 +209,7 @@ Both curves are CSV files with a column of frequencies in Hz and one of levels i
 - Measurements, e.g. `measurements/oratory1990/data/over-ear/AKG K240 Studio.csv`.
 - Targets, e.g. `targets/Harman over-ear 2018.csv`.
 
-Download them yourself: AudioRef ships no measurements. They are for your private, non-commercial use only, see [Terms of use](#terms-of-use).
+Download them yourself: AudioRef ships no measurements. The note at the top of the tab **Own curves (AutoEQ)** links AutoEQ's repository: click **AutoEQ's repository** to open it in your browser. They are for your private, non-commercial use only, see [Terms of use](#terms-of-use).
 
 AudioRef reads AutoEQ's format, a header `frequency,raw` and a line per frequency, and what other tools write: more columns (it takes the column `raw`, or else the one after the frequency), no header, semicolons with decimal commas, tabs or spaces, and comments starting with `#` or `*`. A curve needs at least 2 points and at most 100,000, with rising frequencies, and must reach from 100 Hz to 10 kHz. Between its points, AudioRef draws straight lines on a logarithmic frequency axis; beyond its ends, it stays flat.
 

@@ -26,6 +26,16 @@
 pub const OPRA_DATABASE_URL: &str =
     "https://raw.githubusercontent.com/opra-project/OPRA/main/dist/database_v1.jsonl";
 
+/// OPRA's repository, as the window links it.
+pub const OPRA_REPOSITORY: &str = "https://github.com/opra-project/OPRA";
+
+/// OPRA's database as the window links it: GitHub's download of the file on the main branch.
+pub const OPRA_DATABASE_LINK: &str =
+    "https://github.com/opra-project/OPRA/raw/refs/heads/main/dist/database_v1.jsonl";
+
+/// AutoEQ's repository, as the window links it.
+pub const AUTOEQ_REPOSITORY: &str = "https://github.com/jaakkopasanen/AutoEq";
+
 /// The start of every address of a file in AutoEQ's repository, on its main branch.
 pub const AUTOEQ_URL: &str = "https://raw.githubusercontent.com/jaakkopasanen/AutoEq/master/";
 

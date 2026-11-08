@@ -16,8 +16,11 @@ use audioref_core::cascade::{Cascade, grid};
 use audioref_core::design::{BASS_DB, MAX_BOOST_DB, Settings, TILT_DB_PER_OCTAVE};
 use audioref_core::filter::Phase;
 use audioref_core::gain::gain_to_db;
-use audioref_core::i18n::{About, CurveMessage, Hint, LEVEL_FLOOR_DB, Lang, Message, Notice, Text};
+use audioref_core::i18n::{
+    About, CurveMessage, Hint, LEVEL_FLOOR_DB, Lang, Linked, Message, Notice, Piece, Text,
+};
 use audioref_core::opra::Database;
+use audioref_core::profiles::OPRA_REPOSITORY;
 use audioref_core::state::{SavedCorrection, SavedDesign};
 use audioref_core::stereo::{Channels, Crossfeed};
 use nih_plug::prelude::{BoolParam, Editor, IntParam, Param, ParamSetter};
@@ -36,9 +39,6 @@ const LIST_HEIGHT: f32 = 140.0;
 
 /// The most headphones the search lists.
 const RESULTS: usize = 200;
-
-/// OPRA's repository, linked under the preset's author, as OPRA asks.
-const OPRA_URL: &str = "https://github.com/opra-project/OPRA";
 
 /// The height of the cards of the controls, so they end together.
 const CONTROLS_HEIGHT: f32 = 92.0;
@@ -370,8 +370,26 @@ fn database(
             if let Some(problem) = problem {
                 ui.colored_label(theme::HOT, problem);
             }
-            ui.add(egui::Label::new(theme::note(Text::DatabaseHint.text(lang))).wrap());
+            linked(ui, lang, Linked::DatabaseHint, |words| theme::note(words));
         });
+}
+
+/// A text with links, wrapped as one paragraph: its words in a style, its links small in the
+/// accent color. egui-baseview opens a link in the browser on its own thread, with no executor.
+fn linked(ui: &mut egui::Ui, lang: Lang, text: Linked, style: fn(&str) -> egui::RichText) {
+    ui.horizontal_wrapped(|ui| {
+        ui.spacing_mut().item_spacing.x = 0.0;
+        for piece in text.pieces(lang) {
+            match *piece {
+                Piece::Plain(words) => {
+                    ui.label(style(words));
+                }
+                Piece::Link { text, url } => {
+                    ui.hyperlink_to(egui::RichText::new(text).small(), url);
+                }
+            }
+        }
+    });
 }
 
 /// The search with what it searches, and the headphones it found beside their presets.
@@ -552,7 +570,9 @@ fn curves(
     params: &AudioRefParams,
     shared: &Shared,
 ) {
-    ui.add(egui::Label::new(egui::RichText::new(Text::CurvesHint.text(lang)).small()).wrap());
+    linked(ui, lang, Linked::CurvesHint, |words| {
+        egui::RichText::new(words).small()
+    });
     let rows = [
         (
             Which::Measurement,
@@ -718,7 +738,11 @@ fn correction(
         }
         ui.label(egui::RichText::new(&saved.headphones).strong());
         ui.label(theme::note(attribution.text(lang)));
-        ui.hyperlink_to(egui::RichText::new(OPRA_URL).small(), OPRA_URL);
+        // OPRA's repository, linked under the preset's author, as OPRA asks.
+        ui.hyperlink_to(
+            egui::RichText::new(OPRA_REPOSITORY).small(),
+            OPRA_REPOSITORY,
+        );
     });
     show_curve(ui, lang, state.curve.as_ref());
 }
