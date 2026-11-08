@@ -11,6 +11,7 @@ What was decided in the planning of AudioRef on 2026-11-07, with the versions of
 - **Sample rates:** 44.1 to 192 kHz.
 - **ANC modes:** not used so far, but offered where the data has them (ANC on, ANC off, passive).
 - **Priority:** usability before refinements of the signal processing. Picking the headphones is enough; everything else has safe defaults.
+- **The render guard is essential** (Fiona, 2026-11-08): AudioRef bypasses itself while the host exports offline, so the headphone correction never ends up in a mix, in the VST3 and the CLAP version alike. A host or framework bug that breaks it gets fixed, e.g. in the fork of nih-plug, not worked around by leaving the guard out.
 - **Not planned for now:** own measurements, room or speaker simulation with BRIRs, correction outside the DAW.
 
 ## Headphone data
@@ -30,7 +31,7 @@ The rig matters: the Harman target was defined on a GRAS rig, which oratory1990 
 
 | Area | Choice | Version on 2026-11-07 | Why |
 |---|---|---|---|
-| Plugin framework | [nih-plug](https://github.com/robbert-vdh/nih-plug) | commit `de42101` of 2026-09-03 | VST3 and CLAP from the same code, parameters, saved state, background tasks, and a bundler. Not on crates.io, see [Dependencies](#dependencies). |
+| Plugin framework | [nih-plug](https://github.com/robbert-vdh/nih-plug), through AudioRef's [fork](https://github.com/FionaPreroll/nih-plug/tree/audioref) | upstream commit `de42101` of 2026-09-03, plus three fixes | VST3 and CLAP from the same code, parameters, saved state, background tasks, and a bundler. Not on crates.io, see [Dependencies](#dependencies). |
 | GUI | egui through `nih_plug_egui` | egui 0.31 | The quickest to build, good for plotted curves, own knobs can be drawn, actively maintained. Vizia, styled with CSS, is the alternative; nih-plug pins a fork of 2024. The adapter for iced is outdated. |
 | FFT | realfft / rustfft | chosen in its step | Minimum-phase FIR by cepstrum, convolution |
 | Hand-over to the audio thread | rtrb or triple_buffer | chosen in its step | New filters reach the audio thread without locks |
@@ -40,10 +41,13 @@ The rig matters: the Harman target was defined on a GRAS rig, which oratory1990 
 
 ## Dependencies
 
-- **nih-plug from git:** it isn't on crates.io. The workspace pins it to one commit, and `deny.toml` allows exactly the git repositories it pins itself: nih-plug, clap-sys, vst3-sys and reflink (for the bundler). Dependabot doesn't move git pins: check nih-plug for new commits now and then, and bump `rev` in `Cargo.toml` deliberately.
+- **nih-plug from a fork:** nih-plug isn't on crates.io, and its upstream fixes bugs slowly, so AudioRef uses the fork [FionaPreroll/nih-plug](https://github.com/FionaPreroll/nih-plug), branch `audioref`: upstream's `master` plus the fixes below, each its own commit. The workspace pins the fork to one commit, and `deny.toml` allows exactly the fork and the git repositories it pins itself: clap-sys, vst3-sys, reflink (for the bundler), baseview and egui-baseview. Dependabot doesn't move git pins: check upstream for new commits now and then, merge them into `audioref`, and bump `rev` in `Cargo.toml` deliberately, see [DEVELOPMENT.md](DEVELOPMENT.md#ci). Fixes that upstream takes over drop out of the fork on such a merge.
+- **The fork's fixes** (as of 2026-11-08), found in testing and by clap-validator 0.4.1, which now runs all its tests:
+  - VST3, the process mode: `setup_processing` handed the plugin the mode of the host's previous call, so in Bitwig 6 the VST3 took playing for an export and the render guard bypassed it, and vice versa. Upstream has no fix for it; the fork's is its own. Upstream's issue #71 (Ableton's limiter on after an export) is probably the same bug.
+  - CLAP, loading state: nih-plug reserved as much memory as the first 8 bytes of a state said, so a damaged state aborted the host (`state-invalid-random`). Now it refuses lengths above 256 MiB and reads in chunks. Taken from upstream's open pull request #280 (issue #279).
+  - CLAP, after loading state: nih-plug didn't ask the host to rescan the parameters' values, so the host showed the old ones (`state-reproducibility-*`). Also taken from pull request #280; #286 does the same with a weaker length check.
 - **GPLv3:** nih-plug is ISC, its VST3 bindings (vst3-sys) are GPLv3, so AudioRef is GPL-3.0-only.
 - **atty:** nih-plug's logger, nih_log, depends on atty, which is unmaintained (RUSTSEC-2024-0375). It only asks whether stderr is a terminal; `deny.toml` ignores the advisory until nih-plug drops it.
-- **Two bugs of nih-plug that clap-validator 0.4.1 finds**, on every system: loading a random state makes nih-plug reserve as much memory as the first 8 bytes say, which aborts the host (test `state-invalid-random`), and after loading a state nih-plug doesn't ask the host to rescan the parameters' values (`state-reproducibility-basic`, `-binary`, `-buffered`). Hosts only hand back states the plugin saved itself, so the first rarely happens in practice. `release.yml` leaves these four tests out (`CLAP_VALIDATOR_EXCLUDE`), and runs all others; take them back in once nih-plug fixes them.
 - **vst3-sys and Rust 1.99:** the macros of vst3-sys end expressions with a semicolon, which Rust 1.99 warns of (`semicolon_in_expressions_from_non_local_macros`) and a later Rust will refuse. `crates/audioref` allows the warning; it needs a fix in vst3-sys before Rust turns it into an error.
 
 ## Structure
