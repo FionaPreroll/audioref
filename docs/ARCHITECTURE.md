@@ -6,7 +6,7 @@ How AudioRef is built inside: its crates, its threads and the path of the signal
 
 | Crate | Holds | Depends on |
 |---|---|---|
-| `crates/audioref-core` | The logic as plain Rust: the texts (`i18n`), the saved correction (`state`), the signal processing (`engine`, `gain`, the filters in `biquad` and `cascade`; *planned:* the convolution), parametric EQs with the ranges of their values (`eq`), OPRA's database (`opra`) and the presets built in from it (`bundled`), AutoEQ's curves (`autoeq`); *planned:* the design of the correction | No crate with plugin APIs, GUI or I/O; `make lint` checks it |
+| `crates/audioref-core` | The logic as plain Rust: the texts (`i18n`), the saved correction (`state`), the signal processing (`engine`, `gain`, the filters in `biquad` and `cascade`; *planned:* the convolution), parametric EQs with the ranges of their values (`eq`), OPRA's database (`opra`) and the presets built in from it (`bundled`), AutoEQ's curves (`autoeq`), the design of a correction from them (`design`) and its minimum-phase filter (`fir`) | No crate with plugin APIs, GUI or I/O; `make lint` checks it |
 | `crates/audioref` | The plugin: nih-plug, the parameters, the language of the system, the window (`editor`, with egui), reading OPRA's file and designing the corrections in the background (`background`), the saved state | `audioref-core`, nih-plug, nih_plug_egui, rtrb, sys-locale |
 | `xtask` | The bundler, `cargo xtask bundle audioref --release` | nih-plug's xtask |
 | `fuzz` | The fuzz targets, a workspace of its own, see [fuzz/README.md](../fuzz/README.md) | `audioref-core`, libfuzzer-sys |
@@ -53,12 +53,18 @@ Without a file, the window uses the presets built into the plugin (`audioref_cor
 
 `audioref_core::autoeq` reads measurements and targets in AutoEQ's CSV format, a header `frequency,raw` and one line per frequency, and what other tools write: more columns (it takes `raw`, or else the column after the frequency), no header, `;` with a decimal comma, tabs or spaces, comments starting with `#` or `*`. Like OPRA's database, a line it doesn't understand is left out and counted. A curve has from 2 to 100,000 points with rising frequencies from 1 Hz to 100 kHz and levels of ±200 dB, so sound pressure levels pass too, and must reach from 100 Hz to 10 kHz; between its points the level runs straight on a logarithmic frequency axis, and beyond its ends it stays flat. The fuzz target `autoeq_curve` reads it.
 
-## Designing a correction (planned)
+## Designing a correction
 
-1. Correction = target + tilt + bass shelf − measurement, on AutoEQ's grid of 1.01 steps.
-2. Smoothing: 1/12 octave up to 2 kHz, wider above, 1/3 octave from 8 kHz, so narrow dips of a single measurement aren't copied.
-3. Limits: boosts up to +6 dB by default, cuts unlimited, nothing above 16 kHz.
-4. A warning when the target doesn't fit the rig of the measurement.
+`audioref_core::design` computes a correction from a measurement and a target, on AutoEQ's grid of 1.01 steps from 20 Hz to 20 kHz:
+
+1. Correction = target + tilt + bass shelf − measurement. The tilt goes from −1 to +1 dB per octave around 1 kHz; the bass shelf, from −6 to +12 dB, is the Harman target's: half its gain at 105 Hz, Q 0.71.
+2. Smoothing: over 1/12 octave up to 2 kHz, wider above, 1/3 octave from 8 kHz, so narrow peaks and dips of a single measurement, which move with the fit, aren't copied.
+3. Set to 0 dB on average from 200 Hz to 2 kHz.
+4. Faded out from 12 to 16 kHz with a raised cosine, nothing above: up there, measurements depend on the ear and the fit more than on the headphones.
+5. Limits: boosts up to +6 dB by default (0 to 12 dB), cuts to −30 dB.
+6. *Planned:* a warning when the target doesn't fit the rig of the measurement.
+
+`audioref_core::fir` makes the minimum-phase filter of a correction, by the real cepstrum, with FFTs 8 times as long as the filter (realfft): 4096 taps at 44.1 and 48 kHz, 8192 at 88.2 and 96 kHz, 16384 at 176.4 and 192 kHz, the last eighth faded out. Its overall gain is lowered by the largest boost, so it boosts nothing, like the cascade's. It follows the correction within 0.5 dB from 30 Hz to 20 kHz at every sample rate, and puts 98 % of its energy into the first 2 ms. It takes 2 to 10 ms, so it runs in the background.
 
 ## Render guard
 

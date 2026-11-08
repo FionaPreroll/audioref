@@ -13,6 +13,8 @@ publish.workspace = true
 # OPRA's database, see src/opra.rs.
 serde.workspace = true
 serde_json.workspace = true
+# The FFTs of the FIR filters, see src/fir.rs.
+realfft.workspace = true
 
 [lints]
 workspace = true
