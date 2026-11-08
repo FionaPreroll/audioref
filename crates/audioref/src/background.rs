@@ -89,6 +89,9 @@ pub struct Shared {
     pub lang: Lang,
     /// The sample rate the host last activated the plugin with, as the bits of an `f32`.
     sample_rate: AtomicU32,
+    /// The most the limiter lowered the signal since the window last looked, in dB, as the bits
+    /// of an `f32`: the audio thread writes it without a lock.
+    reduction: AtomicU32,
     /// OPRA's file.
     pub database: Mutex<Load>,
     /// The presets built into AudioRef, for when no file is loaded.
@@ -168,6 +171,7 @@ impl Shared {
         let shared = Arc::new(Self {
             lang,
             sample_rate: AtomicU32::new(48_000.0_f32.to_bits()),
+            reduction: AtomicU32::new(0.0_f32.to_bits()),
             database: Mutex::new(Load::None),
             bundled: Arc::new(bundled::database()),
             measurement: Mutex::new(CurveLoad::None),
@@ -189,6 +193,22 @@ impl Shared {
     pub fn set_sample_rate(&self, sample_rate: f32) {
         self.sample_rate
             .store(sample_rate.to_bits(), Ordering::Release);
+    }
+
+    /// Notes how much the limiter lowered the signal in a block, in dB, keeping the most until
+    /// the window takes it. Lock-free, for the audio thread.
+    pub fn note_reduction(&self, db: f64) {
+        #[expect(clippy::cast_possible_truncation, reason = "a level for the display")]
+        let db = db as f32;
+        // The bits of floats of 0 or more grow with their values, so the largest bits are the most.
+        if db > 0.0 {
+            self.reduction.fetch_max(db.to_bits(), Ordering::AcqRel);
+        }
+    }
+
+    /// The most the limiter lowered the signal since this was last asked, in dB.
+    pub fn take_reduction(&self) -> f32 {
+        f32::from_bits(self.reduction.swap(0.0_f32.to_bits(), Ordering::AcqRel))
     }
 
     /// Has the background do a task. Without a background, as when the system couldn't start

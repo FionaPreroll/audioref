@@ -8,6 +8,7 @@
 
 use std::path::PathBuf;
 use std::sync::{Arc, PoisonError};
+use std::time::Duration;
 
 use audioref_core::autoeq::ParseError;
 use audioref_core::cascade::{Cascade, grid};
@@ -34,6 +35,15 @@ const OPRA_URL: &str = "https://github.com/opra-project/OPRA";
 
 /// The range of the curve, in dB: a correction boosts nothing, see the headroom.
 const CURVE_DB: (f32, f32) = (6.0, -24.0);
+
+/// The most reduction of the limiter the display shows, in dB.
+const METER_DB: f32 = 12.0;
+
+/// How fast the display falls back after the limiter acted, in dB per second.
+const METER_FALL_DB_PER_SECOND: f32 = 10.0;
+
+/// How often the window is drawn again while the limiter's display runs.
+const METER_FRAME: Duration = Duration::from_millis(33);
 
 /// The tabs of the window: where the correction comes from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -63,6 +73,8 @@ struct State {
     product: Option<String>,
     /// The curve of the current correction.
     curve: Option<Curve>,
+    /// What the limiter's display shows, in dB.
+    meter: f32,
 }
 
 /// What a curve is drawn for.
@@ -119,6 +131,15 @@ pub fn create(params: Arc<AudioRefParams>, shared: Arc<Shared>) -> Option<Box<dy
         },
         move |ctx, setter, state| {
             let lang = shared.lang;
+            // The display holds the most the limiter acted, and falls back slowly.
+            let falling = METER_FALL_DB_PER_SECOND * ctx.input(|input| input.stable_dt).min(0.1);
+            state.meter = shared
+                .take_reduction()
+                .max(state.meter - falling)
+                .clamp(0.0, METER_DB);
+            if params.limiter.value() || state.meter > 0.0 {
+                ctx.request_repaint_after(METER_FRAME);
+            }
             egui::TopBottomPanel::top("notice").show(ctx, |ui| {
                 ui.horizontal(|ui| {
                     ui.heading("AudioRef");
@@ -126,7 +147,7 @@ pub fn create(params: Arc<AudioRefParams>, shared: Arc<Shared>) -> Option<Box<dy
                 });
             });
             egui::TopBottomPanel::bottom("parameters").show(ctx, |ui| {
-                parameters(ui, lang, &params, setter);
+                parameters(ui, lang, &params, setter, state.meter);
                 ui.label(egui::RichText::new(Notice::MonitoringOnly.text(lang)).small());
             });
             egui::CentralPanel::default().show(ctx, |ui| {
@@ -640,8 +661,14 @@ fn curve(ui: &mut egui::Ui, points: &[(f64, f64)]) {
 }
 
 /// The parameters: the output level, the bypass and the render guard; the routing of the
-/// channels and the crossfeed.
-fn parameters(ui: &mut egui::Ui, lang: Lang, params: &AudioRefParams, setter: &ParamSetter) {
+/// channels, the crossfeed, and the limiter with its display.
+fn parameters(
+    ui: &mut egui::Ui,
+    lang: Lang,
+    params: &AudioRefParams,
+    setter: &ParamSetter,
+    meter: f32,
+) {
     ui.horizontal(|ui| {
         ui.label(params.output.name());
         ui.add(widgets::ParamSlider::for_param(&params.output, setter));
@@ -654,7 +681,27 @@ fn parameters(ui: &mut egui::Ui, lang: Lang, params: &AudioRefParams, setter: &P
         ui.add_space(12.0);
         let crossfeed = Crossfeed::ALL.map(|crossfeed| (crossfeed.index(), crossfeed.text(lang)));
         choice(ui, &params.crossfeed, setter, &crossfeed);
+        ui.add_space(12.0);
+        toggle(ui, &params.limiter, setter);
+        reduction(ui, lang, meter);
     });
+}
+
+/// How much the limiter lowers the signal: a bar from 0 to [`METER_DB`], and the number.
+fn reduction(ui: &mut egui::Ui, lang: Lang, db: f32) {
+    let (rect, _) = ui.allocate_exact_size(Vec2::new(100.0, 10.0), egui::Sense::hover());
+    let painter = ui.painter();
+    painter.rect_filled(rect, 2.0, Color32::from_gray(40));
+    let mut filled = rect;
+    filled.set_width(rect.width() * db / METER_DB);
+    painter.rect_filled(filled, 2.0, Color32::from_rgb(255, 170, 60));
+    let text = Message::Reduction(f64::from(db)).text(lang);
+    let color = if db > 0.05 {
+        Color32::from_rgb(255, 170, 60)
+    } else {
+        Color32::GRAY
+    };
+    ui.label(egui::RichText::new(text).small().color(color));
 }
 
 /// A list to choose a value of a parameter from, each value with its name; the host learns of a
