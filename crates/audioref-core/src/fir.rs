@@ -285,7 +285,8 @@ mod tests {
         let correction = correction();
         let headroom = correction.headroom_db();
         for sample_rate in [44_100.0, 96_000.0, 192_000.0] {
-            let taps = linear_phase(&|f| correction.response_db(f) - headroom, sample_rate).unwrap();
+            let taps =
+                linear_phase(&|f| correction.response_db(f) - headroom, sample_rate).unwrap();
             let middle = latency(sample_rate);
             assert_eq!(taps.last(), Some(&0.0));
             for offset in 1..=middle {

@@ -113,6 +113,32 @@ pub fn card_of_height<R>(
     min_height: f32,
     add: impl FnOnce(&mut egui::Ui) -> R,
 ) -> R {
+    framed(ui, min_height, |ui| {
+        if !title.is_empty() {
+            ui.label(title_text(title));
+        }
+        add(ui)
+    })
+}
+
+/// A card with controls at the right of its title.
+pub fn card_with<R>(
+    ui: &mut egui::Ui,
+    title: &str,
+    corner: impl FnOnce(&mut egui::Ui),
+    add: impl FnOnce(&mut egui::Ui) -> R,
+) -> R {
+    framed(ui, 0.0, |ui| {
+        ui.horizontal(|ui| {
+            ui.label(title_text(title));
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), corner);
+        });
+        add(ui)
+    })
+}
+
+/// The frame of a card.
+fn framed<R>(ui: &mut egui::Ui, min_height: f32, add: impl FnOnce(&mut egui::Ui) -> R) -> R {
     egui::Frame::new()
         .fill(CARD)
         .stroke(Stroke::new(1.0_f32, CARD_EDGE))
@@ -121,9 +147,6 @@ pub fn card_of_height<R>(
         .show(ui, |ui| {
             ui.set_width(ui.available_width());
             ui.set_min_height(min_height);
-            if !title.is_empty() {
-                ui.label(title_text(title));
-            }
             add(ui)
         })
         .inner
