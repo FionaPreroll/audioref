@@ -15,7 +15,8 @@ use audioref_core::design::{BASS_DB, MAX_BOOST_DB, Settings, TILT_DB_PER_OCTAVE}
 use audioref_core::i18n::{CurveMessage, Lang, Message, Notice, Text};
 use audioref_core::opra::Database;
 use audioref_core::state::{SavedCorrection, SavedDesign};
-use nih_plug::prelude::{BoolParam, Editor, Param, ParamSetter};
+use audioref_core::stereo::{Channels, Crossfeed};
+use nih_plug::prelude::{BoolParam, Editor, IntParam, Param, ParamSetter};
 use nih_plug_egui::egui::{self, Color32, Pos2, Rect, Stroke, Vec2};
 use nih_plug_egui::{EguiState, create_egui_editor, widgets};
 
@@ -125,7 +126,7 @@ pub fn create(params: Arc<AudioRefParams>, shared: Arc<Shared>) -> Option<Box<dy
                 });
             });
             egui::TopBottomPanel::bottom("parameters").show(ctx, |ui| {
-                parameters(ui, &params, setter);
+                parameters(ui, lang, &params, setter);
                 ui.label(egui::RichText::new(Notice::MonitoringOnly.text(lang)).small());
             });
             egui::CentralPanel::default().show(ctx, |ui| {
@@ -638,14 +639,44 @@ fn curve(ui: &mut egui::Ui, points: &[(f64, f64)]) {
     ));
 }
 
-/// The parameters: the output level, the bypass and the render guard.
-fn parameters(ui: &mut egui::Ui, params: &AudioRefParams, setter: &ParamSetter) {
+/// The parameters: the output level, the bypass and the render guard; the routing of the
+/// channels and the crossfeed.
+fn parameters(ui: &mut egui::Ui, lang: Lang, params: &AudioRefParams, setter: &ParamSetter) {
     ui.horizontal(|ui| {
         ui.label(params.output.name());
         ui.add(widgets::ParamSlider::for_param(&params.output, setter));
         toggle(ui, &params.bypass, setter);
         toggle(ui, &params.bypass_on_export, setter);
     });
+    ui.horizontal(|ui| {
+        let channels = Channels::ALL.map(|channels| (channels.index(), channels.text(lang)));
+        choice(ui, &params.channels, setter, &channels);
+        ui.add_space(12.0);
+        let crossfeed = Crossfeed::ALL.map(|crossfeed| (crossfeed.index(), crossfeed.text(lang)));
+        choice(ui, &params.crossfeed, setter, &crossfeed);
+    });
+}
+
+/// A list to choose a value of a parameter from, each value with its name; the host learns of a
+/// choice as a gesture.
+fn choice(ui: &mut egui::Ui, param: &IntParam, setter: &ParamSetter, names: &[(i32, &str)]) {
+    let current = param.value();
+    let selected = names
+        .iter()
+        .find(|(index, _)| *index == current)
+        .map_or("", |(_, name)| *name);
+    ui.label(param.name());
+    egui::ComboBox::from_id_salt(param.name())
+        .selected_text(selected)
+        .show_ui(ui, |ui| {
+            for &(index, name) in names {
+                if ui.selectable_label(index == current, name).clicked() && index != current {
+                    setter.begin_set_parameter(param);
+                    setter.set_parameter(param, index);
+                    setter.end_set_parameter(param);
+                }
+            }
+        });
 }
 
 /// A checkbox for a boolean parameter, which the host learns of as a gesture.
