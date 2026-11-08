@@ -49,6 +49,8 @@ pub struct Engine {
     /// The correction before, while the fade runs, and kept until the next one comes, so the
     /// audio thread never frees it.
     previous: Option<Box<Filter>>,
+    /// The highest absolute sample of the output since it was last taken.
+    peak: f32,
 }
 
 impl Engine {
@@ -67,6 +69,7 @@ impl Engine {
             fade: Ramp::new(1.0, length),
             current: None,
             previous: None,
+            peak: 0.0,
         }
     }
 
@@ -105,6 +108,12 @@ impl Engine {
     /// [`Limiter::take_reduction_db`].
     pub fn take_reduction_db(&mut self) -> f64 {
         self.limiter.take_reduction_db()
+    }
+
+    /// The highest absolute sample of the output since this was last asked, as a factor of full
+    /// scale, for the window's display of the level.
+    pub fn take_peak(&mut self) -> f32 {
+        std::mem::take(&mut self.peak)
     }
 
     /// Fades to the unchanged signal, or back to the processed one.
@@ -183,6 +192,7 @@ impl Engine {
             (left + wet * (limited_left - left)) as f32,
             (right + wet * (limited_right - right)) as f32,
         );
+        self.peak = self.peak.max(output.0.abs()).max(output.1.abs());
         output
     }
 
@@ -388,6 +398,9 @@ mod tests {
         assert!(left.iter().all(|sample| close(*sample, 0.966_05)));
         assert!(right.iter().all(|sample| close(*sample, -0.483_03)));
         assert!((engine.take_reduction_db() - 5.38).abs() < 0.01);
+        // The level that leaves AudioRef: the limited one.
+        assert!(close(engine.take_peak(), 0.966_05));
+        assert!(close(engine.take_peak(), 0.0));
 
         engine.set_bypass(true);
         engine.reset();

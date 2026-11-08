@@ -257,6 +257,7 @@ impl Plugin for AudioRef {
         self.apply_params();
         self.engine.process(buffer.as_slice());
         self.shared.note_reduction(self.engine.take_reduction_db());
+        self.shared.note_peak(self.engine.take_peak());
         ProcessStatus::Normal
     }
 }
