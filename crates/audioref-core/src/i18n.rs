@@ -364,6 +364,201 @@ impl Text {
     }
 }
 
+/// Hints in context: what a control does, shown when the pointer rests on it, and what to do next
+/// where the window waits for something.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Hint {
+    /// The field of OPRA's file and its button.
+    LoadDatabase,
+    /// The search for headphones.
+    Search,
+    /// No headphones chosen yet: where to go on.
+    PickHeadphones,
+    /// A preset in the list.
+    Preset,
+    /// The button that turns the correction off.
+    TurnOff,
+    /// The curve of the correction.
+    Curve,
+    /// The correction was lowered by its largest boost.
+    Headroom,
+    /// The field of a measurement or a target and its button.
+    LoadCurve,
+    /// The button that makes the curves the correction.
+    UseCurves,
+    /// That button, while a curve is missing.
+    LoadBoth,
+    /// The slider of the tilt.
+    Tilt,
+    /// The slider of the bass.
+    Bass,
+    /// The slider of the limit for boosts.
+    MaxBoost,
+    /// The output level.
+    Output,
+    /// The bypass.
+    Bypass,
+    /// The render guard.
+    BypassOnExport,
+    /// The routing of the channels.
+    Channels,
+    /// The crossfeed.
+    Crossfeed,
+    /// The limiter and its display.
+    Limiter,
+    /// The limiter lowers the signal by much: what to do.
+    LowerOutput,
+}
+
+impl Hint {
+    /// All hints, e.g. for tests.
+    pub const ALL: [Self; 20] = [
+        Self::LoadDatabase,
+        Self::Search,
+        Self::PickHeadphones,
+        Self::Preset,
+        Self::TurnOff,
+        Self::Curve,
+        Self::Headroom,
+        Self::LoadCurve,
+        Self::UseCurves,
+        Self::LoadBoth,
+        Self::Tilt,
+        Self::Bass,
+        Self::MaxBoost,
+        Self::Output,
+        Self::Bypass,
+        Self::BypassOnExport,
+        Self::Channels,
+        Self::Crossfeed,
+        Self::Limiter,
+        Self::LowerOutput,
+    ];
+
+    /// The hint in a language.
+    #[must_use]
+    pub fn text(self, lang: Lang) -> &'static str {
+        match lang {
+            Lang::En => self.en(),
+            Lang::De => self.de(),
+        }
+    }
+
+    fn en(self) -> &'static str {
+        match self {
+            Self::LoadDatabase => {
+                "Reads OPRA's database_v1.jsonl at this path, for headphones that aren't built in. AudioRef remembers the path. With an empty field, it goes back to the built-in presets."
+            }
+            Self::Search => {
+                "Type part of the name, e.g. WH-1000XM4. Headphones with several modes, e.g. ANC on and off, are listed once for each: pick the one you listen in."
+            }
+            Self::PickHeadphones => "Pick your headphones on the left, then one of their presets.",
+            Self::Preset => {
+                "A click makes this preset the correction. Presets by oratory1990, or \"Measured by oratory1990\", are a good start."
+            }
+            Self::TurnOff => {
+                "Turns the correction off: the signal passes unchanged. The other settings stay."
+            }
+            Self::Curve => {
+                "What the correction does at each frequency, from 20 Hz to 20 kHz. It is lowered so it boosts nothing."
+            }
+            Self::Headroom => {
+                "The correction lifts some frequencies, so AudioRef lowers it as a whole by as much: nothing gets louder or clips. Raise the output level to make up for it."
+            }
+            Self::LoadCurve => {
+                "Reads the CSV file at this path: a column of frequencies and one of levels, as in AutoEQ's repository."
+            }
+            Self::UseCurves => {
+                "Computes the correction from the measurement and the target: smoothed, nothing above 16 kHz, boosts limited. It replaces the preset."
+            }
+            Self::LoadBoth => "Load a measurement and a target first.",
+            Self::Tilt => {
+                "Tilts the sound around 1 kHz: below 0 darker, above 0 brighter. 0.5 dB per octave is already clearly audible."
+            }
+            Self::Bass => {
+                "Raises or lowers the bass below about 100 Hz, with the shelf of the Harman target."
+            }
+            Self::MaxBoost => {
+                "How much the correction may lift frequencies your headphones lack. More boost lowers the whole level more, and may sound strained."
+            }
+            Self::Output => {
+                "The level after the correction, from −24 to +6 dB. The limiter catches the peaks if you raise it."
+            }
+            Self::Bypass => "Passes the signal through unchanged, to compare.",
+            Self::BypassOnExport => {
+                "Bypasses AudioRef while your DAW exports offline, so the headphone correction doesn't end up in your mix. Leave it on."
+            }
+            Self::Channels => {
+                "Mono: both channels in both ears, to check a mix in mono. Swapped: left and right exchanged, e.g. to check your headphones."
+            }
+            Self::Crossfeed => {
+                "Each ear hears some of the other channel's bass, as from speakers, so wide mixes tire less. Light, Medium and Strong feed it 9.5, 6 and 4.5 dB lower."
+            }
+            Self::Limiter => {
+                "Keeps the output at or below −0.3 dBFS, without latency. The bar shows by how much it lowers the signal."
+            }
+            Self::LowerOutput => "Lower the output level",
+        }
+    }
+
+    fn de(self) -> &'static str {
+        match self {
+            Self::LoadDatabase => {
+                "Liest OPRAs database_v1.jsonl unter diesem Pfad, für Kopfhörer, die nicht eingebaut sind. AudioRef merkt sich den Pfad. Mit leerem Feld geht es zurück zu den eingebauten Presets."
+            }
+            Self::Search => {
+                "Tippe einen Teil des Namens, z. B. WH-1000XM4. Kopfhörer mit mehreren Modi, z. B. ANC an und aus, stehen für jeden einmal da: Wähle den, mit dem du hörst."
+            }
+            Self::PickHeadphones => "Wähle links deine Kopfhörer, dann eines ihrer Presets.",
+            Self::Preset => {
+                "Ein Klick macht dieses Preset zur Korrektur. Presets von oratory1990 oder „Measured by oratory1990“ sind ein guter Anfang."
+            }
+            Self::TurnOff => {
+                "Schaltet die Korrektur aus: Das Signal bleibt unverändert. Die übrigen Einstellungen bleiben."
+            }
+            Self::Curve => {
+                "Was die Korrektur bei jeder Frequenz tut, von 20 Hz bis 20 kHz. Sie ist abgesenkt, damit sie nichts anhebt."
+            }
+            Self::Headroom => {
+                "Die Korrektur hebt manche Frequenzen an, daher senkt AudioRef sie insgesamt um so viel ab: Nichts wird lauter oder übersteuert. Hebe den Ausgang an, um das auszugleichen."
+            }
+            Self::LoadCurve => {
+                "Liest die CSV-Datei unter diesem Pfad: eine Spalte mit Frequenzen und eine mit Pegeln, wie in AutoEQs Repository."
+            }
+            Self::UseCurves => {
+                "Berechnet die Korrektur aus Messung und Zielkurve: geglättet, nichts über 16 kHz, Anhebungen begrenzt. Sie ersetzt das Preset."
+            }
+            Self::LoadBoth => "Lade zuerst eine Messung und eine Zielkurve.",
+            Self::Tilt => {
+                "Neigt den Klang um 1 kHz: unter 0 dunkler, über 0 heller. 0,5 dB pro Oktave sind schon deutlich hörbar."
+            }
+            Self::Bass => {
+                "Hebt oder senkt den Bass unter etwa 100 Hz, mit dem Shelf-Filter der Harman-Zielkurve."
+            }
+            Self::MaxBoost => {
+                "Wie weit die Korrektur Frequenzen anheben darf, die deinen Kopfhörern fehlen. Mehr Anhebung senkt den ganzen Pegel mehr ab und kann angestrengt klingen."
+            }
+            Self::Output => {
+                "Der Pegel nach der Korrektur, von −24 bis +6 dB. Hebst du ihn an, fängt der Limiter die Spitzen ab."
+            }
+            Self::Bypass => "Lässt das Signal unverändert durch, zum Vergleichen.",
+            Self::BypassOnExport => {
+                "Umgeht AudioRef, während deine DAW offline exportiert, damit die Kopfhörerkorrektur nicht in deinem Mix landet. Lass es an."
+            }
+            Self::Channels => {
+                "Mono: beide Kanäle auf beiden Ohren, um einen Mix in Mono zu prüfen. Vertauscht: links und rechts getauscht, z. B. um deine Kopfhörer zu prüfen."
+            }
+            Self::Crossfeed => {
+                "Jedes Ohr hört etwas vom Bass des anderen Kanals, wie von Lautsprechern, damit breite Mixe weniger ermüden. Leicht, Mittel und Stark mischen ihn 9,5, 6 und 4,5 dB leiser bei."
+            }
+            Self::Limiter => {
+                "Hält den Ausgang bei höchstens −0,3 dBFS, ohne Latenz. Der Balken zeigt, um wie viel er das Signal absenkt."
+            }
+            Self::LowerOutput => "Senke den Ausgang",
+        }
+    }
+}
+
 /// The texts of the window with numbers or names in them.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Message<'a> {
@@ -589,7 +784,7 @@ fn in_parentheses(details: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{CurveMessage, Lang, Message, Notice, Param, Text};
+    use super::{CurveMessage, Hint, Lang, Message, Notice, Param, Text};
     use crate::stereo::{Channels, Crossfeed};
 
     #[test]
@@ -656,6 +851,16 @@ mod tests {
             }
         }
         assert_eq!(Text::Load.text(Lang::De), "Laden");
+    }
+
+    #[test]
+    fn every_hint_exists_in_every_language() {
+        for hint in Hint::ALL {
+            assert_ne!(hint.text(Lang::En), hint.text(Lang::De), "{hint:?}");
+            for lang in Lang::ALL {
+                assert!(!hint.text(lang).is_empty(), "{hint:?} in {lang:?}");
+            }
+        }
     }
 
     #[test]

@@ -13,7 +13,7 @@ use std::time::Duration;
 use audioref_core::autoeq::ParseError;
 use audioref_core::cascade::{Cascade, grid};
 use audioref_core::design::{BASS_DB, MAX_BOOST_DB, Settings, TILT_DB_PER_OCTAVE};
-use audioref_core::i18n::{CurveMessage, Lang, Message, Notice, Text};
+use audioref_core::i18n::{CurveMessage, Hint, Lang, Message, Notice, Text};
 use audioref_core::opra::Database;
 use audioref_core::state::{SavedCorrection, SavedDesign};
 use audioref_core::stereo::{Channels, Crossfeed};
@@ -41,6 +41,9 @@ const METER_DB: f32 = 12.0;
 
 /// How fast the display falls back after the limiter acted, in dB per second.
 const METER_FALL_DB_PER_SECOND: f32 = 10.0;
+
+/// From how much reduction on the display asks to lower the output level, in dB.
+const LOWER_OUTPUT_DB: f32 = 3.0;
 
 /// How often the window is drawn again while the limiter's display runs.
 const METER_FRAME: Duration = Duration::from_millis(33);
@@ -177,8 +180,13 @@ fn database(
 ) {
     ui.strong(Text::Database.text(lang));
     ui.horizontal(|ui| {
-        ui.add(egui::TextEdit::singleline(&mut state.path).desired_width(560.0));
-        if ui.button(Text::Load.text(lang)).clicked() {
+        ui.add(egui::TextEdit::singleline(&mut state.path).desired_width(560.0))
+            .on_hover_text(Hint::LoadDatabase.text(lang));
+        if ui
+            .button(Text::Load.text(lang))
+            .on_hover_text(Hint::LoadDatabase.text(lang))
+            .clicked()
+        {
             // An empty path goes back to the built-in presets.
             let path = state.path.trim().to_owned();
             if path.is_empty() {
@@ -233,7 +241,8 @@ fn database(
             ui.label(Message::Skipped(database.skipped()).text(lang));
         }
     });
-    ui.add(egui::TextEdit::singleline(&mut state.query).hint_text(Text::Search.text(lang)));
+    ui.add(egui::TextEdit::singleline(&mut state.query).hint_text(Text::Search.text(lang)))
+        .on_hover_text(Hint::Search.text(lang));
     let outdated = state.results.as_ref().is_none_or(|(query, searched, _)| {
         *query != state.query || !Arc::ptr_eq(searched, &database)
     });
@@ -291,6 +300,7 @@ fn presets(
     shared: &Shared,
 ) {
     let Some(product) = &state.product else {
+        ui.label(egui::RichText::new(Hint::PickHeadphones.text(lang)).weak());
         return;
     };
     ui.strong(Text::Presets.text(lang));
@@ -309,7 +319,12 @@ fn presets(
                     format!("{}: {}", preset.author, preset.details)
                 };
                 let selected = current.as_deref() == Some(id);
-                if ui.selectable_label(selected, label).clicked() && !selected {
+                if ui
+                    .selectable_label(selected, label)
+                    .on_hover_text(Hint::Preset.text(lang))
+                    .clicked()
+                    && !selected
+                {
                     set_correction(params, shared, SavedCorrection::from_preset(database, id));
                 }
             }
@@ -342,8 +357,13 @@ fn curves(
     for (which, label, path, saved_path) in rows {
         ui.horizontal(|ui| {
             ui.add_sized([90.0, 20.0], egui::Label::new(label.text(lang)));
-            ui.add(egui::TextEdit::singleline(path).desired_width(400.0));
-            if ui.button(Text::Load.text(lang)).clicked() {
+            ui.add(egui::TextEdit::singleline(path).desired_width(400.0))
+                .on_hover_text(Hint::LoadCurve.text(lang));
+            if ui
+                .button(Text::Load.text(lang))
+                .on_hover_text(Hint::LoadCurve.text(lang))
+                .clicked()
+            {
                 let trimmed = path.trim().to_owned();
                 saved_path
                     .write()
@@ -366,7 +386,11 @@ fn curves(
         _ => None,
     };
     let button = egui::Button::new(Text::UseCurves.text(lang));
-    if ui.add_enabled(ready.is_some(), button).clicked()
+    if ui
+        .add_enabled(ready.is_some(), button)
+        .on_hover_text(Hint::UseCurves.text(lang))
+        .on_disabled_hover_text(Hint::LoadBoth.text(lang))
+        .clicked()
         && let Some(((m, measurement), (t, target))) = ready
     {
         // The settings stay those of the design before, if there was one.
@@ -448,7 +472,11 @@ fn correction(
     }
     ui.horizontal(|ui| {
         ui.label(egui::RichText::new(&saved.headphones).strong());
-        if ui.button(Text::TurnOff.text(lang)).clicked() {
+        if ui
+            .button(Text::TurnOff.text(lang))
+            .on_hover_text(Hint::TurnOff.text(lang))
+            .clicked()
+        {
             set_correction(params, shared, None);
         }
     });
@@ -478,7 +506,11 @@ fn designed(
             target: &design.target,
         };
         ui.label(egui::RichText::new(names.text(lang)).strong());
-        if ui.button(Text::TurnOff.text(lang)).clicked() {
+        if ui
+            .button(Text::TurnOff.text(lang))
+            .on_hover_text(Hint::TurnOff.text(lang))
+            .clicked()
+        {
             set_design(params, shared, None);
         }
     });
@@ -492,21 +524,32 @@ fn designed(
                 &mut settings.tilt_db_per_octave,
                 TILT_DB_PER_OCTAVE,
                 Text::Tilt,
+                Hint::Tilt,
                 Text::DbPerOctave.text(lang),
                 0.1,
             ),
-            (&mut settings.bass_db, BASS_DB, Text::Bass, " dB", 0.5),
+            (
+                &mut settings.bass_db,
+                BASS_DB,
+                Text::Bass,
+                Hint::Bass,
+                " dB",
+                0.5,
+            ),
             (
                 &mut settings.max_boost_db,
                 MAX_BOOST_DB,
                 Text::MaxBoost,
+                Hint::MaxBoost,
                 " dB",
                 0.5,
             ),
         ];
-        for (value, range, name, unit, step) in sliders {
-            ui.label(name.text(lang));
-            let response = ui.add(egui::Slider::new(value, range).suffix(unit).step_by(step));
+        for (value, range, name, hint, unit, step) in sliders {
+            ui.label(name.text(lang)).on_hover_text(hint.text(lang));
+            let response = ui
+                .add(egui::Slider::new(value, range).suffix(unit).step_by(step))
+                .on_hover_text(hint.text(lang));
             changed |= response.changed();
             released |= response.drag_stopped() || (response.changed() && !response.dragged());
         }
@@ -548,9 +591,10 @@ fn designed(
 fn show_curve(ui: &mut egui::Ui, lang: Lang, shown: Option<&Curve>) {
     if let Some(shown) = shown {
         if shown.headroom_db > 0.05 {
-            ui.label(Message::Headroom(shown.headroom_db).text(lang));
+            ui.label(Message::Headroom(shown.headroom_db).text(lang))
+                .on_hover_text(Hint::Headroom.text(lang));
         }
-        curve(ui, &shown.points);
+        curve(ui, lang, &shown.points);
     }
 }
 
@@ -601,10 +645,11 @@ fn set_design(params: &AudioRefParams, shared: &Shared, design: Option<SavedDesi
 }
 
 /// The response of the correction over the frequencies, on a logarithmic axis.
-fn curve(ui: &mut egui::Ui, points: &[(f64, f64)]) {
+fn curve(ui: &mut egui::Ui, lang: Lang, points: &[(f64, f64)]) {
     let (response, painter) =
         ui.allocate_painter(Vec2::new(ui.available_width(), 180.0), egui::Sense::hover());
     let rect: Rect = response.rect;
+    response.on_hover_text(Hint::Curve.text(lang));
     let grid_stroke = Stroke::new(1.0_f32, Color32::from_gray(70));
     let to_x = |frequency: f64| {
         #[expect(clippy::cast_possible_truncation, reason = "a position on the screen")]
@@ -670,26 +715,47 @@ fn parameters(
     meter: f32,
 ) {
     ui.horizontal(|ui| {
-        ui.label(params.output.name());
-        ui.add(widgets::ParamSlider::for_param(&params.output, setter));
-        toggle(ui, &params.bypass, setter);
-        toggle(ui, &params.bypass_on_export, setter);
+        ui.label(params.output.name())
+            .on_hover_text(Hint::Output.text(lang));
+        ui.add(widgets::ParamSlider::for_param(&params.output, setter))
+            .on_hover_text(Hint::Output.text(lang));
+        toggle(ui, &params.bypass, setter, Hint::Bypass.text(lang));
+        toggle(
+            ui,
+            &params.bypass_on_export,
+            setter,
+            Hint::BypassOnExport.text(lang),
+        );
     });
     ui.horizontal(|ui| {
         let channels = Channels::ALL.map(|channels| (channels.index(), channels.text(lang)));
-        choice(ui, &params.channels, setter, &channels);
+        choice(
+            ui,
+            &params.channels,
+            setter,
+            &channels,
+            Hint::Channels.text(lang),
+        );
         ui.add_space(12.0);
         let crossfeed = Crossfeed::ALL.map(|crossfeed| (crossfeed.index(), crossfeed.text(lang)));
-        choice(ui, &params.crossfeed, setter, &crossfeed);
+        choice(
+            ui,
+            &params.crossfeed,
+            setter,
+            &crossfeed,
+            Hint::Crossfeed.text(lang),
+        );
         ui.add_space(12.0);
-        toggle(ui, &params.limiter, setter);
+        toggle(ui, &params.limiter, setter, Hint::Limiter.text(lang));
         reduction(ui, lang, meter);
     });
 }
 
-/// How much the limiter lowers the signal: a bar from 0 to [`METER_DB`], and the number.
+/// How much the limiter lowers the signal: a bar from 0 to [`METER_DB`], the number, and from
+/// [`LOWER_OUTPUT_DB`] on the hint to lower the output level.
 fn reduction(ui: &mut egui::Ui, lang: Lang, db: f32) {
-    let (rect, _) = ui.allocate_exact_size(Vec2::new(100.0, 10.0), egui::Sense::hover());
+    let (rect, response) = ui.allocate_exact_size(Vec2::new(100.0, 10.0), egui::Sense::hover());
+    response.on_hover_text(Hint::Limiter.text(lang));
     let painter = ui.painter();
     painter.rect_filled(rect, 2.0, Color32::from_gray(40));
     let mut filled = rect;
@@ -702,17 +768,30 @@ fn reduction(ui: &mut egui::Ui, lang: Lang, db: f32) {
         Color32::GRAY
     };
     ui.label(egui::RichText::new(text).small().color(color));
+    if db >= LOWER_OUTPUT_DB {
+        ui.label(
+            egui::RichText::new(Hint::LowerOutput.text(lang))
+                .small()
+                .color(color),
+        );
+    }
 }
 
 /// A list to choose a value of a parameter from, each value with its name; the host learns of a
 /// choice as a gesture.
-fn choice(ui: &mut egui::Ui, param: &IntParam, setter: &ParamSetter, names: &[(i32, &str)]) {
+fn choice(
+    ui: &mut egui::Ui,
+    param: &IntParam,
+    setter: &ParamSetter,
+    names: &[(i32, &str)],
+    hint: &str,
+) {
     let current = param.value();
     let selected = names
         .iter()
         .find(|(index, _)| *index == current)
         .map_or("", |(_, name)| *name);
-    ui.label(param.name());
+    ui.label(param.name()).on_hover_text(hint);
     egui::ComboBox::from_id_salt(param.name())
         .selected_text(selected)
         .show_ui(ui, |ui| {
@@ -723,13 +802,19 @@ fn choice(ui: &mut egui::Ui, param: &IntParam, setter: &ParamSetter, names: &[(i
                     setter.end_set_parameter(param);
                 }
             }
-        });
+        })
+        .response
+        .on_hover_text(hint);
 }
 
-/// A checkbox for a boolean parameter, which the host learns of as a gesture.
-fn toggle(ui: &mut egui::Ui, param: &BoolParam, setter: &ParamSetter) {
+/// A checkbox for a boolean parameter, with its hint; the host learns of a change as a gesture.
+fn toggle(ui: &mut egui::Ui, param: &BoolParam, setter: &ParamSetter, hint: &str) {
     let mut value = param.value();
-    if ui.checkbox(&mut value, param.name()).changed() {
+    if ui
+        .checkbox(&mut value, param.name())
+        .on_hover_text(hint)
+        .changed()
+    {
         setter.begin_set_parameter(param);
         setter.set_parameter(param, value);
         setter.end_set_parameter(param);

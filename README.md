@@ -69,7 +69,7 @@ Put AudioRef last on your master track, after everything else. The correction is
 | Crossfeed | Off (default), Light, Medium, Strong | Lets each ear hear some of the other channel's bass, as from speakers, so wide mixes sound less wide and tire less. What both channels share stays as it is. Light, Medium and Strong feed the bass 9.5, 6 and 4.5 dB below the channel itself, as Jan Meier's, Chu Moy's and bs2b's crossfeeds. |
 | Limiter | on (default), off | Keeps the output at or below −0.3 dBFS, without latency, e.g. when you raise the output level. The bar beside it shows by how much it lowers the signal; a little now and then is fine, much and often means the output level is too high. |
 
-Changes of every parameter fade over 20 ms, so they don't click. The window and the parameter names follow the language of your operating system: German on German systems, English on all others.
+Changes of every parameter fade over 20 ms, so they don't click. Rest the pointer on a control in the window to see what it does. The window and the parameter names follow the language of your operating system: German on German systems, English on all others.
 
 ## Documentation
 
