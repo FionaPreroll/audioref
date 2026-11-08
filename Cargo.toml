@@ -27,6 +27,8 @@ nih_plug_xtask = { git = "https://github.com/FionaPreroll/nih-plug.git", rev = "
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 rtrb = "0.4.1"
+# FFTs for the design of the FIR filters and the convolution, see crates/audioref-core/src/fir.rs.
+realfft = "3.5.1"
 sys-locale = "0.3.2"
 
 [workspace.lints.rust]
