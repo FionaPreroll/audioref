@@ -19,6 +19,7 @@ use std::thread::{self, JoinHandle};
 
 use audioref_core::bundled;
 use audioref_core::cascade::Cascade;
+use audioref_core::filter::Filter;
 use audioref_core::i18n::Lang;
 use audioref_core::opra::{Database, ParseError};
 use audioref_core::state::SavedCorrection;
@@ -29,8 +30,8 @@ use crate::AudioRefParams;
 /// of audio.
 pub const QUEUE: usize = 8;
 
-/// A correction on its way to the audio thread: a cascade, or none to turn the correction off.
-pub type Correction = Option<Box<Cascade>>;
+/// A correction on its way to the audio thread: a filter, or none to turn the correction off.
+pub type Correction = Option<Box<Filter>>;
 
 /// What the background does.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -70,7 +71,7 @@ pub struct Shared {
     /// The end of the queue of new corrections that the background sends into.
     outgoing: Mutex<rtrb::Producer<Correction>>,
     /// The end of the queue of old corrections that the background frees.
-    returned: Mutex<rtrb::Consumer<Box<Cascade>>>,
+    returned: Mutex<rtrb::Consumer<Box<Filter>>>,
     /// The tasks for the background, `None` to stop it.
     tasks: Sender<Option<Task>>,
     /// The other end of `tasks`, until the background takes it.
@@ -120,7 +121,7 @@ pub struct AudioEnds {
     /// New corrections, from the background.
     pub incoming: rtrb::Consumer<Correction>,
     /// Old corrections, back to the background.
-    pub returns: rtrb::Producer<Box<Cascade>>,
+    pub returns: rtrb::Producer<Box<Filter>>,
 }
 
 /// Locks a mutex, also after a thread panicked while holding it: what it guards stays usable.
@@ -208,10 +209,10 @@ impl Shared {
     }
 }
 
-/// The cascade of a saved correction at a sample rate, none for no correction or one whose values
+/// The filter of a saved correction at a sample rate, none for no correction or one whose values
 /// are out of range.
 #[must_use]
 pub fn design(saved: Option<&SavedCorrection>, sample_rate: f32) -> Correction {
     let eq = saved?.eq()?;
-    Some(Box::new(Cascade::new(&eq, sample_rate)))
+    Some(Box::new(Filter::from(Cascade::new(&eq, sample_rate))))
 }
