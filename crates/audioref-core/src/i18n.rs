@@ -255,11 +255,15 @@ pub enum Text {
     Level,
     /// The unit of the tilt, with a space before it.
     DbPerOctave,
+    /// The title of the group of the channels and the crossfeed.
+    Stereo,
+    /// The title of the group of the limiter and the bypass on export.
+    Protection,
 }
 
 impl Text {
     /// All texts, e.g. for tests.
-    pub const ALL: [Self; 25] = [
+    pub const ALL: [Self; 27] = [
         Self::Database,
         Self::DatabaseHint,
         Self::Load,
@@ -285,6 +289,8 @@ impl Text {
         Self::MaxBoost,
         Self::Level,
         Self::DbPerOctave,
+        Self::Stereo,
+        Self::Protection,
     ];
 
     /// The text in a language.
@@ -328,6 +334,8 @@ impl Text {
             Self::Bass => "Bass",
             Self::MaxBoost => "Max. boost",
             Self::Level => "Level",
+            Self::Stereo => "Stereo",
+            Self::Protection => "Protection",
             Self::DbPerOctave => " dB/oct",
         }
     }
@@ -364,6 +372,8 @@ impl Text {
             Self::Bass => "Bass",
             Self::MaxBoost => "Max. Anhebung",
             Self::Level => "Pegel",
+            Self::Stereo => "Stereo",
+            Self::Protection => "Schutz",
             Self::DbPerOctave => " dB/Okt.",
         }
     }
@@ -620,6 +630,14 @@ pub enum Message<'a> {
     Reduction(f64),
     /// The peak level of the output, in dB of full scale; nothing at or below [`LEVEL_FLOOR_DB`].
     Level(f64),
+    /// A point of the curve under the pointer: the frequency in Hz and the response there in dB,
+    /// e.g. "1.2 kHz  −4.3 dB".
+    CurvePoint {
+        /// The frequency, in Hz.
+        frequency_hz: f64,
+        /// The response, in dB.
+        db: f64,
+    },
     /// Whose preset it is and where it comes from, as OPRA's license asks.
     Attribution {
         /// Who made it.
@@ -706,6 +724,21 @@ impl Message<'_> {
             (Self::Level(db), _) if *db <= -0.05 => format!("−{} dB", decimal(-db, lang)),
             (Self::Level(db), _) if *db < 0.05 => format!("{} dB", decimal(0.0, lang)),
             (Self::Level(db), _) => format!("+{} dB", decimal(*db, lang)),
+            (Self::CurvePoint { frequency_hz, db }, _) => {
+                let frequency = if *frequency_hz < 999.5 {
+                    format!("{frequency_hz:.0} Hz")
+                } else {
+                    format!("{} kHz", decimal(frequency_hz / 1000.0, lang))
+                };
+                let level = if *db <= -0.05 {
+                    format!("−{} dB", decimal(-db, lang))
+                } else if *db < 0.05 {
+                    format!("{} dB", decimal(0.0, lang))
+                } else {
+                    format!("+{} dB", decimal(*db, lang))
+                };
+                format!("{frequency}  {level}")
+            }
             (Self::Attribution { author, details }, Lang::En) => {
                 format!(
                     "EQ by {author}{}, from OPRA, CC BY-SA 4.0",
@@ -1087,6 +1120,10 @@ mod tests {
         assert_eq!(Message::Level(-12.34).text(Lang::De), "−12,3 dB");
         assert_eq!(Message::Level(-0.01).text(Lang::En), "0.0 dB");
         assert_eq!(Message::Level(1.5).text(Lang::En), "+1.5 dB");
+        let point = |frequency_hz, db| Message::CurvePoint { frequency_hz, db };
+        assert_eq!(point(62.4, -4.26).text(Lang::En), "62 Hz  −4.3 dB");
+        assert_eq!(point(1234.0, 0.01).text(Lang::De), "1,2 kHz  0,0 dB");
+        assert_eq!(point(999.6, 2.0).text(Lang::En), "1.0 kHz  +2.0 dB");
         assert_eq!(Message::Level(-60.0).text(Lang::En), "−∞ dB");
         assert_eq!(Message::Level(-59.96).text(Lang::En), "−60.0 dB");
         assert_eq!(Message::Level(f64::NEG_INFINITY).text(Lang::De), "−∞ dB");
