@@ -27,6 +27,7 @@ MEASUREMENT_LOAD=(539 93)
 TARGET_FIELD=(300 116)
 TARGET_LOAD=(539 116)
 USE_BUTTON=(58 139)
+CROSSFEED_LIST=(300 656)
 
 # Outside Xvfb: prepare the copy of nih-plug, build the program and run this script again on Xvfb.
 if [[ "${AUDIOREF_SCREENSHOTS_XVFB:-}" != 1 ]]; then
@@ -130,6 +131,11 @@ for lang in en de; do
     click "${USE_BUTTON[@]}"
     sleep 1
     shoot "$lang-curves"
+
+    # The pointer rests on a control: its hint shows.
+    xdotool mousemove --window "$window" "${CROSSFEED_LIST[@]}"
+    sleep 1.5
+    shoot "$lang-hint"
 
     kill "$pid"
     wait "$pid" 2>/dev/null || true
