@@ -223,7 +223,7 @@ pub enum Text {
     NoMatches,
     /// The heading of the presets of the chosen headphones.
     Presets,
-    /// The heading of the current correction.
+    /// The heading of the current correction and its curve.
     Correction,
     /// No correction is chosen.
     NoCorrection,
@@ -306,7 +306,7 @@ impl Text {
             Self::Search => "Search headphones",
             Self::NoMatches => "No headphones match.",
             Self::Presets => "Presets",
-            Self::Correction => "Correction",
+            Self::Correction => "Frequency response of the correction EQ",
             Self::NoCorrection => "No correction: the signal passes unchanged.",
             Self::TurnOff => "Off",
             Self::SourceOpra => "OPRA presets",
@@ -341,7 +341,7 @@ impl Text {
             Self::Search => "Kopfhörer suchen",
             Self::NoMatches => "Keine Kopfhörer passen.",
             Self::Presets => "Presets",
-            Self::Correction => "Korrektur",
+            Self::Correction => "Frequenzgang des Korrektur-EQ",
             Self::NoCorrection => "Keine Korrektur: Das Signal bleibt unverändert.",
             Self::TurnOff => "Aus",
             Self::SourceOpra => "OPRA-Presets",
