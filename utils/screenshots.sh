@@ -17,19 +17,20 @@ out=$(realpath -m "${1:-$root/target/screenshots}")
 # Where the window's widgets are, in its logical pixels, for xdotool. They follow the layout in
 # crates/audioref/src/editor.rs: move them when it changes, the pictures show where the clicks
 # went.
-PATH_FIELD=(290 88)
-LOAD_BUTTON=(600 88)
-FIRST_HEADPHONES=(60 165)
-FIRST_PRESET=(440 183)
-CURVES_TAB=(165 41)
-MEASUREMENT_FIELD=(300 93)
-MEASUREMENT_LOAD=(539 93)
-TARGET_FIELD=(300 116)
-TARGET_LOAD=(539 116)
-USE_BUTTON=(58 139)
-CROSSFEED_LIST=(300 656)
-ABOUT_BUTTON=(738 13)
-ABOUT_FIRST_CRATE=(120 431)
+DATABASE_HEADER=(90 253)
+PATH_FIELD=(290 278)
+LOAD_BUTTON=(705 278)
+FIRST_HEADPHONES=(60 101)
+FIRST_PRESET=(440 115)
+CURVES_TAB=(315 24)
+MEASUREMENT_FIELD=(300 99)
+MEASUREMENT_LOAD=(565 99)
+TARGET_FIELD=(300 129)
+TARGET_LOAD=(565 129)
+USE_BUTTON=(87 158)
+CROSSFEED_LIST=(390 625)
+ABOUT_BUTTON=(724 24)
+ABOUT_FIRST_CRATE=(120 533)
 
 # Outside Xvfb: prepare the copy of nih-plug, build the program and run this script again on Xvfb.
 if [[ "${AUDIOREF_SCREENSHOTS_XVFB:-}" != 1 ]]; then
@@ -119,6 +120,8 @@ for lang in en de; do
         echo "The window didn't open, see $out/$lang.log." >&2
         exit 1
     fi
+    # Away from the curve, whose readout would show.
+    xdotool mousemove --window "$window" 4 4
     sleep 1
     shoot "$lang-built-in"
 
@@ -127,8 +130,11 @@ for lang in en de; do
     sleep 1
     shoot "$lang-correction"
 
+    click "${DATABASE_HEADER[@]}"
+    sleep 0.5
     click "${PATH_FIELD[@]}"
     xdotool type --delay 10 "$database"
+    sleep 0.5
     click "${LOAD_BUTTON[@]}"
     sleep 1
     click "${FIRST_HEADPHONES[@]}"

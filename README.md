@@ -42,9 +42,9 @@ Then let your DAW rescan its plugins again.
 ## Using AudioRef
 
 1. Open AudioRef's window. It lists the headphones with built-in presets: the Bose QC25, the Sony WH-1000XM4 and the AKG K240 Studio. If yours are among them, go on with step 3.
-2. For other headphones, download OPRA's database, the file [`dist/database_v1.jsonl`](https://github.com/opra-project/OPRA/tree/main/dist) from OPRA's repository (about 12 MB), and keep it anywhere. Paste the file's path into the field at the top, and click **Load**. AudioRef remembers the path and loads the file again the next time; **Load** with an empty field goes back to the built-in presets.
+2. For other headphones, download OPRA's database, the file [`dist/database_v1.jsonl`](https://github.com/opra-project/OPRA/tree/main/dist) from OPRA's repository (about 12 MB), and keep it anywhere. Open **OPRA database** below the lists, paste the file's path into its field, and click **Load**. AudioRef remembers the path and loads the file again the next time; **Load** with an empty field goes back to the built-in presets.
 3. Search for your headphones, e.g. "WH-1000XM4". Some come in several modes, e.g. "(ANC on)" and "(ANC off)": pick the one you listen in.
-4. Click a preset. Presets by oratory1990, or "Measured by oratory1990", are a good start. The curve shows what the correction does. If the preset boosts some frequencies, AudioRef lowers its level by as much, so nothing gets louder and nothing clips.
+4. Click a preset. Presets by oratory1990, or "Measured by oratory1990", are a good start. The curve shows what the correction does; rest the pointer on it to read the level at a frequency. If the preset boosts some frequencies, AudioRef lowers its level by as much, so nothing gets louder and nothing clips.
 
 The project saves the chosen preset, so it opens with the same correction even on a computer without the file. **Off** turns the correction off. Changing the preset fades over 20 ms.
 
