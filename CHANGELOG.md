@@ -11,7 +11,7 @@ All changes users of AudioRef can notice are listed here. The format follows [Ke
 - Headphone correction with OPRA's EQ presets: for other headphones, load OPRA's `database_v1.jsonl`, which you download yourself, search for your headphones and pick a preset, see [Using AudioRef](README.md#using-audioref). The filters follow the presets closely up to the highest frequencies, at every sample rate from 44.1 to 192 kHz, with no latency.
 - Automatic headroom: if a preset boosts some frequencies, AudioRef lowers its level by as much, so the correction never makes the signal louder.
 - A window, in English and German: the database, the search, the presets of the chosen headphones, the frequency response of the correction EQ with the preset's author and a link to OPRA, the parameters, and the notices.
-- The project saves the chosen preset, so it opens with the same correction on a computer without OPRA's file. Changing the preset fades over 20 ms.
+- The project saves the chosen preset, so it opens with the same correction on a computer without OPRA's file, and the window shows its headphones and the preset selected. Changing the preset fades over 20 ms.
 - An output level from −24 to +6 dB and a bypass. Changes of both fade over 20 ms, so they don't click.
 - Parameter names in English and German, in the language of the operating system.
 - "Bypass on export", on by default: AudioRef, the VST3 and the CLAP version alike, bypasses itself while the host exports offline, so the headphone correction doesn't end up in a mix. Hosts that export in real time don't tell the plugin: bypass AudioRef by hand there.
