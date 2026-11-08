@@ -87,6 +87,9 @@ jobs:
         with:
           toolchain: stable
           targets: ${{ matrix.targets }}
+      - name: Install the libraries of the window
+        if: runner.os == 'Linux'
+        run: utils/install-linux-deps.sh
       - name: Run tests
         # On each system, as the plugin crate reads the system's locale.
         run: cargo test --workspace --locked

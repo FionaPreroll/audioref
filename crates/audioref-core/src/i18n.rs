@@ -120,9 +120,225 @@ impl Notice {
     }
 }
 
+/// The fixed texts of the window.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Text {
+    /// The heading of the part where OPRA's file is loaded.
+    Database,
+    /// What the file is, and that users download it themselves.
+    DatabaseHint,
+    /// The button that loads the file.
+    Load,
+    /// While the file loads.
+    Loading,
+    /// The file is no database of OPRA's.
+    NotOpra,
+    /// The file couldn't be read; the system's reason follows.
+    ReadFailed,
+    /// The hint in the search field.
+    Search,
+    /// The search found no headphones.
+    NoMatches,
+    /// The heading of the presets of the chosen headphones.
+    Presets,
+    /// The heading of the current correction.
+    Correction,
+    /// No correction is chosen.
+    NoCorrection,
+    /// The button that turns the correction off.
+    TurnOff,
+}
+
+impl Text {
+    /// All texts, e.g. for tests.
+    pub const ALL: [Self; 12] = [
+        Self::Database,
+        Self::DatabaseHint,
+        Self::Load,
+        Self::Loading,
+        Self::NotOpra,
+        Self::ReadFailed,
+        Self::Search,
+        Self::NoMatches,
+        Self::Presets,
+        Self::Correction,
+        Self::NoCorrection,
+        Self::TurnOff,
+    ];
+
+    /// The text in a language.
+    #[must_use]
+    pub fn text(self, lang: Lang) -> &'static str {
+        match lang {
+            Lang::En => self.en(),
+            Lang::De => self.de(),
+        }
+    }
+
+    fn en(self) -> &'static str {
+        match self {
+            Self::Database => "OPRA database",
+            Self::DatabaseHint => {
+                "The path of database_v1.jsonl from OPRA's repository, which you downloaded yourself."
+            }
+            Self::Load => "Load",
+            Self::Loading => "Loading…",
+            Self::NotOpra => "This file isn't OPRA's database.",
+            Self::ReadFailed => "The file couldn't be read:",
+            Self::Search => "Search headphones",
+            Self::NoMatches => "No headphones match.",
+            Self::Presets => "Presets",
+            Self::Correction => "Correction",
+            Self::NoCorrection => "No correction: the signal passes unchanged.",
+            Self::TurnOff => "Off",
+        }
+    }
+
+    fn de(self) -> &'static str {
+        match self {
+            Self::Database => "OPRA-Datenbank",
+            Self::DatabaseHint => {
+                "Der Pfad von database_v1.jsonl aus OPRAs Repository, die du selbst heruntergeladen hast."
+            }
+            Self::Load => "Laden",
+            Self::Loading => "Wird geladen …",
+            Self::NotOpra => "Diese Datei ist nicht OPRAs Datenbank.",
+            Self::ReadFailed => "Die Datei ließ sich nicht lesen:",
+            Self::Search => "Kopfhörer suchen",
+            Self::NoMatches => "Keine Kopfhörer passen.",
+            Self::Presets => "Presets",
+            Self::Correction => "Korrektur",
+            Self::NoCorrection => "Keine Korrektur: Das Signal bleibt unverändert.",
+            Self::TurnOff => "Aus",
+        }
+    }
+}
+
+/// The texts of the window with numbers or names in them.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Message<'a> {
+    /// The database was loaded, with so many presets for so many headphones.
+    Loaded {
+        /// The number of presets.
+        presets: usize,
+        /// The number of products.
+        headphones: usize,
+    },
+    /// So many lines of the database were left out.
+    Skipped(usize),
+    /// The correction's gain was lowered by so many dB, see [`crate::cascade`].
+    Headroom(f64),
+    /// Whose preset it is and where it comes from, as OPRA's license asks.
+    Attribution {
+        /// Who made it.
+        author: &'a str,
+        /// What it is based on; may be empty.
+        details: &'a str,
+    },
+}
+
+impl Message<'_> {
+    /// The text in a language.
+    #[must_use]
+    pub fn text(&self, lang: Lang) -> String {
+        match (self, lang) {
+            (
+                Self::Loaded {
+                    presets,
+                    headphones,
+                },
+                Lang::En,
+            ) => format!(
+                "{} presets for {} headphones",
+                number(*presets, lang),
+                number(*headphones, lang)
+            ),
+            (
+                Self::Loaded {
+                    presets,
+                    headphones,
+                },
+                Lang::De,
+            ) => format!(
+                "{} Presets für {} Kopfhörer",
+                number(*presets, lang),
+                number(*headphones, lang)
+            ),
+            (Self::Skipped(lines), Lang::En) => {
+                format!(
+                    "{} lines left out, which AudioRef doesn't understand",
+                    number(*lines, lang)
+                )
+            }
+            (Self::Skipped(lines), Lang::De) => {
+                format!(
+                    "{} Zeilen ausgelassen, die AudioRef nicht versteht",
+                    number(*lines, lang)
+                )
+            }
+            (Self::Headroom(db), Lang::En) => {
+                format!("Lowered by {} dB, so it boosts nothing", decimal(*db, lang))
+            }
+            (Self::Headroom(db), Lang::De) => {
+                format!(
+                    "Um {} dB abgesenkt, damit nichts lauter wird",
+                    decimal(*db, lang)
+                )
+            }
+            (Self::Attribution { author, details }, Lang::En) => {
+                format!(
+                    "EQ by {author}{}, from OPRA, CC BY-SA 4.0",
+                    in_parentheses(details)
+                )
+            }
+            (Self::Attribution { author, details }, Lang::De) => {
+                format!(
+                    "EQ von {author}{}, aus OPRA, CC BY-SA 4.0",
+                    in_parentheses(details)
+                )
+            }
+        }
+    }
+}
+
+/// A count, with the thousands separated as the language does: 12,594 or 12.594.
+fn number(count: usize, lang: Lang) -> String {
+    let separator = match lang {
+        Lang::En => ',',
+        Lang::De => '.',
+    };
+    let digits = count.to_string();
+    let mut grouped = String::new();
+    for (index, digit) in digits.chars().enumerate() {
+        if index > 0 && (digits.len() - index).is_multiple_of(3) {
+            grouped.push(separator);
+        }
+        grouped.push(digit);
+    }
+    grouped
+}
+
+/// A number with one decimal, with the language's decimal mark: 2.5 or 2,5.
+fn decimal(value: f64, lang: Lang) -> String {
+    let text = format!("{value:.1}");
+    match lang {
+        Lang::En => text,
+        Lang::De => text.replace('.', ","),
+    }
+}
+
+/// " (details)", or nothing for empty details.
+fn in_parentheses(details: &str) -> String {
+    if details.is_empty() {
+        String::new()
+    } else {
+        format!(" ({details})")
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{Lang, Notice, Param};
+    use super::{Lang, Message, Notice, Param, Text};
 
     #[test]
     fn german_locales() {
@@ -178,5 +394,59 @@ mod tests {
                 .text(Lang::De)
                 .contains("nicht-kommerzielle")
         );
+    }
+
+    #[test]
+    fn every_text_exists_in_every_language() {
+        for text in Text::ALL {
+            for lang in Lang::ALL {
+                assert!(!text.text(lang).is_empty(), "{text:?} in {lang:?}");
+            }
+        }
+        assert_eq!(Text::Load.text(Lang::De), "Laden");
+    }
+
+    #[test]
+    fn messages_with_numbers_and_names() {
+        let loaded = Message::Loaded {
+            presets: 12_594,
+            headphones: 6230,
+        };
+        assert_eq!(loaded.text(Lang::En), "12,594 presets for 6,230 headphones");
+        assert_eq!(loaded.text(Lang::De), "12.594 Presets für 6.230 Kopfhörer");
+        let few = Message::Loaded {
+            presets: 7,
+            headphones: 1_000_000,
+        };
+        assert_eq!(few.text(Lang::En), "7 presets for 1,000,000 headphones");
+        assert_eq!(
+            Message::Skipped(3).text(Lang::En),
+            "3 lines left out, which AudioRef doesn't understand"
+        );
+        assert_eq!(
+            Message::Skipped(3).text(Lang::De),
+            "3 Zeilen ausgelassen, die AudioRef nicht versteht"
+        );
+        assert_eq!(
+            Message::Headroom(2.46).text(Lang::En),
+            "Lowered by 2.5 dB, so it boosts nothing"
+        );
+        assert_eq!(
+            Message::Headroom(2.46).text(Lang::De),
+            "Um 2,5 dB abgesenkt, damit nichts lauter wird"
+        );
+        let full = Message::Attribution {
+            author: "oratory1990",
+            details: "Harman Target",
+        };
+        assert_eq!(
+            full.text(Lang::En),
+            "EQ by oratory1990 (Harman Target), from OPRA, CC BY-SA 4.0"
+        );
+        let bare = Message::Attribution {
+            author: "AutoEQ",
+            details: "",
+        };
+        assert_eq!(bare.text(Lang::De), "EQ von AutoEQ, aus OPRA, CC BY-SA 4.0");
     }
 }

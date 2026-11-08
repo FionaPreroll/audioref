@@ -17,13 +17,20 @@
     reason = "in the macros of vst3-sys, not in this crate"
 )]
 
+pub mod background;
+pub mod editor;
+
 use std::num::NonZeroU32;
-use std::sync::Arc;
+use std::sync::{Arc, PoisonError, RwLock};
 
 use audioref_core::engine::Engine;
 use audioref_core::i18n::{Lang, Param};
 use audioref_core::render::{self, Processing};
+use audioref_core::state::SavedCorrection;
 use nih_plug::prelude::*;
+use nih_plug_egui::EguiState;
+
+use crate::background::{AudioEnds, Shared, Task};
 
 /// The plugin's ID for CLAP hosts. Never change it: hosts find saved plugins by it.
 pub const CLAP_ID: &str = "io.github.fionapreroll.audioref";
@@ -46,6 +53,12 @@ pub struct AudioRef {
     engine: Engine,
     /// How the host runs the plugin, as it said when it last activated it.
     processing: Processing,
+    /// The sample rate the host last activated the plugin with, in Hz.
+    sample_rate: f64,
+    /// What the background and the window share with the plugin.
+    shared: Arc<Shared>,
+    /// The audio thread's ends of the queues of corrections.
+    queues: AudioEnds,
 }
 
 /// The parameters that hosts automate and save with a project. Their IDs never change; their
@@ -62,6 +75,16 @@ pub struct AudioRefParams {
     /// setting, not for automation.
     #[id = "bypass_on_export"]
     pub bypass_on_export: BoolParam,
+    /// The chosen preset with its bands, so the project opens with it without OPRA's file. Its
+    /// values are checked again before it is used, see `audioref_core::state`.
+    #[persist = "correction"]
+    pub correction: RwLock<Option<SavedCorrection>>,
+    /// The path of OPRA's file, to read it again when the window opens.
+    #[persist = "opra-path"]
+    pub opra_path: RwLock<String>,
+    /// The size of the window.
+    #[persist = "editor-state"]
+    pub editor_state: Arc<EguiState>,
 }
 
 impl AudioRefParams {
@@ -82,6 +105,9 @@ impl AudioRefParams {
             bypass: BoolParam::new(Param::Bypass.name(lang), false).make_bypass(),
             bypass_on_export: BoolParam::new(Param::BypassOnExport.name(lang), true)
                 .non_automatable(),
+            correction: RwLock::new(None),
+            opra_path: RwLock::new(String::new()),
+            editor_state: editor::default_state(),
         }
     }
 }
@@ -94,10 +120,15 @@ pub fn system_lang() -> Lang {
 
 impl Default for AudioRef {
     fn default() -> Self {
+        let lang = system_lang();
+        let (shared, queues) = Shared::new(lang);
         Self {
-            params: Arc::new(AudioRefParams::new(system_lang())),
+            params: Arc::new(AudioRefParams::new(lang)),
             engine: Engine::new(48_000.0),
             processing: Processing::Realtime,
+            sample_rate: 48_000.0,
+            shared,
+            queues,
         }
     }
 }
@@ -116,10 +147,20 @@ impl Plugin for AudioRef {
     }];
 
     type SysExMessage = ();
-    type BackgroundTask = ();
+    type BackgroundTask = Task;
 
     fn params(&self) -> Arc<dyn Params> {
         self.params.clone()
+    }
+
+    fn task_executor(&mut self) -> TaskExecutor<Self> {
+        let shared = self.shared.clone();
+        let params = self.params.clone();
+        Box::new(move |task| shared.run(task, &params.correction))
+    }
+
+    fn editor(&mut self, async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
+        editor::create(self.params.clone(), self.shared.clone(), async_executor)
     }
 
     fn initialize(
@@ -129,6 +170,22 @@ impl Plugin for AudioRef {
         _context: &mut impl InitContext<Self>,
     ) -> bool {
         self.engine.set_sample_rate(buffer_config.sample_rate);
+        self.sample_rate = f64::from(buffer_config.sample_rate);
+        self.shared.set_sample_rate(buffer_config.sample_rate);
+        // Outside the audio thread, and after loading a project too: corrections that were on
+        // their way are for the sample rate or the project before. The one saved is designed
+        // here, so the first block has it.
+        while self.queues.incoming.pop().is_ok() {}
+        let saved = self
+            .params
+            .correction
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone();
+        drop(self.engine.set_correction(background::design(
+            saved.as_ref(),
+            buffer_config.sample_rate,
+        )));
         // Hosts activate the plugin again whenever this changes, e.g. to export.
         self.processing = match buffer_config.process_mode {
             ProcessMode::Offline => Processing::Offline,
@@ -149,6 +206,7 @@ impl Plugin for AudioRef {
         _aux: &mut AuxiliaryBuffers,
         _context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
+        self.receive_corrections();
         self.apply_params();
         self.engine.process(buffer.as_slice());
         ProcessStatus::Normal
@@ -156,6 +214,27 @@ impl Plugin for AudioRef {
 }
 
 impl AudioRef {
+    /// Hands the corrections from the background to the engine, and those it no longer needs
+    /// back. Takes one only while there is room to send one back, so nothing is freed here.
+    fn receive_corrections(&mut self) {
+        while self.queues.returns.slots() > 0 {
+            let Ok(correction) = self.queues.incoming.pop() else {
+                break;
+            };
+            let unused = match correction {
+                // Designed for another sample rate, before the host activated the plugin again.
+                Some(cascade) if cascade.sample_rate().to_bits() != self.sample_rate.to_bits() => {
+                    Some(cascade)
+                }
+                correction => self.engine.set_correction(correction),
+            };
+            if let Some(cascade) = unused {
+                // There is room, see above, so this hands nothing back.
+                drop(self.queues.returns.push(cascade));
+            }
+        }
+    }
+
     /// Hands the parameters to the engine, which fades to them.
     fn apply_params(&mut self) {
         self.engine.set_output_db(self.params.output.value());

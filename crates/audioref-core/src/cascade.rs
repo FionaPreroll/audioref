@@ -24,9 +24,9 @@ use crate::eq::ParametricEq;
 /// The number of channels a cascade keeps a state for: left and right.
 pub const CHANNELS: usize = 2;
 
-/// The frequencies where the headroom is measured, in Hz: AutoEQ's grid, from 20 Hz, each 1.01
-/// times the last, up to 20 kHz.
-fn grid() -> impl Iterator<Item = f64> {
+/// The frequencies where the headroom is measured and the curve is drawn, in Hz: AutoEQ's grid,
+/// from 20 Hz, each 1.01 times the last, up to 20 kHz.
+pub fn grid() -> impl Iterator<Item = f64> {
     std::iter::successors(Some(20.0_f64), |frequency| Some(frequency * 1.01))
         .take_while(|frequency| *frequency <= 20_000.0)
 }
@@ -80,6 +80,12 @@ impl Cascade {
         cascade.headroom_db = loudest.max(0.0);
         cascade.gain = 10.0_f64.powf((eq.gain_db() - cascade.headroom_db) / 20.0);
         cascade
+    }
+
+    /// The sample rate it was designed for, in Hz.
+    #[must_use]
+    pub fn sample_rate(&self) -> f64 {
+        self.sample_rate
     }
 
     /// By how much the overall gain was lowered, in dB, so the correction boosts nothing: 0 if it
@@ -209,6 +215,7 @@ mod tests {
         let cascade = Cascade::new(&eq(0.0, vec![peak(18_000.0, 6.0)]), 32_000.0);
         assert!(cascade.headroom_db().abs() < 1e-12);
         assert!(cascade.response_db(1000.0).abs() < 1e-12);
+        assert_eq!(cascade.sample_rate().to_bits(), 32_000.0_f64.to_bits());
     }
 
     #[test]

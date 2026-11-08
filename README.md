@@ -5,13 +5,13 @@
 
 AudioRef is a VST3 and CLAP plugin that evens out the frequency response of your headphones, so that budget and consumer headphones, e.g. Bose QC25, Sony WH-1000XM4 or AKG K240 Studio, sound closer to neutral studio monitoring while you mix and master.
 
-> **Early development.** Version 0.1 is the frame of the plugin: an output level and a bypass. The headphone correction follows step by step, see [docs/PLAN.md](docs/PLAN.md#next-steps).
+> **Early development.** AudioRef corrects headphones with OPRA's EQ presets so far. Own target curves, AutoEQ's measurements and crossfeed follow, see [docs/PLAN.md](docs/PLAN.md#next-steps).
 
 ## Disclaimer
 
 **AudioRef is for private, non-commercial use only**, and comes without any warranty.
 
-AudioRef ships no headphone measurements. It will read measurements and EQ presets that you download yourself, e.g. from [AutoEQ](https://github.com/jaakkopasanen/AutoEq) (measurements by oratory1990) or [OPRA](https://github.com/opra-project/OPRA). These data belong to their authors and have their own terms: oratory1990 prohibits unlicensed commercial use of his measurements, and OPRA's data is licensed under CC BY-SA 4.0. Don't use AudioRef or such data commercially without their authors' permission.
+AudioRef ships no headphone measurements. It reads measurements and EQ presets that you download yourself, e.g. from [AutoEQ](https://github.com/jaakkopasanen/AutoEq) (measurements by oratory1990) or [OPRA](https://github.com/opra-project/OPRA). These data belong to their authors and have their own terms: oratory1990 prohibits unlicensed commercial use of his measurements, and OPRA's data is licensed under CC BY-SA 4.0. Don't use AudioRef or such data commercially without their authors' permission.
 
 Headphone correction belongs in the monitoring path only: bypass AudioRef before you export a mix or master.
 
@@ -35,6 +35,13 @@ xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/AudioRef.vst3 ~/Lib
 
 ## Using AudioRef
 
+1. Download OPRA's database, the file [`dist/database_v1.jsonl`](https://github.com/opra-project/OPRA/tree/main/dist) from OPRA's repository (about 12 MB), and keep it anywhere.
+2. Open AudioRef's window, paste the file's path into the field at the top, and click **Load**. AudioRef remembers the path and loads the file again the next time.
+3. Search for your headphones, e.g. "WH-1000XM4". Some come in several modes, e.g. "(ANC on)" and "(ANC off)": pick the one you listen in.
+4. Click a preset. Presets by oratory1990, or "Measured by oratory1990", are a good start. The curve shows what the correction does. If the preset boosts some frequencies, AudioRef lowers its level by as much, so nothing gets louder and nothing clips.
+
+The project saves the chosen preset, so it opens with the same correction even on a computer without the file. **Off** turns the correction off. Changing the preset fades over 20 ms.
+
 Put AudioRef last on your master track, after everything else. The correction is for your headphones, not for your mix: AudioRef bypasses itself when your DAW exports offline, but not when it exports in real time, so bypass it yourself then.
 
 | Parameter | Range | What it does |
@@ -43,7 +50,7 @@ Put AudioRef last on your master track, after everything else. The correction is
 | Bypass | on, off | Passes the signal through unchanged |
 | Bypass on export | on (default), off | Bypasses AudioRef while your DAW exports offline. Not automatable. |
 
-Changes of the output level and the bypass fade over 20 ms, so they don't click. The parameter names follow the language of your operating system: German on German systems, English on all others.
+Changes of the output level and the bypass fade over 20 ms, so they don't click. The window and the parameter names follow the language of your operating system: German on German systems, English on all others.
 
 ## Documentation
 
@@ -54,4 +61,4 @@ Changes of the output level and the bypass fade over 20 ms, so they don't click.
 
 ## License
 
-AudioRef is licensed under the [GNU General Public License v3.0 only](LICENSE). Its VST3 support uses nih-plug's VST3 bindings, which are licensed under the GPLv3 as well.
+AudioRef is licensed under the [GNU General Public License v3.0 only](LICENSE). Its VST3 support uses nih-plug's VST3 bindings, which are licensed under the GPLv3 as well. The window uses the fonts that come with egui: Ubuntu Light under the [Ubuntu Font Licence 1.0](https://ubuntu.com/legal/font-licence), and Noto Emoji and emoji-icon-font under the [SIL Open Font License 1.1](https://openfontlicense.org).

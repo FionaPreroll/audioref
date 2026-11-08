@@ -1,12 +1,13 @@
 # Fuzzing
 
-The fuzz targets feed random input to the code that reads what AudioRef gets from outside: so far OPRA's database of headphone presets.
+The fuzz targets feed random input to the code that reads what AudioRef gets from outside: OPRA's database of headphone presets, and the correction that a project saves.
 Every parser of input from outside, e.g. measurement and target files or the plugin's saved state, gets a target of its own.
 They run with [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) and libFuzzer.
 
 | Target | Input | Checks beyond not crashing |
 |---|---|---|
 | `opra_database` | The text of OPRA's `database_v1.jsonl` | Every preset that is accepted has at most 32 bands, and its gains, frequencies and Qs in their ranges; no ID is empty; every line that isn't empty is either an entry or counted as skipped. |
+| `saved_correction` | The JSON of the correction in the plugin's saved state | A correction that is used has its values in their ranges, and its filters at 44.1 kHz a finite response that boosts nothing on the grid where the headroom is measured. |
 
 ## Running
 

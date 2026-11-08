@@ -17,6 +17,7 @@ yanked = "deny"
 # { id = "RUSTSEC-0000-0000", reason = "..." }
 ignore = [
     { id = "RUSTSEC-2024-0375", reason = "atty, unmaintained, comes with nih_log, nih-plug's logger, which only asks whether stderr is a terminal. Goes once nih-plug drops it." },
+    { id = "RUSTSEC-2026-0192", reason = "ttf-parser, unmaintained, comes with egui, which reads only the fonts built into the plugin with it, never a font from outside. Goes once egui moves to skrifa." },
 ]
 
 [licenses]
@@ -26,6 +27,7 @@ allow = [
     "Apache-2.0 WITH LLVM-exception",
     "BSD-2-Clause",
     "BSD-3-Clause",
+    "BSL-1.0",
     "GPL-3.0",
     "GPL-3.0-only",
     "GPL-3.0-or-later",
@@ -45,6 +47,13 @@ crate = "vst3-sys"
 expression = "GPL-3.0-only"
 license-files = []
 
+# The fonts that egui builds into the window: Ubuntu Light (Ubuntu Font Licence) and Noto Emoji
+# (SIL Open Font License), whose licenses allow bundling them with any software. Only for egui's
+# fonts, see License in the README.
+[[licenses.exceptions]]
+crate = "epaint_default_fonts"
+allow = ["OFL-1.1", "Ubuntu-font-1.0"]
+
 [bans]
 # Several versions of a crate cost build time and size, but aren't a risk on their own.
 multiple-versions = "warn"
@@ -58,10 +67,13 @@ unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 # nih-plug isn't on crates.io, and pins these repositories itself: nih-plug, its CLAP and VST3
-# bindings, and reflink for its bundler. Nothing else may come from git.
+# bindings, reflink for its bundler, and baseview and egui-baseview for nih_plug_egui's windows.
+# Nothing else may come from git.
 allow-git = [
     "https://github.com/robbert-vdh/nih-plug.git",
     "https://github.com/micahrj/clap-sys.git",
     "https://github.com/robbert-vdh/vst3-sys.git",
     "https://github.com/nicokoch/reflink.git",
+    "https://github.com/RustAudio/baseview.git",
+    "https://github.com/BillyDM/egui-baseview.git",
 ]

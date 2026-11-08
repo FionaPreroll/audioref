@@ -22,9 +22,11 @@ audioref-core = { path = "crates/audioref-core" }
 # nih-plug isn't on crates.io: pinned to a commit, see Dependencies in docs/PLAN.md. Keep both
 # revisions the same.
 nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git", rev = "de421011f41a6d10fc8c7a6084e4f4dee0143683", default-features = false, features = ["vst3"] }
+nih_plug_egui = { git = "https://github.com/robbert-vdh/nih-plug.git", rev = "de421011f41a6d10fc8c7a6084e4f4dee0143683" }
 nih_plug_xtask = { git = "https://github.com/robbert-vdh/nih-plug.git", rev = "de421011f41a6d10fc8c7a6084e4f4dee0143683" }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
+rtrb = "0.4.1"
 sys-locale = "0.3.2"
 
 [workspace.lints.rust]

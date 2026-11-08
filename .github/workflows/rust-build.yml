@@ -24,5 +24,7 @@ jobs:
         uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
           toolchain: stable
+      - name: Install the libraries of the window
+        run: utils/install-linux-deps.sh
       - name: Build (Debug)
         run: make build ARGS=--locked

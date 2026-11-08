@@ -27,5 +27,7 @@ jobs:
         with:
           toolchain: "1.99.1"
           components: clippy, rustfmt
+      - name: Install the libraries of the window
+        run: utils/install-linux-deps.sh
       - name: Run linters
         run: make lint ARGS=--locked
