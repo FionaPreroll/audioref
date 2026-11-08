@@ -7,3 +7,4 @@
 
 pub mod gain;
 pub mod i18n;
+pub mod render;
