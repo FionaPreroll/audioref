@@ -5,7 +5,8 @@
 ## How to see it
 
 <!-- Where to look: the parameter, the window, the DAW and plugin format. For anything users see,
-a screenshot, in English and German. -->
+a screenshot, in English and German: the workflow Screenshots keeps them as an artifact, `make screenshots`
+takes them locally. -->
 
 ## Tried on
 

@@ -1,0 +1,25 @@
+[package]
+name = "audioref-screenshots"
+description = "AudioRef as a standalone program, to take screenshots of its window, see utils/screenshots.sh."
+version = "0.0.0"
+edition = "2024"
+license = "GPL-3.0-only"
+publish = false
+
+[dependencies]
+audioref = { path = "../crates/audioref" }
+# The rev of the workspace's Cargo.toml; [patch] below replaces it with the copy that
+# utils/screenshots.sh makes of it.
+nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git", rev = "de421011f41a6d10fc8c7a6084e4f4dee0143683", default-features = false, features = ["standalone"] }
+
+# A workspace of its own, so the Cargo.lock of AudioRef stays free of the standalone program's
+# dependencies (cpal, jack, midir, clap).
+[workspace]
+members = ["."]
+
+# nih-plug's window asks for a framebuffer with sRGB, which Mesa's software rendering under Xvfb
+# doesn't offer. utils/screenshots.sh copies nih-plug to target/nih-plug and asks for one without:
+# egui turns the sRGB conversion off anyway, so the window looks the same.
+[patch."https://github.com/robbert-vdh/nih-plug.git"]
+nih_plug = { path = "target/nih-plug" }
+nih_plug_egui = { path = "target/nih-plug/nih_plug_egui" }

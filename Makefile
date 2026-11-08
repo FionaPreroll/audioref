@@ -13,6 +13,7 @@
 #   deny          : Check the dependencies' advisories, licenses and sources (needs cargo-deny).
 #   zizmor        : Audit the GitHub Actions workflows for security problems (needs zizmor).
 #   fuzz          : Run each fuzz target for FUZZ_SECONDS seconds (needs nightly Rust and cargo-fuzz).
+#   screenshots   : Take screenshots of the window, in English and German, to target/screenshots (Linux).
 #   clean         : Clean build artifacts using Cargo's built-in clean command.
 #   version       : Prepare a release: set VERSION in Cargo.toml, Cargo.lock and CHANGELOG.md.
 #
@@ -26,11 +27,14 @@
 #   make fuzz FUZZ_SECONDS=600
 #       Runs each fuzz target for ten minutes.
 #
+#   make screenshots
+#       Writes en-correction.png, de-correction.png and the others to target/screenshots.
+#
 #   make version VERSION=0.1.0
 #       Prepares the release of version 0.1.0.
 #############################################
 
-.PHONY: all build bundle lint lint_fix check test coverage deny zizmor fuzz clean version
+.PHONY: all build bundle lint lint_fix check test coverage deny zizmor fuzz screenshots clean version
 
 # Seconds to run each fuzz target for, see the target fuzz.
 FUZZ_SECONDS ?= 60
@@ -156,6 +160,13 @@ fuzz:
 		echo "Fuzzing $$target for $(FUZZ_SECONDS) seconds..."; \
 		cargo +nightly fuzz run $$target -- -max_total_time=$(FUZZ_SECONDS) -dict=audioref.dict || exit 1; \
 	done
+
+# Take screenshots of the window, without a DAW or a graphics card: the plugin runs as a
+# standalone program on Xvfb, see Screenshots in docs/DEVELOPMENT.md. Linux only.
+# Install the tools with: utils/install-linux-deps.sh --screenshots
+# * (This target is called by CI as well.)
+screenshots:
+	@./utils/screenshots.sh
 
 # Prepare a release, e.g. make version VERSION=0.1.0, see Changelog and versions in
 # docs/DEVELOPMENT.md.
