@@ -44,6 +44,7 @@ The rig matters: the Harman target was defined on a GRAS rig, which oratory1990 
 - **GPLv3:** nih-plug is ISC, its VST3 bindings (vst3-sys) are GPLv3, so AudioRef is GPL-3.0-only.
 - **atty:** nih-plug's logger, nih_log, depends on atty, which is unmaintained (RUSTSEC-2024-0375). It only asks whether stderr is a terminal; `deny.toml` ignores the advisory until nih-plug drops it.
 - **Two bugs of nih-plug that clap-validator 0.4.1 finds**, on every system: loading a random state makes nih-plug reserve as much memory as the first 8 bytes say, which aborts the host (test `state-invalid-random`), and after loading a state nih-plug doesn't ask the host to rescan the parameters' values (`state-reproducibility-basic`, `-binary`, `-buffered`). Hosts only hand back states the plugin saved itself, so the first rarely happens in practice. `release.yml` leaves these four tests out (`CLAP_VALIDATOR_EXCLUDE`), and runs all others; take them back in once nih-plug fixes them.
+- **A bug of nih-plug's VST3 wrapper:** it hands the plugin the process mode of the host's call before the last one, so the VST3 can't tell an export from playing. The render guard works in CLAP only, see Render guard in [ARCHITECTURE.md](ARCHITECTURE.md#render-guard).
 - **vst3-sys and Rust 1.99:** the macros of vst3-sys end expressions with a semicolon, which Rust 1.99 warns of (`semicolon_in_expressions_from_non_local_macros`) and a later Rust will refuse. `crates/audioref` allows the warning; it needs a fix in vst3-sys before Rust turns it into an error.
 
 ## Structure

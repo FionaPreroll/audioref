@@ -58,6 +58,7 @@ The plugin reads the file in the background, and the window shows each preset's 
 ## Render guard
 
 With "Bypass on export" on, the default, AudioRef bypasses itself while the host processes offline (`audioref_core::render`). Hosts activate the plugin again whenever that changes, with `ProcessMode::Offline` in nih-plug, so the bypass is in place from the first sample of an export, without a fade. The parameter `bypass_on_export` is saved with the project, but isn't automatable.
+Only in CLAP (and standalone): nih-plug's VST3 wrapper hands `initialize` the process mode of the host's call to `setupProcessing` before the last one, as it stores the `BufferConfig` before it reads the new mode (still so in nih-plug's master of 2026-11-08). After a host set up offline processing once, e.g. Bitwig, the VST3 took playing for an export and bypassed itself. So the VST3 ignores the reported mode (`render::Format::knows_offline`), and the window notes it next to the parameter. Take this back once nih-plug fixes the order.
 Hosts that export in real time don't say so, which is why the window also shows the notice to bypass AudioRef before exporting. Whether Bitwig and FL Studio export offline is checked in them, see Next Steps in [PLAN.md](PLAN.md#next-steps).
 
 ## Window

@@ -147,11 +147,13 @@ pub enum Text {
     NoCorrection,
     /// The button that turns the correction off.
     TurnOff,
+    /// Next to "Bypass on export" where it doesn't work, in VST3.
+    GuardClapOnly,
 }
 
 impl Text {
     /// All texts, e.g. for tests.
-    pub const ALL: [Self; 12] = [
+    pub const ALL: [Self; 13] = [
         Self::Database,
         Self::DatabaseHint,
         Self::Load,
@@ -164,6 +166,7 @@ impl Text {
         Self::Correction,
         Self::NoCorrection,
         Self::TurnOff,
+        Self::GuardClapOnly,
     ];
 
     /// The text in a language.
@@ -191,6 +194,7 @@ impl Text {
             Self::Correction => "Correction",
             Self::NoCorrection => "No correction: the signal passes unchanged.",
             Self::TurnOff => "Off",
+            Self::GuardClapOnly => "(only in the CLAP version)",
         }
     }
 
@@ -210,6 +214,7 @@ impl Text {
             Self::Correction => "Korrektur",
             Self::NoCorrection => "Keine Korrektur: Das Signal bleibt unverändert.",
             Self::TurnOff => "Aus",
+            Self::GuardClapOnly => "(nur in der CLAP-Version)",
         }
     }
 }

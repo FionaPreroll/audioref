@@ -25,7 +25,7 @@ use std::sync::{Arc, PoisonError, RwLock};
 
 use audioref_core::engine::Engine;
 use audioref_core::i18n::{Lang, Param};
-use audioref_core::render::{self, Processing};
+use audioref_core::render::{self, Format, Processing};
 use audioref_core::state::SavedCorrection;
 use nih_plug::prelude::*;
 use nih_plug_egui::EguiState;
@@ -114,6 +114,16 @@ impl AudioRefParams {
     }
 }
 
+/// The format, in the core's terms.
+#[must_use]
+pub fn format(api: PluginApi) -> Format {
+    match api {
+        PluginApi::Clap => Format::Clap,
+        PluginApi::Vst3 => Format::Vst3,
+        PluginApi::Standalone => Format::Standalone,
+    }
+}
+
 /// The language of the operating system's locale, English if it reports none.
 #[must_use]
 pub fn system_lang() -> Lang {
@@ -168,7 +178,7 @@ impl Plugin for AudioRef {
         &mut self,
         _audio_io_layout: &AudioIOLayout,
         buffer_config: &BufferConfig,
-        _context: &mut impl InitContext<Self>,
+        context: &mut impl InitContext<Self>,
     ) -> bool {
         self.engine.set_sample_rate(buffer_config.sample_rate);
         self.sample_rate = f64::from(buffer_config.sample_rate);
@@ -188,10 +198,10 @@ impl Plugin for AudioRef {
             buffer_config.sample_rate,
         )));
         // Hosts activate the plugin again whenever this changes, e.g. to export.
-        self.processing = match buffer_config.process_mode {
-            ProcessMode::Offline => Processing::Offline,
-            ProcessMode::Realtime | ProcessMode::Buffered => Processing::Realtime,
-        };
+        self.processing = render::processing(
+            buffer_config.process_mode == ProcessMode::Offline,
+            format(context.plugin_api()),
+        );
         true
     }
 

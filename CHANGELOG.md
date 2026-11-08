@@ -13,5 +13,5 @@ All changes users of AudioRef can notice are listed here. The format follows [Ke
 - The project saves the chosen preset, so it opens with the same correction on a computer without OPRA's file. Changing the preset fades over 20 ms.
 - An output level from −24 to +6 dB and a bypass. Changes of both fade over 20 ms, so they don't click.
 - Parameter names in English and German, in the language of the operating system.
-- "Bypass on export", on by default: AudioRef bypasses itself while the host exports offline, so the headphone correction doesn't end up in a mix. Hosts that export in real time don't tell the plugin: bypass AudioRef by hand there.
+- "Bypass on export", on by default, in the CLAP version: AudioRef bypasses itself while the host exports offline, so the headphone correction doesn't end up in a mix. Hosts that export in real time don't tell the plugin, and the VST3 version can't tell: bypass AudioRef by hand there.
 - The pre-release [`snapshot`](https://github.com/FionaPreroll/audioref/releases/tag/snapshot) with the plugin bundles of the latest commit on `main`.

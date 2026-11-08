@@ -42,13 +42,13 @@ xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/AudioRef.vst3 ~/Lib
 
 The project saves the chosen preset, so it opens with the same correction even on a computer without the file. **Off** turns the correction off. Changing the preset fades over 20 ms.
 
-Put AudioRef last on your master track, after everything else. The correction is for your headphones, not for your mix: AudioRef bypasses itself when your DAW exports offline, but not when it exports in real time, so bypass it yourself then.
+Put AudioRef last on your master track, after everything else. The correction is for your headphones, not for your mix: the CLAP version bypasses itself when your DAW exports offline, but not when it exports in real time, and the VST3 version never does, so bypass it yourself then.
 
 | Parameter | Range | What it does |
 |---|---|---|
 | Output | −24 to +6 dB | The output level |
 | Bypass | on, off | Passes the signal through unchanged |
-| Bypass on export | on (default), off | Bypasses AudioRef while your DAW exports offline. Not automatable. |
+| Bypass on export | on (default), off | Bypasses AudioRef while your DAW exports offline. Only in the CLAP version. Not automatable. |
 
 Changes of the output level and the bypass fade over 20 ms, so they don't click. The window and the parameter names follow the language of your operating system: German on German systems, English on all others.
 

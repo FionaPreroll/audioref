@@ -15,8 +15,8 @@ use nih_plug::prelude::{BoolParam, Editor, Param, ParamSetter};
 use nih_plug_egui::egui::{self, Color32, Pos2, Rect, Stroke, Vec2};
 use nih_plug_egui::{EguiState, create_egui_editor, widgets};
 
-use crate::AudioRefParams;
 use crate::background::{Load, Shared, Task, lock};
+use crate::{AudioRefParams, format};
 
 /// The size of the window, in logical pixels.
 pub const SIZE: (u32, u32) = (760, 680);
@@ -88,7 +88,7 @@ pub fn create(params: Arc<AudioRefParams>, shared: Arc<Shared>) -> Option<Box<dy
                 });
             });
             egui::TopBottomPanel::bottom("parameters").show(ctx, |ui| {
-                parameters(ui, &params, setter);
+                parameters(ui, lang, &params, setter);
                 ui.label(egui::RichText::new(Notice::MonitoringOnly.text(lang)).small());
             });
             egui::CentralPanel::default().show(ctx, |ui| {
@@ -361,12 +361,15 @@ fn curve(ui: &mut egui::Ui, points: &[(f64, f64)]) {
 }
 
 /// The parameters: the output level, the bypass and the render guard.
-fn parameters(ui: &mut egui::Ui, params: &AudioRefParams, setter: &ParamSetter) {
+fn parameters(ui: &mut egui::Ui, lang: Lang, params: &AudioRefParams, setter: &ParamSetter) {
     ui.horizontal(|ui| {
         ui.label(params.output.name());
         ui.add(widgets::ParamSlider::for_param(&params.output, setter));
         toggle(ui, &params.bypass, setter);
         toggle(ui, &params.bypass_on_export, setter);
+        if !format(setter.raw_context.plugin_api()).knows_offline() {
+            ui.label(egui::RichText::new(Text::GuardClapOnly.text(lang)).small());
+        }
     });
 }
 
