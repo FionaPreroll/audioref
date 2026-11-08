@@ -11,6 +11,7 @@
 //! assert_eq!(Param::Output.name(Lang::from_locale("en-GB")), "Output");
 //! ```
 
+use crate::profiles::{AUTOEQ_REPOSITORY, OPRA_DATABASE_LINK, OPRA_REPOSITORY};
 use crate::stereo::{Channels, Crossfeed};
 
 /// A language of AudioRef's texts.
@@ -206,9 +207,6 @@ impl Notice {
 pub enum Text {
     /// The heading of the part where OPRA's file is loaded.
     Database,
-    /// What the file is for, that users download it themselves, and how to go back to the
-    /// built-in presets.
-    DatabaseHint,
     /// The button that loads the file.
     Load,
     /// While the file loads.
@@ -233,8 +231,6 @@ pub enum Text {
     SourceOpra,
     /// The tab with the own measurement and target.
     SourceCurves,
-    /// What the files of the own curves are, and that users download them themselves.
-    CurvesHint,
     /// The label of the measurement's file.
     Measurement,
     /// The label of the target's file.
@@ -265,9 +261,8 @@ pub enum Text {
 
 impl Text {
     /// All texts, e.g. for tests.
-    pub const ALL: [Self; 28] = [
+    pub const ALL: [Self; 26] = [
         Self::Database,
-        Self::DatabaseHint,
         Self::Load,
         Self::Loading,
         Self::NotOpra,
@@ -280,7 +275,6 @@ impl Text {
         Self::TurnOff,
         Self::SourceOpra,
         Self::SourceCurves,
-        Self::CurvesHint,
         Self::Measurement,
         Self::Target,
         Self::NotCurve,
@@ -308,9 +302,6 @@ impl Text {
     fn en(self) -> &'static str {
         match self {
             Self::Database => "OPRA database",
-            Self::DatabaseHint => {
-                "Optional, for more headphones: the path of database_v1.jsonl from OPRA's repository, which you downloaded yourself. Load with an empty path to go back to the built-in presets."
-            }
             Self::Load => "Load",
             Self::Loading => "Loading…",
             Self::NotOpra => "This file isn't OPRA's database.",
@@ -323,9 +314,6 @@ impl Text {
             Self::TurnOff => "Off",
             Self::SourceOpra => "OPRA presets",
             Self::SourceCurves => "Own curves (AutoEQ)",
-            Self::CurvesHint => {
-                "A measurement of your headphones and a target, as CSV files that you downloaded yourself, e.g. from AutoEQ's repository: measurements/oratory1990/data/over-ear/… and targets/…."
-            }
             Self::Measurement => "Measurement",
             Self::Target => "Target",
             Self::NotCurve => {
@@ -347,9 +335,6 @@ impl Text {
     fn de(self) -> &'static str {
         match self {
             Self::Database => "OPRA-Datenbank",
-            Self::DatabaseHint => {
-                "Optional, für weitere Kopfhörer: der Pfad von database_v1.jsonl aus OPRAs Repository, die du selbst heruntergeladen hast. Laden mit leerem Pfad führt zurück zu den eingebauten Presets."
-            }
             Self::Load => "Laden",
             Self::Loading => "Wird geladen …",
             Self::NotOpra => "Diese Datei ist nicht OPRAs Datenbank.",
@@ -362,9 +347,6 @@ impl Text {
             Self::TurnOff => "Aus",
             Self::SourceOpra => "OPRA-Presets",
             Self::SourceCurves => "Eigene Kurven (AutoEQ)",
-            Self::CurvesHint => {
-                "Eine Messung deiner Kopfhörer und eine Zielkurve, als CSV-Dateien, die du selbst heruntergeladen hast, z. B. aus AutoEQs Repository: measurements/oratory1990/data/over-ear/… und targets/…."
-            }
             Self::Measurement => "Messung",
             Self::Target => "Zielkurve",
             Self::NotCurve => {
@@ -380,6 +362,92 @@ impl Text {
             Self::Protection => "Schutz",
             Self::LinearPhase => "Linearphasig",
             Self::DbPerOctave => " dB/Okt.",
+        }
+    }
+}
+
+/// A piece of a text with links: plain text, or a link with its text and its address.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Piece {
+    /// Plain text.
+    Plain(&'static str),
+    /// A link: the text that shows, and the address it opens.
+    Link {
+        /// The text that shows.
+        text: &'static str,
+        /// The address it opens in the browser.
+        url: &'static str,
+    },
+}
+
+/// The texts of the window with links in them, in pieces, so the window draws the links where
+/// their words are.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Linked {
+    /// What OPRA's file is for, where it comes from, that users download it themselves, and how
+    /// to go back to the built-in presets.
+    DatabaseHint,
+    /// What the files of the own curves are, where they come from, and that users download them
+    /// themselves.
+    CurvesHint,
+}
+
+impl Linked {
+    /// All texts with links, e.g. for tests.
+    pub const ALL: [Self; 2] = [Self::DatabaseHint, Self::CurvesHint];
+
+    /// The pieces of the text in a language, in order.
+    #[must_use]
+    pub fn pieces(self, lang: Lang) -> &'static [Piece] {
+        const DATABASE: Piece = Piece::Link {
+            text: "database_v1.jsonl",
+            url: OPRA_DATABASE_LINK,
+        };
+        match (self, lang) {
+            (Self::DatabaseHint, Lang::En) => &[
+                Piece::Plain("Optional, for more headphones: the path of "),
+                DATABASE,
+                Piece::Plain(" from "),
+                Piece::Link {
+                    text: "OPRA's repository",
+                    url: OPRA_REPOSITORY,
+                },
+                Piece::Plain(
+                    ", which you downloaded yourself. Load with an empty path to go back to the built-in presets.",
+                ),
+            ],
+            (Self::DatabaseHint, Lang::De) => &[
+                Piece::Plain("Optional, für weitere Kopfhörer: der Pfad von "),
+                DATABASE,
+                Piece::Plain(" aus "),
+                Piece::Link {
+                    text: "OPRAs Repository",
+                    url: OPRA_REPOSITORY,
+                },
+                Piece::Plain(
+                    ", die du selbst heruntergeladen hast. Laden mit leerem Pfad führt zurück zu den eingebauten Presets.",
+                ),
+            ],
+            (Self::CurvesHint, Lang::En) => &[
+                Piece::Plain(
+                    "A measurement of your headphones and a target, as CSV files that you downloaded yourself, e.g. from ",
+                ),
+                Piece::Link {
+                    text: "AutoEQ's repository",
+                    url: AUTOEQ_REPOSITORY,
+                },
+                Piece::Plain(": measurements/oratory1990/data/over-ear/… and targets/…."),
+            ],
+            (Self::CurvesHint, Lang::De) => &[
+                Piece::Plain(
+                    "Eine Messung deiner Kopfhörer und eine Zielkurve, als CSV-Dateien, die du selbst heruntergeladen hast, z. B. aus ",
+                ),
+                Piece::Link {
+                    text: "AutoEQs Repository",
+                    url: AUTOEQ_REPOSITORY,
+                },
+                Piece::Plain(": measurements/oratory1990/data/over-ear/… und targets/…."),
+            ],
         }
     }
 }
@@ -1041,7 +1109,8 @@ impl About {
 
 #[cfg(test)]
 mod tests {
-    use super::{About, CurveMessage, Hint, Lang, Message, Notice, Param, Text};
+    use super::{About, CurveMessage, Hint, Lang, Linked, Message, Notice, Param, Piece, Text};
+    use crate::profiles::{AUTOEQ_REPOSITORY, OPRA_DATABASE_LINK, OPRA_REPOSITORY};
     use crate::stereo::{Channels, Crossfeed};
 
     #[test]
@@ -1108,6 +1177,74 @@ mod tests {
             }
         }
         assert_eq!(Text::Load.text(Lang::De), "Laden");
+    }
+
+    /// The links of a text with links, as (text, address).
+    fn links(text: Linked, lang: Lang) -> Vec<(&'static str, &'static str)> {
+        text.pieces(lang)
+            .iter()
+            .filter_map(|piece| match *piece {
+                Piece::Plain(_) => None,
+                Piece::Link { text, url } => Some((text, url)),
+            })
+            .collect()
+    }
+
+    /// A text with links as it reads, without the addresses.
+    fn reads(text: Linked, lang: Lang) -> String {
+        text.pieces(lang)
+            .iter()
+            .map(|piece| match *piece {
+                Piece::Plain(text) | Piece::Link { text, .. } => text,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn every_text_with_links_exists_in_every_language() {
+        for text in Linked::ALL {
+            assert_ne!(reads(text, Lang::En), reads(text, Lang::De), "{text:?}");
+            for lang in Lang::ALL {
+                assert!(!links(text, lang).is_empty(), "{text:?} in {lang:?}");
+                for piece in text.pieces(lang) {
+                    let words = match *piece {
+                        Piece::Plain(words) => words,
+                        Piece::Link { text, url } => {
+                            assert!(url.starts_with("https://"), "{url}");
+                            text
+                        }
+                    };
+                    assert!(!words.is_empty(), "{text:?} in {lang:?}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_hints_link_opra_and_autoeq() {
+        assert_eq!(
+            links(Linked::DatabaseHint, Lang::En),
+            [
+                ("database_v1.jsonl", OPRA_DATABASE_LINK),
+                ("OPRA's repository", OPRA_REPOSITORY),
+            ]
+        );
+        assert_eq!(
+            links(Linked::DatabaseHint, Lang::De),
+            [
+                ("database_v1.jsonl", OPRA_DATABASE_LINK),
+                ("OPRAs Repository", OPRA_REPOSITORY),
+            ]
+        );
+        assert_eq!(
+            links(Linked::CurvesHint, Lang::De),
+            [("AutoEQs Repository", AUTOEQ_REPOSITORY)]
+        );
+        assert_eq!(
+            reads(Linked::CurvesHint, Lang::En),
+            "A measurement of your headphones and a target, as CSV files that you downloaded yourself, e.g. from AutoEQ's repository: measurements/oratory1990/data/over-ear/… and targets/…."
+        );
+        assert!(OPRA_DATABASE_LINK.ends_with("/dist/database_v1.jsonl"));
     }
 
     #[test]

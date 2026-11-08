@@ -162,7 +162,7 @@ Neben der Suche steht, wie viele Presets die Liste enthält, z. B. „Eingebaut:
 
 Für andere Kopfhörer lädst du OPRAs ganze Datenbank herunter und lässt AudioRef sie lesen:
 
-1. Lade die Datei [`dist/database_v1.jsonl`](https://github.com/opra-project/OPRA/tree/main/dist) aus OPRAs Repository herunter, etwa 12 MB, und leg sie irgendwo ab, z. B. in deinen Dokumenten.
+1. Lade die Datei [`dist/database_v1.jsonl`](https://github.com/opra-project/OPRA/tree/main/dist) aus OPRAs Repository herunter, etwa 12 MB, und leg sie irgendwo ab, z. B. in deinen Dokumenten. Der Hinweis unter dem Feld in **OPRA-Datenbank** verlinkt die Datei auch: Klicke dort auf `database_v1.jsonl`, um sie im Browser herunterzuladen, oder auf **OPRAs Repository**, um zu sehen, woher sie kommt.
 2. Öffne im Fenster von AudioRef **OPRA-Datenbank** unter den Listen.
 3. Füge den Pfad der Datei in das Feld ein, z. B. `C:\Users\du\Documents\database_v1.jsonl` oder `/Users/du/Documents/database_v1.jsonl`, und klicke **Laden**.
 
@@ -214,7 +214,7 @@ Beide Kurven sind CSV-Dateien mit einer Spalte Frequenzen in Hz und einer Spalte
 - Messungen, z. B. `measurements/oratory1990/data/over-ear/AKG K240 Studio.csv`.
 - Zielkurven, z. B. `targets/Harman over-ear 2018.csv`.
 
-Lade sie selbst herunter: AudioRef liefert keine Messungen mit. Sie sind nur für deine private, nicht-kommerzielle Nutzung, siehe [Nutzungsbedingungen](#nutzungsbedingungen).
+Lade sie selbst herunter: AudioRef liefert keine Messungen mit. Der Hinweis oben im Tab **Eigene Kurven (AutoEQ)** verlinkt AutoEQs Repository: Klicke auf **AutoEQs Repository**, um es im Browser zu öffnen. Sie sind nur für deine private, nicht-kommerzielle Nutzung, siehe [Nutzungsbedingungen](#nutzungsbedingungen).
 
 AudioRef liest AutoEQs Format, eine Kopfzeile `frequency,raw` und eine Zeile je Frequenz, und was andere Programme schreiben: weitere Spalten (es nimmt die Spalte `raw`, sonst die nach der Frequenz), keine Kopfzeile, Semikolons mit Dezimalkomma, Tabs oder Leerzeichen, und Kommentare, die mit `#` oder `*` beginnen. Eine Kurve braucht mindestens 2 und höchstens 100.000 Punkte, mit steigenden Frequenzen, und muss von 100 Hz bis 10 kHz reichen. Zwischen ihren Punkten zieht AudioRef gerade Linien auf einer logarithmischen Frequenzachse; jenseits ihrer Enden bleibt sie flach.
 
