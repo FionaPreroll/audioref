@@ -18,7 +18,7 @@
 //! use audioref_core::autoeq::Curve;
 //! use audioref_core::design::{Correction, Settings};
 //!
-//! let measurement = Curve::from_points(vec![(20.0, -6.0), (1000.0, 0.0), (20_000.0, 0.0)])
+//! let measurement = Curve::from_points(vec![(20.0, -6.0), (150.0, 0.0), (20_000.0, 0.0)])
 //!     .map_err(|error| format!("{error:?}"))?;
 //! let target = Curve::from_points(vec![(20.0, 0.0), (20_000.0, 0.0)])
 //!     .map_err(|error| format!("{error:?}"))?;
