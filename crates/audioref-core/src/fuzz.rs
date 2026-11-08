@@ -4,9 +4,11 @@
 
 use crate::autoeq::{Curve, FREQUENCY_HZ as CURVE_HZ, LEVEL_DB, MAX_POINTS, REQUIRED_HZ};
 use crate::cascade::{Cascade, grid};
+use crate::design::{MAX_BOOST_DB, MAX_CUT_DB};
 use crate::eq::{FREQUENCY_HZ, GAIN_DB, MAX_BANDS, ParametricEq};
+use crate::fir;
 use crate::opra::Database;
-use crate::state::SavedCorrection;
+use crate::state::{SavedCorrection, SavedDesign};
 
 /// The text of OPRA's database, as bytes.
 ///
@@ -115,6 +117,32 @@ pub fn autoeq_curve(data: &[u8]) {
     }
 }
 
+/// The design a project saved, as the JSON that nih-plug stores in the plugin's state.
+///
+/// Checks beyond not crashing: the correction of a design that is read and used has a finite
+/// level within its limits at each frequency of the grid, and its FIR at 44.1 kHz finite taps.
+///
+/// # Panics
+///
+/// If one of these checks fails, which is what the fuzz target looks for.
+pub fn saved_design(data: &[u8]) {
+    let Ok(saved) = serde_json::from_slice::<SavedDesign>(data) else {
+        return;
+    };
+    let Some(correction) = saved.correction() else {
+        return;
+    };
+    let limits = MAX_CUT_DB..=*MAX_BOOST_DB.end();
+    assert!(
+        correction
+            .levels_db()
+            .iter()
+            .all(|level| limits.contains(level))
+    );
+    let taps = fir::minimum_phase(&correction, 44_100.0);
+    assert!(taps.is_some_and(|taps| taps.iter().all(|tap| tap.is_finite())));
+}
+
 /// Asserts that an EQ holds no value outside its range.
 fn check_eq(eq: &ParametricEq) {
     assert!(GAIN_DB.contains(&eq.gain_db()));
@@ -158,6 +186,26 @@ not json"#,
         ];
         for input in inputs {
             super::autoeq_curve(input);
+        }
+    }
+
+    #[test]
+    fn saved_design_smoke_test() {
+        let flat = format!("[{}]", vec!["0"; 695].join(","));
+        let loud = format!("[{}]", vec!["150"; 695].join(","));
+        let inputs = [
+            String::new(),
+            "null".to_owned(),
+            r#"{"measurement":"M","target":"T","measurement_db":[],"target_db":[]}"#.to_owned(),
+            format!(
+                r#"{{"measurement":"M","target":"T","measurement_db":{flat},"target_db":{loud}}}"#
+            ),
+            format!(
+                r#"{{"measurement":"M","target":"T","measurement_db":{loud},"target_db":{flat},"settings":{{"tilt_db_per_octave":9,"bass_db":-99,"max_boost_db":1e300}}}}"#
+            ),
+        ];
+        for input in inputs {
+            super::saved_design(input.as_bytes());
         }
     }
 

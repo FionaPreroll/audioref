@@ -17,10 +17,16 @@ out=$(realpath -m "${1:-$root/target/screenshots}")
 # Where the window's widgets are, in its logical pixels, for xdotool. They follow the layout in
 # crates/audioref/src/editor.rs: move them when it changes, the pictures show where the clicks
 # went.
-PATH_FIELD=(290 58)
-LOAD_BUTTON=(600 58)
-FIRST_HEADPHONES=(60 135)
-FIRST_PRESET=(440 153)
+PATH_FIELD=(290 88)
+LOAD_BUTTON=(600 88)
+FIRST_HEADPHONES=(60 165)
+FIRST_PRESET=(440 183)
+CURVES_TAB=(165 41)
+MEASUREMENT_FIELD=(300 93)
+MEASUREMENT_LOAD=(539 93)
+TARGET_FIELD=(300 116)
+TARGET_LOAD=(539 116)
+USE_BUTTON=(58 139)
 
 # Outside Xvfb: prepare the copy of nih-plug, build the program and run this script again on Xvfb.
 if [[ "${AUDIOREF_SCREENSHOTS_XVFB:-}" != 1 ]]; then
@@ -64,6 +70,10 @@ program="$root/screenshots/target/debug/audioref-screenshots"
 database=/tmp/audioref-screenshots/database_v1.jsonl
 mkdir -p "$(dirname "$database")"
 cp "$root/screenshots/demo_database.jsonl" "$database"
+measurement=/tmp/audioref-screenshots/Demo\ headphones.csv
+target=/tmp/audioref-screenshots/Demo\ target.csv
+cp "$root/screenshots/demo_measurement.csv" "$measurement"
+cp "$root/screenshots/demo_target.csv" "$target"
 pid=
 trap '[[ -n "$pid" ]] && kill "$pid" 2>/dev/null; true' EXIT
 
@@ -108,6 +118,18 @@ for lang in en de; do
     click "${FIRST_PRESET[@]}"
     sleep 1
     shoot "$lang-file"
+
+    click "${CURVES_TAB[@]}"
+    click "${MEASUREMENT_FIELD[@]}"
+    xdotool type --delay 30 "$measurement"
+    click "${MEASUREMENT_LOAD[@]}"
+    click "${TARGET_FIELD[@]}"
+    xdotool type --delay 30 "$target"
+    click "${TARGET_LOAD[@]}"
+    sleep 1
+    click "${USE_BUTTON[@]}"
+    sleep 1
+    shoot "$lang-curves"
 
     kill "$pid"
     wait "$pid" 2>/dev/null || true

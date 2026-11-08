@@ -1,22 +1,26 @@
-//! The window, drawn with egui: OPRA's file or the built-in presets, the search for headphones,
-//! their presets, the curve of the correction, the parameters and the notices.
+//! The window, drawn with egui, in two tabs: OPRA's file or the built-in presets, the search for
+//! headphones and their presets; or the files of a measurement and a target. Below them the
+//! correction with its curve and, for a measurement and a target, its settings; the parameters
+//! and the notices.
 //!
-//! Only reading and showing: the file is read and the correction designed in the background, see
-//! [`crate::background`].
+//! Only reading and showing: the files are read and the correction designed in the background,
+//! see [`crate::background`].
 
 use std::path::PathBuf;
 use std::sync::{Arc, PoisonError};
 
+use audioref_core::autoeq::ParseError;
 use audioref_core::cascade::{Cascade, grid};
-use audioref_core::i18n::{Lang, Message, Notice, Text};
+use audioref_core::design::{BASS_DB, MAX_BOOST_DB, Settings, TILT_DB_PER_OCTAVE};
+use audioref_core::i18n::{CurveMessage, Lang, Message, Notice, Text};
 use audioref_core::opra::Database;
-use audioref_core::state::SavedCorrection;
+use audioref_core::state::{SavedCorrection, SavedDesign};
 use nih_plug::prelude::{BoolParam, Editor, Param, ParamSetter};
 use nih_plug_egui::egui::{self, Color32, Pos2, Rect, Stroke, Vec2};
 use nih_plug_egui::{EguiState, create_egui_editor, widgets};
 
 use crate::AudioRefParams;
-use crate::background::{Load, Shared, Task, lock};
+use crate::background::{CurveLoad, Load, Shared, Task, Which, lock};
 
 /// The size of the window, in logical pixels.
 pub const SIZE: (u32, u32) = (760, 680);
@@ -30,11 +34,26 @@ const OPRA_URL: &str = "https://github.com/opra-project/OPRA";
 /// The range of the curve, in dB: a correction boosts nothing, see the headroom.
 const CURVE_DB: (f32, f32) = (6.0, -24.0);
 
+/// The tabs of the window: where the correction comes from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum Tab {
+    /// OPRA's presets.
+    #[default]
+    Opra,
+    /// A measurement and a target.
+    Curves,
+}
+
 /// What the window keeps between frames.
 #[derive(Default)]
 struct State {
-    /// The path in the field.
+    /// The open tab.
+    tab: Tab,
+    /// The path in the field of OPRA's file.
     path: String,
+    /// The paths in the fields of the measurement and the target.
+    measurement_path: String,
+    target_path: String,
     /// The search in the field.
     query: String,
     /// The search and the database the results are for, and the results.
@@ -45,10 +64,19 @@ struct State {
     curve: Option<Curve>,
 }
 
+/// What a curve is drawn for.
+#[derive(Debug, Clone, PartialEq)]
+enum Shown {
+    /// The preset with this ID.
+    Preset(String),
+    /// This design.
+    Design(SavedDesign),
+}
+
 /// The curve of a correction, as the window draws it.
 struct Curve {
-    /// The preset it is for.
-    preset_id: String,
+    /// What it is for.
+    shown: Shown,
     /// The frequencies, in Hz, and the response there, in dB.
     points: Vec<(f64, f64)>,
     /// By how much the correction is lowered, in dB.
@@ -63,12 +91,18 @@ pub fn default_state() -> Arc<EguiState> {
 
 /// The editor of the plugin.
 pub fn create(params: Arc<AudioRefParams>, shared: Arc<Shared>) -> Option<Box<dyn Editor>> {
+    let read = |path: &std::sync::RwLock<String>| {
+        path.read().unwrap_or_else(PoisonError::into_inner).clone()
+    };
     let state = State {
-        path: params
-            .opra_path
-            .read()
-            .unwrap_or_else(PoisonError::into_inner)
-            .clone(),
+        tab: if current_design(&params).is_some() {
+            Tab::Curves
+        } else {
+            Tab::Opra
+        },
+        path: read(&params.opra_path),
+        measurement_path: read(&params.measurement_path),
+        target_path: read(&params.target_path),
         ..State::default()
     };
     let build_shared = shared.clone();
@@ -95,7 +129,15 @@ pub fn create(params: Arc<AudioRefParams>, shared: Arc<Shared>) -> Option<Box<dy
                 ui.label(egui::RichText::new(Notice::MonitoringOnly.text(lang)).small());
             });
             egui::CentralPanel::default().show(ctx, |ui| {
-                database(ui, lang, state, &params, &shared);
+                ui.horizontal(|ui| {
+                    ui.selectable_value(&mut state.tab, Tab::Opra, Text::SourceOpra.text(lang));
+                    ui.selectable_value(&mut state.tab, Tab::Curves, Text::SourceCurves.text(lang));
+                });
+                ui.separator();
+                match state.tab {
+                    Tab::Opra => database(ui, lang, state, &params, &shared),
+                    Tab::Curves => curves(ui, lang, state, &params, &shared),
+                }
                 ui.separator();
                 correction(ui, lang, state, &params, &shared);
             });
@@ -230,7 +272,10 @@ fn presets(
         return;
     };
     ui.strong(Text::Presets.text(lang));
-    let current = current(params).map(|saved| saved.preset_id);
+    let current = current_design(params)
+        .is_none()
+        .then(|| current(params).map(|saved| saved.preset_id))
+        .flatten();
     egui::ScrollArea::vertical()
         .id_salt("presets")
         .max_height(200.0)
@@ -249,7 +294,100 @@ fn presets(
         });
 }
 
-/// The current correction: whose it is, its headroom, its curve, and the button to turn it off.
+/// The files of the measurement and the target, and the button that makes them the correction.
+fn curves(
+    ui: &mut egui::Ui,
+    lang: Lang,
+    state: &mut State,
+    params: &AudioRefParams,
+    shared: &Shared,
+) {
+    ui.add(egui::Label::new(egui::RichText::new(Text::CurvesHint.text(lang)).small()).wrap());
+    let rows = [
+        (
+            Which::Measurement,
+            Text::Measurement,
+            &mut state.measurement_path,
+            &params.measurement_path,
+        ),
+        (
+            Which::Target,
+            Text::Target,
+            &mut state.target_path,
+            &params.target_path,
+        ),
+    ];
+    for (which, label, path, saved_path) in rows {
+        ui.horizontal(|ui| {
+            ui.add_sized([90.0, 20.0], egui::Label::new(label.text(lang)));
+            ui.add(egui::TextEdit::singleline(path).desired_width(400.0));
+            if ui.button(Text::Load.text(lang)).clicked() {
+                let trimmed = path.trim().to_owned();
+                saved_path
+                    .write()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .clone_from(&trimmed);
+                if !trimmed.is_empty() {
+                    shared.execute(Task::LoadCurve(which, PathBuf::from(trimmed)), params);
+                }
+            }
+            // Beside the field, so the fields below don't move.
+            curve_status(ui, lang, &lock(shared.curve(which)));
+        });
+    }
+    let measurement = lock(&shared.measurement).clone();
+    let target = lock(&shared.target).clone();
+    let ready = match (&measurement, &target) {
+        (CurveLoad::Loaded(m, measurement), CurveLoad::Loaded(t, target)) => {
+            Some(((m, measurement), (t, target)))
+        }
+        _ => None,
+    };
+    let button = egui::Button::new(Text::UseCurves.text(lang));
+    if ui.add_enabled(ready.is_some(), button).clicked()
+        && let Some(((m, measurement), (t, target))) = ready
+    {
+        // The settings stay those of the design before, if there was one.
+        let settings = current_design(params).map_or_else(Settings::default, |d| d.settings);
+        let design = SavedDesign::new((m, measurement), (t, target), settings);
+        set_design(params, shared, Some(design));
+    }
+}
+
+/// Whether the file of a curve was read, and why not.
+fn curve_status(ui: &mut egui::Ui, lang: Lang, load: &CurveLoad) {
+    let (text, color) = match load {
+        CurveLoad::None => return,
+        CurveLoad::Loaded(name, curve) => {
+            let points = CurveMessage::Points(curve.points().len()).text(lang);
+            let text = if curve.skipped() > 0 {
+                let skipped = Message::Skipped(curve.skipped()).text(lang);
+                format!("{name}: {points}, {skipped}")
+            } else {
+                format!("{name}: {points}")
+            };
+            (text, Color32::GRAY)
+        }
+        CurveLoad::ReadFailed(reason) => (
+            format!("{} {reason}", Text::ReadFailed.text(lang)),
+            Color32::LIGHT_RED,
+        ),
+        CurveLoad::Invalid(error) => {
+            let text = match *error {
+                ParseError::NoPoints => Text::NotCurve.text(lang).to_owned(),
+                ParseError::TooManyPoints => Text::TooManyPoints.text(lang).to_owned(),
+                ParseError::TooNarrow { from_hz, to_hz } => {
+                    CurveMessage::TooNarrow { from_hz, to_hz }.text(lang)
+                }
+            };
+            (text, Color32::LIGHT_RED)
+        }
+    };
+    ui.add(egui::Label::new(egui::RichText::new(text).small().color(color)).wrap());
+}
+
+/// The current correction: where it comes from, its settings, its headroom, its curve, and the
+/// button to turn it off.
 fn correction(
     ui: &mut egui::Ui,
     lang: Lang,
@@ -258,15 +396,20 @@ fn correction(
     shared: &Shared,
 ) {
     ui.strong(Text::Correction.text(lang));
+    if let Some(design) = current_design(params) {
+        designed(ui, lang, state, params, shared, design);
+        return;
+    }
     let Some(saved) = current(params) else {
         ui.label(Text::NoCorrection.text(lang));
         state.curve = None;
         return;
     };
+    let shown = Shown::Preset(saved.preset_id.clone());
     if state
         .curve
         .as_ref()
-        .is_none_or(|curve| curve.preset_id != saved.preset_id)
+        .is_none_or(|curve| curve.shown != shown)
     {
         state.curve = saved.eq().map(|eq| {
             // The curve as at 48 kHz: at other sample rates it differs only near the top.
@@ -275,7 +418,7 @@ fn correction(
                 .map(|frequency| (frequency, cascade.response_db(frequency)))
                 .collect();
             Curve {
-                preset_id: saved.preset_id.clone(),
+                shown,
                 points,
                 headroom_db: cascade.headroom_db(),
             }
@@ -295,12 +438,107 @@ fn correction(
         ui.label(egui::RichText::new(attribution.text(lang)).small());
         ui.hyperlink_to(egui::RichText::new(OPRA_URL).small(), OPRA_URL);
     });
-    if let Some(shown) = &state.curve {
+    show_curve(ui, lang, state.curve.as_ref());
+}
+
+/// A correction designed from a measurement and a target: their names, the settings, the curve.
+fn designed(
+    ui: &mut egui::Ui,
+    lang: Lang,
+    state: &mut State,
+    params: &AudioRefParams,
+    shared: &Shared,
+    mut design: SavedDesign,
+) {
+    ui.horizontal(|ui| {
+        let names = CurveMessage::Designed {
+            measurement: &design.measurement,
+            target: &design.target,
+        };
+        ui.label(egui::RichText::new(names.text(lang)).strong());
+        if ui.button(Text::TurnOff.text(lang)).clicked() {
+            set_design(params, shared, None);
+        }
+    });
+    // The curve follows a slider at once; the filter, which takes longer, once it is let go.
+    let mut changed = false;
+    let mut released = false;
+    ui.horizontal(|ui| {
+        let settings = &mut design.settings;
+        let sliders = [
+            (
+                &mut settings.tilt_db_per_octave,
+                TILT_DB_PER_OCTAVE,
+                Text::Tilt,
+                Text::DbPerOctave.text(lang),
+                0.1,
+            ),
+            (&mut settings.bass_db, BASS_DB, Text::Bass, " dB", 0.5),
+            (
+                &mut settings.max_boost_db,
+                MAX_BOOST_DB,
+                Text::MaxBoost,
+                " dB",
+                0.5,
+            ),
+        ];
+        for (value, range, name, unit, step) in sliders {
+            ui.label(name.text(lang));
+            let response = ui.add(egui::Slider::new(value, range).suffix(unit).step_by(step));
+            changed |= response.changed();
+            released |= response.drag_stopped() || (response.changed() && !response.dragged());
+        }
+    });
+    if changed {
+        *params
+            .design
+            .write()
+            .unwrap_or_else(PoisonError::into_inner) = Some(design.clone());
+    }
+    if released {
+        shared.execute(Task::Design, params);
+    }
+    let shown = Shown::Design(design);
+    if state
+        .curve
+        .as_ref()
+        .is_none_or(|curve| curve.shown != shown)
+    {
+        state.curve = match &shown {
+            Shown::Design(design) => design.correction().map(|correction| {
+                let headroom_db = correction.headroom_db();
+                let points = grid()
+                    .map(|frequency| (frequency, correction.response_db(frequency) - headroom_db))
+                    .collect();
+                Curve {
+                    shown: shown.clone(),
+                    points,
+                    headroom_db,
+                }
+            }),
+            Shown::Preset(_) => None,
+        };
+    }
+    show_curve(ui, lang, state.curve.as_ref());
+}
+
+/// The headroom and the curve of a correction.
+fn show_curve(ui: &mut egui::Ui, lang: Lang, shown: Option<&Curve>) {
+    if let Some(shown) = shown {
         if shown.headroom_db > 0.05 {
             ui.label(Message::Headroom(shown.headroom_db).text(lang));
         }
         curve(ui, &shown.points);
     }
+}
+
+/// The saved design, if the correction is one.
+fn current_design(params: &AudioRefParams) -> Option<SavedDesign> {
+    params
+        .design
+        .read()
+        .unwrap_or_else(PoisonError::into_inner)
+        .clone()
 }
 
 /// The saved correction.
@@ -312,12 +550,31 @@ fn current(params: &AudioRefParams) -> Option<SavedCorrection> {
         .clone()
 }
 
-/// Saves a correction, or none, and has the background design it.
+/// Saves a preset as the correction, or none, and has the background design it. A design, if
+/// there was one, goes: the preset takes its place.
 fn set_correction(params: &AudioRefParams, shared: &Shared, correction: Option<SavedCorrection>) {
     *params
         .correction
         .write()
         .unwrap_or_else(PoisonError::into_inner) = correction;
+    *params
+        .design
+        .write()
+        .unwrap_or_else(PoisonError::into_inner) = None;
+    shared.execute(Task::Design, params);
+}
+
+/// Saves a design as the correction, or none, and has the background design it. The preset, if
+/// there was one, goes: the design takes its place.
+fn set_design(params: &AudioRefParams, shared: &Shared, design: Option<SavedDesign>) {
+    *params
+        .design
+        .write()
+        .unwrap_or_else(PoisonError::into_inner) = design;
+    *params
+        .correction
+        .write()
+        .unwrap_or_else(PoisonError::into_inner) = None;
     shared.execute(Task::Design, params);
 }
 

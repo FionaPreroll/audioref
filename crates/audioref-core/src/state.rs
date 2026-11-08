@@ -1,9 +1,11 @@
-//! The correction a project saves: the chosen preset with its bands, so a project opens with its
-//! correction on a computer without OPRA's file, and the window can name the preset's author.
+//! The correction a project saves: the chosen preset with its bands ([`SavedCorrection`]), or the
+//! measurement and the target a correction is designed from, with its settings ([`SavedDesign`]),
+//! so a project opens with its correction on a computer without the files, and the window can
+//! name where it comes from.
 //!
 //! nih-plug stores it as JSON in the plugin's state, which a host hands back as it got it, or not:
-//! [`SavedCorrection::eq`] checks the values again, and a saved correction outside the ranges of
-//! [`crate::eq`] isn't used.
+//! [`SavedCorrection::eq`] and [`SavedDesign::correction`] check the values again, and a saved
+//! correction outside their ranges isn't used.
 //!
 //! ```
 //! use audioref_core::eq::{Band, ParametricEq};
@@ -18,6 +20,9 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::autoeq::Curve;
+use crate::cascade::grid;
+use crate::design::{Correction, Settings};
 use crate::eq::{Band, ParametricEq};
 use crate::opra::Database;
 
@@ -60,9 +65,57 @@ impl SavedCorrection {
     }
 }
 
+/// A correction designed from a measurement and a target, as a project saves it: both curves on
+/// AutoEQ's grid ([`grid`]), so it can be designed again with other settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SavedDesign {
+    /// The name of the measurement, e.g. its file's, "AKG K240 Studio".
+    pub measurement: String,
+    /// The name of the target, e.g. "Harman over-ear 2018".
+    pub target: String,
+    /// The measurement's level at each frequency of the grid, in dB.
+    pub measurement_db: Vec<f64>,
+    /// The target's level at each frequency of the grid, in dB.
+    pub target_db: Vec<f64>,
+    /// The tilt, the bass and the limit for boosts.
+    #[serde(default)]
+    pub settings: Settings,
+}
+
+impl SavedDesign {
+    /// A measurement and a target with their names, sampled on the grid, with settings.
+    #[must_use]
+    pub fn new(measurement: (&str, &Curve), target: (&str, &Curve), settings: Settings) -> Self {
+        let on_grid = |curve: &Curve| grid().map(|frequency| curve.value_db(frequency)).collect();
+        Self {
+            measurement: measurement.0.to_owned(),
+            target: target.0.to_owned(),
+            measurement_db: on_grid(measurement.1),
+            target_db: on_grid(target.1),
+            settings,
+        }
+    }
+
+    /// The correction, designed with the settings clamped to their ranges, if both curves have a
+    /// level for each frequency of the grid, within [`crate::autoeq::LEVEL_DB`].
+    #[must_use]
+    pub fn correction(&self) -> Option<Correction> {
+        let curve = |levels: &[f64]| {
+            (levels.len() == grid().count())
+                .then(|| Curve::from_points(grid().zip(levels.iter().copied()).collect()).ok())
+                .flatten()
+        };
+        let measurement = curve(&self.measurement_db)?;
+        let target = curve(&self.target_db)?;
+        Some(Correction::design(&measurement, &target, self.settings))
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::SavedCorrection;
+    use super::{SavedCorrection, SavedDesign};
+    use crate::autoeq::Curve;
+    use crate::design::Settings;
     use crate::eq::{Band, Slope};
     use crate::opra::Database;
 
@@ -126,5 +179,54 @@ mod tests {
         };
         assert!(saved.eq().is_none());
         assert!(serde_json::from_str::<SavedCorrection>(r#"{"preset_id":"x"}"#).is_err());
+    }
+
+    fn design() -> SavedDesign {
+        let measurement =
+            Curve::from_points(vec![(20.0, -6.0), (150.0, 0.0), (20_000.0, 0.0)]).expect("a curve");
+        let target = Curve::from_points(vec![(20.0, 0.0), (20_000.0, 0.0)]).expect("a curve");
+        SavedDesign::new(
+            ("Measured", &measurement),
+            ("Flat", &target),
+            Settings::default(),
+        )
+    }
+
+    #[test]
+    fn a_design_reads_back_the_same_and_corrects() {
+        let saved = design();
+        assert_eq!(saved.measurement_db.len(), 695);
+        let json = serde_json::to_string(&saved).expect("serializable");
+        let read: SavedDesign = serde_json::from_str(&json).expect("readable");
+        // JSON keeps the levels to within the last digit.
+        assert_eq!(
+            (&read.measurement, &read.target),
+            (&saved.measurement, &saved.target)
+        );
+        assert_eq!(read.settings, saved.settings);
+        let close = |a: &[f64], b: &[f64]| a.iter().zip(b).all(|(a, b)| (a - b).abs() < 1e-12);
+        assert!(close(&read.measurement_db, &saved.measurement_db));
+        assert!(close(&read.target_db, &saved.target_db));
+        let correction = read.correction().expect("valid");
+        assert!((correction.response_db(20.0) - 6.0).abs() < 0.1);
+        // Older projects without settings get the defaults.
+        let without: SavedDesign = serde_json::from_str(
+            r#"{"measurement":"M","target":"T","measurement_db":[],"target_db":[]}"#,
+        )
+        .expect("readable");
+        assert_eq!(without.settings, Settings::default());
+    }
+
+    #[test]
+    fn a_design_with_bad_curves_is_not_used() {
+        let mut short = design();
+        short.measurement_db.pop();
+        assert!(short.correction().is_none());
+        let mut loud = design();
+        loud.target_db[10] = 1e6;
+        assert!(loud.correction().is_none());
+        let mut nan = design();
+        nan.measurement_db[10] = f64::NAN;
+        assert!(nan.correction().is_none());
     }
 }

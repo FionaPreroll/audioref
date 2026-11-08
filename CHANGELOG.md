@@ -15,4 +15,6 @@ All changes users of AudioRef can notice are listed here. The format follows [Ke
 - An output level from −24 to +6 dB and a bypass. Changes of both fade over 20 ms, so they don't click.
 - Parameter names in English and German, in the language of the operating system.
 - "Bypass on export", on by default: AudioRef, the VST3 and the CLAP version alike, bypasses itself while the host exports offline, so the headphone correction doesn't end up in a mix. Hosts that export in real time don't tell the plugin: bypass AudioRef by hand there.
+- Your own measurement and target: in the tab "Own curves (AutoEQ)", load a measurement of your headphones and a target curve as CSV files, e.g. from AutoEQ's repository, which you download yourself, and use them as the correction, see [Your own measurement and target](README.md#your-own-measurement-and-target). AudioRef smooths it, corrects nothing above 16 kHz, limits boosts and runs it as a minimum-phase filter without latency.
+- Tilt, bass and the limit for boosts, to adjust a correction from your own curves to your taste. The project saves both curves and the settings, so it opens without the files.
 - The pre-release [`snapshot`](https://github.com/FionaPreroll/audioref/releases/tag/snapshot) with the plugin bundles of the latest commit on `main`.

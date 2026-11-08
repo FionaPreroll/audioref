@@ -36,7 +36,7 @@ The core can be tested without a host, to 100 % of its lines and functions. The 
 Stereo in, stereo out, with a latency of 0 samples. In this order, the parts not built yet marked *planned*:
 
 1. Automatic headroom: the overall gain of the correction is lowered by its largest boost between 20 Hz and 20 kHz, on AutoEQ's grid, so it boosts nothing (`audioref_core::cascade`). Most of OPRA's presets bring enough of their own; the most any needs is 5.4 dB.
-2. The correction: a cascade of biquads for OPRA's presets (`audioref_core::cascade`), computed with 64 bits, or the minimum-phase FIR of a correction designed from AutoEQ's curves (`audioref_core::fir`, see [Designing a correction](#designing-a-correction)), computed with 32 bits and convolved without latency (`audioref_core::convolver`): the first 128 taps in the time domain, sample by sample, the others in partitions of 128 taps with FFTs of 256 points, whose share of a block depends only on the blocks before, so it is ready when the block starts. The FFTs work in buffers made with the filter, so the audio thread doesn't allocate. On one core of the sandbox, both channels take 1.2 % at 48 kHz (4096 taps), 2.2 % at 96 kHz and 5.8 % at 192 kHz (16384 taps). *Planned:* choosing AutoEQ's curves in the window.
+2. The correction: a cascade of biquads for OPRA's presets (`audioref_core::cascade`), computed with 64 bits, or the minimum-phase FIR of a correction designed from AutoEQ's curves (`audioref_core::fir`, see [Designing a correction](#designing-a-correction)), computed with 32 bits and convolved without latency (`audioref_core::convolver`): the first 128 taps in the time domain, sample by sample, the others in partitions of 128 taps with FFTs of 256 points, whose share of a block depends only on the blocks before, so it is ready when the block starts. The FFTs work in buffers made with the filter, so the audio thread doesn't allocate. On one core of the sandbox, both channels take 1.2 % at 48 kHz (4096 taps), 2.2 % at 96 kHz and 5.8 % at 192 kHz (16384 taps).
    The biquads follow Vicanek's matched design (`audioref_core::biquad`), as the usual formulas bend above about 10 kHz at 44.1 kHz: the poles of the analog filter, and zeros that give the analog magnitude at 0 Hz, at the band's frequency and at half the sample rate. Peaks and shelves up to 10 kHz stay within 0.75 dB of the analog filter up to half the sample rate. Bands at or above half the sample rate are left out.
 3. *Planned:* crossfeed, optional, in three strengths.
 4. *Planned:* mono and swapped channels.
@@ -73,7 +73,12 @@ Hosts that export in real time don't say so, which is why the window also shows 
 
 ## Window
 
-`crates/audioref/src/editor.rs` draws the window with egui, through nih_plug_egui, in the system's language: OPRA's file and whether it loaded, or the built-in presets, the search for headphones, the presets of the chosen ones, the current correction with its author ("EQ by …, from OPRA, CC BY-SA 4.0", and a link to OPRA's repository, as OPRA asks), its headroom and its curve from 20 Hz to 20 kHz, the parameters, and the notices. It only reads and shows; the search, the texts and the curve's values come from the core.
+`crates/audioref/src/editor.rs` draws the window with egui, through nih_plug_egui, in the system's language, with two tabs for where the correction comes from:
+
+- **OPRA presets:** OPRA's file and whether it loaded, or the built-in presets, the search for headphones, and the presets of the chosen ones.
+- **Own curves (AutoEQ):** the files of a measurement and a target, each read in the background, with its name and number of points or why it can't be used beside it, and the button that makes them the correction.
+
+Below them the current correction: for a preset its author ("EQ by …, from OPRA, CC BY-SA 4.0", and a link to OPRA's repository, as OPRA asks), for a design the names of the measurement and the target and the sliders of the tilt, the bass and the limit for boosts; then the headroom and the curve from 20 Hz to 20 kHz, the parameters, and the notices. The curve follows a slider at once, designed in the window; the filter is designed in the background once the slider is let go, as that takes up to 10 ms. The window only reads and shows; the search, the texts and the curve's values come from the core.
 On Linux, the window needs X11 and OpenGL; `utils/install-linux-deps.sh` installs the libraries to build it.
 
 ## Saved state
@@ -82,6 +87,8 @@ The project saves, besides the parameters:
 
 - `correction`: the chosen preset with its bands, author and headphones (`audioref_core::state::SavedCorrection`), so a project opens with its correction on a computer without OPRA's file. nih-plug stores it as JSON; its values are checked again before they are used, and the fuzz target `saved_correction` reads it.
 - `opra-path`: the path of OPRA's file, which the window loads again when it opens; empty for the built-in presets.
+- `design`: a correction designed from a measurement and a target (`audioref_core::state::SavedDesign`): their names, both curves on AutoEQ's grid, and the tilt, the bass and the limit for boosts, so a project opens with its correction without the files and the settings can still change. If there is one, it is the correction, not the preset; choosing a preset removes it, and using a design removes the preset. The fuzz target `saved_design` reads it.
+- `measurement-path`, `target-path`: the paths of the files of the measurement and the target, for the window's fields.
 - `editor-state`: the size of the window.
 
 Parameter IDs and these keys never change; the names of the parameters are in the system's language.

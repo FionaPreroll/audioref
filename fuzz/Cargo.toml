@@ -36,3 +36,10 @@ path = "fuzz_targets/saved_correction.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "saved_design"
+path = "fuzz_targets/saved_design.rs"
+test = false
+doc = false
+bench = false

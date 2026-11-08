@@ -21,12 +21,12 @@ pub mod background;
 pub mod editor;
 
 use std::num::NonZeroU32;
-use std::sync::{Arc, PoisonError, RwLock};
+use std::sync::{Arc, RwLock};
 
 use audioref_core::engine::Engine;
 use audioref_core::i18n::{Lang, Param};
 use audioref_core::render::{self, Processing};
-use audioref_core::state::SavedCorrection;
+use audioref_core::state::{SavedCorrection, SavedDesign};
 use nih_plug::prelude::*;
 use nih_plug_egui::EguiState;
 
@@ -84,6 +84,16 @@ pub struct AudioRefParams {
     /// The path of OPRA's file, to read it again when the window opens.
     #[persist = "opra-path"]
     pub opra_path: RwLock<String>,
+    /// The measurement and the target a correction is designed from, with its settings. If there
+    /// is one, it is the correction, not the preset; its values are checked again before it is
+    /// used, see `audioref_core::state`.
+    #[persist = "design"]
+    pub design: RwLock<Option<SavedDesign>>,
+    /// The paths of the files of the measurement and the target, for the window's fields.
+    #[persist = "measurement-path"]
+    pub measurement_path: RwLock<String>,
+    #[persist = "target-path"]
+    pub target_path: RwLock<String>,
     /// The size of the window.
     #[persist = "editor-state"]
     pub editor_state: Arc<EguiState>,
@@ -109,6 +119,9 @@ impl AudioRefParams {
                 .non_automatable(),
             correction: RwLock::new(None),
             opra_path: RwLock::new(String::new()),
+            design: RwLock::new(None),
+            measurement_path: RwLock::new(String::new()),
+            target_path: RwLock::new(String::new()),
             editor_state: editor::default_state(),
         }
     }
@@ -177,16 +190,10 @@ impl Plugin for AudioRef {
         // their way are for the sample rate or the project before. The one saved is designed
         // here, so the first block has it.
         while self.queues.incoming.pop().is_ok() {}
-        let saved = self
-            .params
-            .correction
-            .read()
-            .unwrap_or_else(PoisonError::into_inner)
-            .clone();
-        drop(self.engine.set_correction(background::design(
-            saved.as_ref(),
-            buffer_config.sample_rate,
-        )));
+        drop(
+            self.engine
+                .set_correction(background::design(&self.params, buffer_config.sample_rate)),
+        );
         // Hosts activate the plugin again whenever this changes, e.g. to export.
         self.processing = match buffer_config.process_mode {
             ProcessMode::Offline => Processing::Offline,

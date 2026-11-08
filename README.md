@@ -48,6 +48,16 @@ Then let your DAW rescan its plugins again.
 
 The project saves the chosen preset, so it opens with the same correction even on a computer without the file. **Off** turns the correction off. Changing the preset fades over 20 ms.
 
+### Your own measurement and target
+
+Instead of a preset, AudioRef can compute the correction from a measurement of your headphones and a target curve, as CSV files: a column of frequencies and one of levels, as in [AutoEQ's repository](https://github.com/jaakkopasanen/AutoEq), e.g. `measurements/oratory1990/data/over-ear/AKG K240 Studio.csv` and `targets/Harman over-ear 2018.csv`. Download them yourself; AudioRef ships no measurements.
+
+1. Open the tab **Own curves (AutoEQ)**, paste the path of the measurement and of the target, and click **Load** beside each. AudioRef shows how many points it read, or why it can't use a file.
+2. Click **Use as correction**. AudioRef smooths the difference, so narrow dips of one measurement aren't copied, corrects nothing above 16 kHz, and lowers its level by its largest boost, so nothing gets louder.
+3. Adjust it to your taste: **Tilt** (−1 to +1 dB per octave around 1 kHz, darker or brighter), **Bass** (−6 to +12 dB below about 100 Hz) and **Max. boost** (0 to 12 dB, 6 dB by default: how much it may lift frequencies your headphones lack). The curve follows at once, the sound when you let go of the slider.
+
+The project saves both curves and the settings, so it opens with the same correction without the files. Choosing a preset replaces it. The correction adds no latency.
+
 Put AudioRef last on your master track, after everything else. The correction is for your headphones, not for your mix: AudioRef bypasses itself when your DAW exports offline, but not when it exports in real time, so bypass it yourself then.
 
 | Parameter | Range | What it does |

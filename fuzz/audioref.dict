@@ -54,3 +54,13 @@
 "e+"
 "NaN"
 "inf"
+
+# A design in the saved state.
+"\"measurement\":"
+"\"target\":"
+"\"measurement_db\":["
+"\"target_db\":["
+"\"settings\":"
+"\"tilt_db_per_octave\":"
+"\"bass_db\":"
+"\"max_boost_db\":"
