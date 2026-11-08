@@ -24,6 +24,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "name_index"
+path = "fuzz_targets/name_index.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "opra_database"
 path = "fuzz_targets/opra_database.rs"
 test = false

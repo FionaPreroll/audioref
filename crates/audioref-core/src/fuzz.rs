@@ -8,6 +8,7 @@ use crate::design::{MAX_BOOST_DB, MAX_CUT_DB};
 use crate::eq::{FREQUENCY_HZ, GAIN_DB, MAX_BANDS, ParametricEq};
 use crate::fir;
 use crate::opra::Database;
+use crate::profiles::{FORMS, MAX_LINES, NameIndex};
 use crate::state::{SavedCorrection, SavedDesign};
 
 /// The text of OPRA's database, as bytes.
@@ -153,6 +154,35 @@ fn check_eq(eq: &ParametricEq) {
     }
 }
 
+/// The text of AutoEQ's name index of oratory1990's measurements, as bytes.
+///
+/// Checks beyond not crashing: every model has a name and one of the known forms, no model is
+/// listed twice, models and left-out lines are no more than the lines read, every model's file
+/// name stays in its folder, and a model is found again by its name.
+///
+/// # Panics
+///
+/// If one of these checks fails, which is what the fuzz target looks for.
+pub fn name_index(data: &[u8]) {
+    let Ok(text) = std::str::from_utf8(data) else {
+        return;
+    };
+    let index = NameIndex::parse(text);
+    let lines = text.lines().take(MAX_LINES).count();
+    assert!(index.models().len() + index.skipped() <= lines);
+    for (position, model) in index.models().iter().enumerate() {
+        assert_ne!(model.name, "");
+        assert!(FORMS.contains(&model.form.as_str()));
+        assert!(index.models().iter().skip(position + 1).all(|other| {
+            (other.name.as_str(), other.form.as_str()) != (model.name.as_str(), model.form.as_str())
+        }));
+        let file_name = model.file_name();
+        assert!(!file_name.starts_with('.') && !file_name.contains(['/', '\\']));
+        assert!(model.url().starts_with(crate::profiles::AUTOEQ_URL));
+        assert!(index.find(&model.name).is_ok());
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
@@ -220,6 +250,21 @@ not json"#,
         ];
         for input in inputs {
             super::saved_correction(input);
+        }
+    }
+
+    #[test]
+    fn name_index_smoke_test() {
+        let inputs: [&[u8]; 6] = [
+            b"",
+            b"\xff\xfe",
+            b"url\tsource_name\tname\tform\trig\n",
+            b"u\ts\tA\tover-ear\nu\ts\tA\tin-ear\nu\tA\tB\tearbud\n",
+            b"u\ts\tAKG K240 Studio\tover-ear\tGRAS 45BC\nu\ts\tAKG K240 Studio\tover-ear\n",
+            b"u\ts\t../x\tin-ear\nu\ts\t\tearbud\nu\ts\tA\tignore\nu\tonly\n",
+        ];
+        for input in inputs {
+            super::name_index(input);
         }
     }
 }

@@ -21,6 +21,7 @@ pub mod gain;
 pub mod i18n;
 pub mod limiter;
 pub mod opra;
+pub mod profiles;
 pub mod render;
 pub mod state;
 pub mod stereo;

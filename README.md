@@ -58,6 +58,16 @@ Instead of a preset, AudioRef can compute the correction from a measurement of y
 
 The project saves both curves and the settings, so it opens with the same correction without the files. Choosing a preset replaces it. The correction adds no latency.
 
+### Fetching the files
+
+If you build AudioRef from source, `cargo xtask fetch-profiles` downloads the files for both tabs at once, into the folder `AudioRef profiles` in your home folder: OPRA's `database_v1.jsonl`, AutoEQ's target `targets/Harman over-ear 2018.csv`, and oratory1990's measurements of the AKG K240 Studio, the Bose QuietComfort 25 and the Sony WH-1000XM4 in `measurements/`. Name other headphones as AutoEQ does, or a part of the name, and another folder with `--to`:
+
+```sh
+cargo xtask fetch-profiles --to ~/Music/headphones "HD 600" "WH-1000XM4"
+```
+
+It needs curl, which Windows 10 and later, macOS and most Linux systems have, checks that AudioRef can read each file, and names the rig each measurement was made on. It refuses a folder inside the repository, which never holds headphone data. The measurements are for your private, non-commercial use only, see the disclaimer.
+
 Put AudioRef last on your master track, after everything else. The correction is for your headphones, not for your mix: AudioRef bypasses itself when your DAW exports offline, but not when it exports in real time, so bypass it yourself then.
 
 | Parameter | Range | What it does |
