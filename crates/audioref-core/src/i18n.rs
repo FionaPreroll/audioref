@@ -45,11 +45,13 @@ pub enum Param {
     Output,
     /// Passes the signal through unchanged.
     Bypass,
+    /// Bypasses AudioRef while the host exports offline, see `crate::render`.
+    BypassOnExport,
 }
 
 impl Param {
     /// All parameters, e.g. for tests.
-    pub const ALL: [Self; 2] = [Self::Output, Self::Bypass];
+    pub const ALL: [Self; 3] = [Self::Output, Self::Bypass, Self::BypassOnExport];
 
     /// The parameter's name in a language.
     #[must_use]
@@ -64,6 +66,7 @@ impl Param {
         match self {
             Self::Output => "Output",
             Self::Bypass => "Bypass",
+            Self::BypassOnExport => "Bypass on export",
         }
     }
 
@@ -71,6 +74,7 @@ impl Param {
         match self {
             Self::Output => "Ausgang",
             Self::Bypass => "Umgehen",
+            Self::BypassOnExport => "Beim Export umgehen",
         }
     }
 }
@@ -148,7 +152,11 @@ mod tests {
     #[test]
     fn names_differ_between_parameters() {
         for lang in Lang::ALL {
-            assert_ne!(Param::Output.name(lang), Param::Bypass.name(lang));
+            for (index, param) in Param::ALL.iter().enumerate() {
+                for other in Param::ALL.iter().skip(index + 1) {
+                    assert_ne!(param.name(lang), other.name(lang), "{lang:?}");
+                }
+            }
         }
     }
 

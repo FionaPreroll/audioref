@@ -52,9 +52,10 @@ A line it doesn't understand, e.g. of a kind a later OPRA adds, a band type it d
 3. Limits: boosts up to +6 dB by default, cuts unlimited, nothing above 16 kHz.
 4. A warning when the target doesn't fit the rig of the measurement.
 
-## Render guard (planned)
+## Render guard
 
-With "Bypass on export" on, the default, AudioRef bypasses itself while the host processes offline (`ProcessMode::Offline` in nih-plug). Hosts that export in real time don't say so, which is why the window also shows the notice to bypass AudioRef before exporting.
+With "Bypass on export" on, the default, AudioRef bypasses itself while the host processes offline (`audioref_core::render`). Hosts activate the plugin again whenever that changes, with `ProcessMode::Offline` in nih-plug, so the bypass is in place from the first sample of an export, without a fade. The parameter `bypass_on_export` is saved with the project, but isn't automatable.
+Hosts that export in real time don't say so, which is why the window also shows the notice to bypass AudioRef before exporting (*planned*). Whether Bitwig and FL Studio export offline is checked in them, see Next Steps in [PLAN.md](PLAN.md#next-steps).
 
 ## Saved state (planned)
 
