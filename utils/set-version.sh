@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Prepares a release: sets the version in Cargo.toml, updates Cargo.lock (and fuzz/Cargo.lock, once
+# there are fuzz targets), and turns the section [Unreleased] of CHANGELOG.md into one for the
+# version, with today's date. See Changelog and versions in docs/DEVELOPMENT.md.
+#
+# Usage: utils/set-version.sh 0.1.0
+
+set -euo pipefail
+
+version="${1:-}"
+if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+    echo "Usage: $0 <version>, e.g. 0.1.0 or 1.0.0-rc.1" >&2
+    exit 2
+fi
+cd "$(dirname "$0")/.."
+
+if grep -q "^## \[$version\]" CHANGELOG.md; then
+    echo "CHANGELOG.md already has a section for $version" >&2
+    exit 1
+fi
+if ! grep -q '^## \[Unreleased\]$' CHANGELOG.md; then
+    echo "CHANGELOG.md has no section [Unreleased]" >&2
+    exit 1
+fi
+
+# Only the package's own version, the first line starting with "version =".
+sed -i "0,/^version = \".*\"/s//version = \"$version\"/" Cargo.toml
+cargo update --workspace --quiet
+if [ -f fuzz/Cargo.toml ]; then
+    cargo update --workspace --quiet --manifest-path fuzz/Cargo.toml
+fi
+
+today="$(date -u +%Y-%m-%d)"
+sed -i "s/^## \[Unreleased\]$/## [Unreleased]\n\n## [$version] - $today/" CHANGELOG.md
+
+echo "Version $version. Describe the version at the start of its changelog section, then commit."

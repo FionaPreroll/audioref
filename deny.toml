@@ -1,0 +1,67 @@
+# The checks of cargo deny, see Dependencies in docs/PLAN.md: run make deny.
+
+[graph]
+# The platforms that the plugin's bundles exist for, see .github/workflows/release.yml.
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "x86_64-pc-windows-msvc",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+]
+all-features = true
+
+[advisories]
+unmaintained = "all"
+yanked = "deny"
+# An exception needs an entry here, with the reason, e.g.
+# { id = "RUSTSEC-0000-0000", reason = "..." }
+ignore = [
+    { id = "RUSTSEC-2024-0375", reason = "atty, unmaintained, comes with nih_log, nih-plug's logger, which only asks whether stderr is a terminal. Goes once nih-plug drops it." },
+]
+
+[licenses]
+# Each license must allow combining the crate with GPL-3.0-only code.
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "GPL-3.0",
+    "GPL-3.0-only",
+    "GPL-3.0-or-later",
+    "ISC",
+    "MIT",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "Zlib",
+]
+confidence-threshold = 0.9
+# The list holds the usual licenses of Rust crates. One that no dependency has (yet) is fine.
+unused-allowed-license = "allow"
+
+# vst3-sys says "GPLv3", which isn't an SPDX expression; nih-plug's README calls it GPLv3 too.
+[[licenses.clarify]]
+crate = "vst3-sys"
+expression = "GPL-3.0-only"
+license-files = []
+
+[bans]
+# Several versions of a crate cost build time and size, but aren't a risk on their own.
+multiple-versions = "warn"
+wildcards = "deny"
+# The crates of the workspace depend on each other by path, which isn't a wildcard for crates
+# that aren't published.
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+# nih-plug isn't on crates.io, and pins these repositories itself: nih-plug, its CLAP and VST3
+# bindings, and reflink for its bundler. Nothing else may come from git.
+allow-git = [
+    "https://github.com/robbert-vdh/nih-plug.git",
+    "https://github.com/micahrj/clap-sys.git",
+    "https://github.com/robbert-vdh/vst3-sys.git",
+    "https://github.com/nicokoch/reflink.git",
+]
