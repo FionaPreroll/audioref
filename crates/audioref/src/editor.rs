@@ -24,16 +24,32 @@ use nih_plug_egui::egui::{self, Color32, Pos2, Rect, Stroke, Vec2};
 use nih_plug_egui::{EguiState, create_egui_editor, widgets};
 
 use crate::background::{CurveLoad, Load, Shared, Task, Which, lock};
-use crate::{AudioRefParams, about};
+use crate::{AudioRefParams, about, theme};
 
 /// The size of the window, in logical pixels.
-pub const SIZE: (u32, u32) = (760, 680);
+pub const SIZE: (u32, u32) = (760, 720);
+
+/// The height of the lists of headphones and presets, in logical pixels: the built-in
+/// headphones fit.
+const LIST_HEIGHT: f32 = 140.0;
 
 /// The most headphones the search lists.
 const RESULTS: usize = 200;
 
 /// OPRA's repository, linked under the preset's author, as OPRA asks.
 const OPRA_URL: &str = "https://github.com/opra-project/OPRA";
+
+/// The height of the cards of the controls, so they end together.
+const CONTROLS_HEIGHT: f32 = 92.0;
+
+/// Room beside a slider of a design for its value, e.g. "0.00 dB/oct".
+const SLIDER_VALUE_WIDTH: f32 = 110.0;
+/// The shortest slider of a design.
+const SLIDER_MIN_WIDTH: f32 = 40.0;
+
+/// The least and most height of the curve, in logical pixels: it takes the room left.
+const CURVE_MIN_HEIGHT: f32 = 100.0;
+const CURVE_MAX_HEIGHT: f32 = 320.0;
 
 /// The range of the curve, in dB: a correction boosts nothing, see the headroom.
 const CURVE_DB: (f32, f32) = (6.0, -24.0);
@@ -47,7 +63,9 @@ const METER_FALL_DB_PER_SECOND: f32 = 10.0;
 /// How fast the display of the level falls back, in dB per second.
 const LEVEL_FALL_DB_PER_SECOND: f32 = 20.0;
 
-/// From which level on its display turns orange, in dB of full scale: close to the limiter.
+/// From which level on its display turns orange, and red close to the limiter, in dB of full
+/// scale.
+const LEVEL_WARM_DB: f32 = -6.0;
 const LEVEL_HOT_DB: f32 = -1.0;
 
 /// The width of the bars of the level and of the limiter, in logical pixels.
@@ -147,7 +165,8 @@ pub fn create(params: Arc<AudioRefParams>, shared: Arc<Shared>) -> Option<Box<dy
     create_egui_editor(
         params.editor_state.clone(),
         state,
-        move |_, state| {
+        move |ctx, state| {
+            theme::apply(ctx);
             // Reads the file again that was loaded last time, once per window.
             if !state.path.is_empty() && matches!(*lock(&build_shared.database), Load::None) {
                 build_shared.execute(Task::Load(Some(PathBuf::from(&state.path))), &build_params);
@@ -174,54 +193,119 @@ pub fn create(params: Arc<AudioRefParams>, shared: Arc<Shared>) -> Option<Box<dy
                 state.meter = 0.0;
                 state.level = floor_db();
             }
-            egui::TopBottomPanel::top("notice").show(ctx, |ui| {
-                ui.horizontal(|ui| {
-                    // The name opens the about window too.
-                    let name = egui::Label::new(egui::RichText::new("AudioRef").heading())
-                        .sense(egui::Sense::click());
-                    if ui
-                        .add(name)
-                        .on_hover_cursor(egui::CursorIcon::PointingHand)
-                        .on_hover_text(About::Hint.text(lang))
-                        .clicked()
-                    {
-                        state.about = true;
-                    }
-                    ui.label(Notice::NonCommercial.text(lang));
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if ui
-                            .button(About::Button.text(lang))
-                            .on_hover_text(About::Hint.text(lang))
-                            .clicked()
-                        {
-                            state.about = !state.about;
-                        }
+            let margin = |top: i8, bottom: i8| egui::Margin {
+                left: 14,
+                right: 14,
+                top,
+                bottom,
+            };
+            egui::TopBottomPanel::top("header")
+                .frame(
+                    egui::Frame::new()
+                        .fill(theme::BACKGROUND)
+                        .inner_margin(margin(10, 6)),
+                )
+                .show_separator_line(false)
+                .show(ctx, |ui| header(ui, lang, state));
+            egui::TopBottomPanel::bottom("parameters")
+                .frame(
+                    egui::Frame::new()
+                        .fill(theme::BACKGROUND)
+                        .inner_margin(margin(4, 8)),
+                )
+                .show_separator_line(false)
+                .show(ctx, |ui| {
+                    parameters(ui, lang, &params, setter, state);
+                    ui.add_space(2.0);
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label(theme::note(Notice::NonCommercial.text(lang)));
+                        ui.label(theme::note("·"));
+                        ui.label(theme::note(Notice::MonitoringOnly.text(lang)));
                     });
                 });
-            });
-            egui::TopBottomPanel::bottom("parameters").show(ctx, |ui| {
-                parameters(ui, lang, &params, setter, state);
-                ui.label(egui::RichText::new(Notice::MonitoringOnly.text(lang)).small());
-            });
-            egui::CentralPanel::default().show(ctx, |ui| {
-                ui.horizontal(|ui| {
-                    ui.selectable_value(&mut state.tab, Tab::Opra, Text::SourceOpra.text(lang));
-                    ui.selectable_value(&mut state.tab, Tab::Curves, Text::SourceCurves.text(lang));
+            egui::CentralPanel::default()
+                .frame(
+                    egui::Frame::new()
+                        .fill(theme::BACKGROUND)
+                        .inner_margin(margin(2, 6)),
+                )
+                .show(ctx, |ui| {
+                    theme::card(ui, "", |ui| match state.tab {
+                        Tab::Opra => database(ui, lang, state, &params, &shared),
+                        Tab::Curves => curves(ui, lang, state, &params, &shared),
+                    });
+                    ui.add_space(8.0);
+                    theme::card(ui, Text::Correction.text(lang), |ui| {
+                        correction(ui, lang, state, &params, &shared);
+                    });
                 });
-                ui.separator();
-                match state.tab {
-                    Tab::Opra => database(ui, lang, state, &params, &shared),
-                    Tab::Curves => curves(ui, lang, state, &params, &shared),
-                }
-                ui.separator();
-                correction(ui, lang, state, &params, &shared);
-            });
             about::window(ctx, lang, &mut state.about);
         },
     )
 }
 
-/// The file or the built-in presets, the status, the search and the presets.
+/// The name, which opens the about window, the notice of private use, and the button of the
+/// about window.
+fn header(ui: &mut egui::Ui, lang: Lang, state: &mut State) {
+    ui.horizontal(|ui| {
+        let name = egui::Label::new(
+            egui::RichText::new("AudioRef")
+                .size(22.0)
+                .strong()
+                .color(theme::ACCENT),
+        )
+        .sense(egui::Sense::click());
+        if ui
+            .add(name)
+            .on_hover_cursor(egui::CursorIcon::PointingHand)
+            .on_hover_text(About::Hint.text(lang))
+            .clicked()
+        {
+            state.about = true;
+        }
+        ui.add_space(12.0);
+        tabs(ui, lang, state);
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            if ui
+                .button(About::Button.text(lang))
+                .on_hover_text(About::Hint.text(lang))
+                .clicked()
+            {
+                state.about = !state.about;
+            }
+        });
+    });
+}
+
+/// The tabs of where the correction comes from, as one control of two halves.
+fn tabs(ui: &mut egui::Ui, lang: Lang, state: &mut State) {
+    egui::Frame::new()
+        .fill(theme::DEEP)
+        .corner_radius(8)
+        .inner_margin(3)
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = 2.0;
+                for (tab, text) in [
+                    (Tab::Opra, Text::SourceOpra),
+                    (Tab::Curves, Text::SourceCurves),
+                ] {
+                    let selected = state.tab == tab;
+                    let label = egui::RichText::new(text.text(lang)).color(if selected {
+                        Color32::WHITE
+                    } else {
+                        theme::WEAK
+                    });
+                    if ui.selectable_label(selected, label).clicked() {
+                        state.tab = tab;
+                    }
+                }
+            });
+        });
+}
+
+/// The search, the headphones and their presets; below, OPRA's file, folded away unless one is
+/// set or failed.
 fn database(
     ui: &mut egui::Ui,
     lang: Lang,
@@ -229,54 +313,83 @@ fn database(
     params: &AudioRefParams,
     shared: &Shared,
 ) {
-    ui.strong(Text::Database.text(lang));
-    ui.horizontal(|ui| {
-        ui.add(egui::TextEdit::singleline(&mut state.path).desired_width(560.0))
-            .on_hover_text(Hint::LoadDatabase.text(lang));
-        if ui
-            .button(Text::Load.text(lang))
-            .on_hover_text(Hint::LoadDatabase.text(lang))
-            .clicked()
-        {
-            // An empty path goes back to the built-in presets.
-            let path = state.path.trim().to_owned();
-            if path.is_empty() {
-                state.path.clear();
-            }
-            let task = Task::Load((!path.is_empty()).then(|| PathBuf::from(&path)));
-            *params
-                .opra_path
-                .write()
-                .unwrap_or_else(PoisonError::into_inner) = path;
-            shared.execute(task, params);
-        }
-    });
-    ui.label(egui::RichText::new(Text::DatabaseHint.text(lang)).small());
     let load = lock(&shared.database).clone();
     // Without a file, or when it couldn't be loaded, the built-in presets.
-    let (database, from_file) = match load {
-        Load::None => (shared.bundled.clone(), false),
-        Load::Loading => {
-            ui.label(Text::Loading.text(lang));
-            return;
-        }
-        Load::ReadFailed(reason) => {
-            ui.colored_label(
-                Color32::LIGHT_RED,
-                format!("{} {reason}", Text::ReadFailed.text(lang)),
-            );
-            (shared.bundled.clone(), false)
-        }
-        Load::NotOpra => {
-            ui.colored_label(Color32::LIGHT_RED, Text::NotOpra.text(lang));
-            (shared.bundled.clone(), false)
-        }
-        Load::Loaded(database) => (database, true),
+    let (database, from_file, problem) = match load {
+        Load::None => (Some(shared.bundled.clone()), false, None),
+        Load::Loading => (None, false, None),
+        Load::ReadFailed(reason) => (
+            Some(shared.bundled.clone()),
+            false,
+            Some(format!("{} {reason}", Text::ReadFailed.text(lang))),
+        ),
+        Load::NotOpra => (
+            Some(shared.bundled.clone()),
+            false,
+            Some(Text::NotOpra.text(lang).to_owned()),
+        ),
+        Load::Loaded(database) => (Some(database), true, None),
     };
+    match database {
+        Some(database) => browser(ui, lang, state, params, shared, &database, from_file),
+        None => {
+            ui.label(Text::Loading.text(lang));
+        }
+    }
+    ui.add_space(2.0);
+    egui::CollapsingHeader::new(Text::Database.text(lang))
+        .id_salt("database")
+        .default_open(!state.path.is_empty() || problem.is_some())
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                let width = ui.available_width() - 70.0;
+                ui.add(egui::TextEdit::singleline(&mut state.path).desired_width(width))
+                    .on_hover_text(Hint::LoadDatabase.text(lang));
+                if ui
+                    .button(Text::Load.text(lang))
+                    .on_hover_text(Hint::LoadDatabase.text(lang))
+                    .clicked()
+                {
+                    // An empty path goes back to the built-in presets.
+                    let path = state.path.trim().to_owned();
+                    if path.is_empty() {
+                        state.path.clear();
+                    }
+                    let task = Task::Load((!path.is_empty()).then(|| PathBuf::from(&path)));
+                    *params
+                        .opra_path
+                        .write()
+                        .unwrap_or_else(PoisonError::into_inner) = path;
+                    shared.execute(task, params);
+                }
+            });
+            if let Some(problem) = problem {
+                ui.colored_label(theme::HOT, problem);
+            }
+            ui.add(egui::Label::new(theme::note(Text::DatabaseHint.text(lang))).wrap());
+        });
+}
+
+/// The search with what it searches, and the headphones it found beside their presets.
+fn browser(
+    ui: &mut egui::Ui,
+    lang: Lang,
+    state: &mut State,
+    params: &AudioRefParams,
+    shared: &Shared,
+    database: &Arc<Database>,
+    from_file: bool,
+) {
     if !state.reselected {
-        reselect(state, &database, params);
+        reselect(state, database, params);
     }
     ui.horizontal(|ui| {
+        ui.add(
+            egui::TextEdit::singleline(&mut state.query)
+                .hint_text(Text::Search.text(lang))
+                .desired_width(300.0),
+        )
+        .on_hover_text(Hint::Search.text(lang));
         let presets = database.presets().len();
         let headphones = database.products().len();
         let status = if from_file {
@@ -290,15 +403,13 @@ fn database(
                 headphones,
             }
         };
-        ui.label(status.text(lang));
+        ui.label(theme::note(status.text(lang)));
         if database.skipped() > 0 {
-            ui.label(Message::Skipped(database.skipped()).text(lang));
+            ui.label(theme::note(Message::Skipped(database.skipped()).text(lang)));
         }
     });
-    ui.add(egui::TextEdit::singleline(&mut state.query).hint_text(Text::Search.text(lang)))
-        .on_hover_text(Hint::Search.text(lang));
     let outdated = state.results.as_ref().is_none_or(|(query, searched, _)| {
-        *query != state.query || !Arc::ptr_eq(searched, &database)
+        *query != state.query || !Arc::ptr_eq(searched, database)
     });
     if outdated {
         let found = database
@@ -310,10 +421,25 @@ fn database(
     }
     ui.columns(2, |columns| {
         if let [left, right] = columns {
-            headphones(left, lang, state, &database);
-            presets(right, lang, state, &database, params, shared);
+            list_frame(left, |ui| headphones(ui, lang, state, database));
+            list_frame(right, |ui| {
+                presets(ui, lang, state, database, params, shared);
+            });
         }
     });
+}
+
+/// The deep background of a list.
+fn list_frame(ui: &mut egui::Ui, add: impl FnOnce(&mut egui::Ui)) {
+    egui::Frame::new()
+        .fill(theme::DEEP)
+        .corner_radius(6)
+        .inner_margin(4)
+        .show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            ui.set_min_height(LIST_HEIGHT);
+            add(ui);
+        });
 }
 
 /// Chooses the headphones of the saved preset again when the window opens, so the browser shows
@@ -350,8 +476,10 @@ fn headphones(ui: &mut egui::Ui, lang: Lang, state: &mut State, database: &Datab
     let mut chosen = None;
     egui::ScrollArea::vertical()
         .id_salt("headphones")
-        .max_height(220.0)
+        .max_height(LIST_HEIGHT)
         .show(ui, |ui| {
+            ui.spacing_mut().item_spacing.y = 1.0;
+            ui.spacing_mut().interact_size.y = 18.0;
             for id in found {
                 let selected = state.product.as_deref() == Some(id.as_str());
                 let response = ui.selectable_label(selected, database.headphones(id));
@@ -379,18 +507,20 @@ fn presets(
     shared: &Shared,
 ) {
     let Some(product) = &state.product else {
-        ui.label(egui::RichText::new(Hint::PickHeadphones.text(lang)).weak());
+        ui.add(egui::Label::new(theme::note(Hint::PickHeadphones.text(lang))).wrap());
         return;
     };
-    ui.strong(Text::Presets.text(lang));
+    ui.label(theme::title_text(Text::Presets.text(lang)));
     let current = current_design(params)
         .is_none()
         .then(|| current(params).map(|saved| saved.preset_id))
         .flatten();
     egui::ScrollArea::vertical()
         .id_salt("presets")
-        .max_height(200.0)
+        .max_height(LIST_HEIGHT - 20.0)
         .show(ui, |ui| {
+            ui.spacing_mut().item_spacing.y = 1.0;
+            ui.spacing_mut().interact_size.y = 18.0;
             for (id, preset) in database.presets_of(product) {
                 let label = if preset.details.is_empty() {
                     preset.author.clone()
@@ -520,14 +650,16 @@ fn correction(
     params: &AudioRefParams,
     shared: &Shared,
 ) {
-    ui.strong(Text::Correction.text(lang));
     if let Some(design) = current_design(params) {
         designed(ui, lang, state, params, shared, design);
         return;
     }
     let Some(saved) = current(params) else {
-        ui.label(Text::NoCorrection.text(lang));
+        ui.label(theme::note(Text::NoCorrection.text(lang)));
         state.curve = None;
+        // The grid with a flat line, so the window keeps its shape.
+        let flat: Vec<(f64, f64)> = grid().map(|frequency| (frequency, 0.0)).collect();
+        curve(ui, lang, &flat, None);
         return;
     };
     let shown = Shown::Preset(saved.preset_id.clone());
@@ -549,8 +681,11 @@ fn correction(
             }
         });
     }
-    ui.horizontal(|ui| {
-        ui.label(egui::RichText::new(&saved.headphones).strong());
+    let attribution = Message::Attribution {
+        author: &saved.author,
+        details: &saved.details,
+    };
+    ui.horizontal_wrapped(|ui| {
         if ui
             .button(Text::TurnOff.text(lang))
             .on_hover_text(Hint::TurnOff.text(lang))
@@ -558,13 +693,8 @@ fn correction(
         {
             set_correction(params, shared, None);
         }
-    });
-    let attribution = Message::Attribution {
-        author: &saved.author,
-        details: &saved.details,
-    };
-    ui.horizontal(|ui| {
-        ui.label(egui::RichText::new(attribution.text(lang)).small());
+        ui.label(egui::RichText::new(&saved.headphones).strong());
+        ui.label(theme::note(attribution.text(lang)));
         ui.hyperlink_to(egui::RichText::new(OPRA_URL).small(), OPRA_URL);
     });
     show_curve(ui, lang, state.curve.as_ref());
@@ -596,41 +726,46 @@ fn designed(
     // The curve follows a slider at once; the filter, which takes longer, once it is let go.
     let mut changed = false;
     let mut released = false;
-    ui.horizontal(|ui| {
-        let settings = &mut design.settings;
-        let sliders = [
-            (
-                &mut settings.tilt_db_per_octave,
-                TILT_DB_PER_OCTAVE,
-                Text::Tilt,
-                Hint::Tilt,
-                Text::DbPerOctave.text(lang),
-                0.1,
-            ),
-            (
-                &mut settings.bass_db,
-                BASS_DB,
-                Text::Bass,
-                Hint::Bass,
-                " dB",
-                0.5,
-            ),
-            (
-                &mut settings.max_boost_db,
-                MAX_BOOST_DB,
-                Text::MaxBoost,
-                Hint::MaxBoost,
-                " dB",
-                0.5,
-            ),
-        ];
-        for (value, range, name, hint, unit, step) in sliders {
-            ui.label(name.text(lang)).on_hover_text(hint.text(lang));
-            let response = ui
-                .add(egui::Slider::new(value, range).suffix(unit).step_by(step))
-                .on_hover_text(hint.text(lang));
-            changed |= response.changed();
-            released |= response.drag_stopped() || (response.changed() && !response.dragged());
+    let settings = &mut design.settings;
+    let sliders = [
+        (
+            &mut settings.tilt_db_per_octave,
+            TILT_DB_PER_OCTAVE,
+            Text::Tilt,
+            Hint::Tilt,
+            Text::DbPerOctave.text(lang),
+            0.1,
+        ),
+        (
+            &mut settings.bass_db,
+            BASS_DB,
+            Text::Bass,
+            Hint::Bass,
+            " dB",
+            0.5,
+        ),
+        (
+            &mut settings.max_boost_db,
+            MAX_BOOST_DB,
+            Text::MaxBoost,
+            Hint::MaxBoost,
+            " dB",
+            0.5,
+        ),
+    ];
+    // A column each, so the row fits in every language.
+    ui.columns(sliders.len(), |columns| {
+        for ((value, range, name, hint, unit, step), ui) in sliders.into_iter().zip(columns) {
+            ui.horizontal(|ui| {
+                ui.label(name.text(lang)).on_hover_text(hint.text(lang));
+                ui.spacing_mut().slider_width =
+                    (ui.available_width() - SLIDER_VALUE_WIDTH).max(SLIDER_MIN_WIDTH);
+                let response = ui
+                    .add(egui::Slider::new(value, range).suffix(unit).step_by(step))
+                    .on_hover_text(hint.text(lang));
+                changed |= response.changed();
+                released |= response.drag_stopped() || (response.changed() && !response.dragged());
+            });
         }
     });
     if changed {
@@ -666,14 +801,12 @@ fn designed(
     show_curve(ui, lang, state.curve.as_ref());
 }
 
-/// The headroom and the curve of a correction.
+/// The curve of a correction, with its headroom.
 fn show_curve(ui: &mut egui::Ui, lang: Lang, shown: Option<&Curve>) {
     if let Some(shown) = shown {
-        if shown.headroom_db > 0.05 {
-            ui.label(Message::Headroom(shown.headroom_db).text(lang))
-                .on_hover_text(Hint::Headroom.text(lang));
-        }
-        curve(ui, lang, &shown.points);
+        let headroom =
+            (shown.headroom_db > 0.05).then(|| Message::Headroom(shown.headroom_db).text(lang));
+        curve(ui, lang, &shown.points, headroom);
     }
 }
 
@@ -723,13 +856,26 @@ fn set_design(params: &AudioRefParams, shared: &Shared, design: Option<SavedDesi
     shared.execute(Task::Design, params);
 }
 
-/// The response of the correction over the frequencies, on a logarithmic axis.
-fn curve(ui: &mut egui::Ui, lang: Lang, points: &[(f64, f64)]) {
-    let (response, painter) =
-        ui.allocate_painter(Vec2::new(ui.available_width(), 180.0), egui::Sense::hover());
+/// The response of the correction over the frequencies, on a logarithmic axis from 20 Hz to
+/// 20 kHz, filled to 0 dB; under the pointer, the frequency and the response there.
+fn curve(ui: &mut egui::Ui, lang: Lang, points: &[(f64, f64)], headroom: Option<String>) {
+    let height = (ui.available_height() - 4.0).clamp(CURVE_MIN_HEIGHT, CURVE_MAX_HEIGHT);
+    let (response, painter) = ui.allocate_painter(
+        Vec2::new(ui.available_width(), height),
+        egui::Sense::hover(),
+    );
     let rect: Rect = response.rect;
-    response.on_hover_text(Hint::Curve.text(lang));
-    let grid_stroke = Stroke::new(1.0_f32, Color32::from_gray(70));
+    let hovered = response.hover_pos();
+    let hint = if headroom.is_some() {
+        format!(
+            "{}\n\n{}",
+            Hint::Curve.text(lang),
+            Hint::Headroom.text(lang)
+        )
+    } else {
+        Hint::Curve.text(lang).to_owned()
+    };
+    response.on_hover_text(hint);
     let to_x = |frequency: f64| {
         #[expect(clippy::cast_possible_truncation, reason = "a position on the screen")]
         let share = ((frequency / 20.0).log10() / 3.0) as f32;
@@ -740,48 +886,143 @@ fn curve(ui: &mut egui::Ui, lang: Lang, points: &[(f64, f64)]) {
         let db = (db as f32).clamp(CURVE_DB.1, CURVE_DB.0);
         rect.top() + (CURVE_DB.0 - db) / (CURVE_DB.0 - CURVE_DB.1) * rect.height()
     };
-    painter.rect_filled(rect, 4.0, Color32::from_gray(24));
-    for frequency in [100.0, 1000.0, 10_000.0] {
-        let x = to_x(frequency);
-        painter.line_segment(
-            [Pos2::new(x, rect.top()), Pos2::new(x, rect.bottom())],
-            grid_stroke,
-        );
-        let label = if frequency < 1000.0 {
-            "100 Hz".to_owned()
-        } else {
-            format!("{} kHz", frequency / 1000.0)
-        };
-        painter.text(
-            Pos2::new(x + 3.0, rect.bottom() - 3.0),
-            egui::Align2::LEFT_BOTTOM,
-            label,
-            egui::FontId::proportional(11.0),
-            Color32::GRAY,
-        );
-    }
-    for db in [0.0, -6.0, -12.0, -18.0] {
-        let y = to_y(db);
-        painter.line_segment(
-            [Pos2::new(rect.left(), y), Pos2::new(rect.right(), y)],
-            grid_stroke,
-        );
-        painter.text(
-            Pos2::new(rect.left() + 3.0, y - 2.0),
-            egui::Align2::LEFT_BOTTOM,
-            format!("{db} dB"),
-            egui::FontId::proportional(11.0),
-            Color32::GRAY,
-        );
-    }
+    painter.rect_filled(rect, 6.0, theme::DEEP);
+    draw_grid(&painter, rect, &to_x, &to_y);
     let line: Vec<Pos2> = points
         .iter()
         .map(|&(frequency, db)| Pos2::new(to_x(frequency), to_y(db)))
         .collect();
-    painter.add(egui::Shape::line(
-        line,
-        Stroke::new(2.0_f32, Color32::from_rgb(110, 190, 255)),
-    ));
+    // The area between the curve and 0 dB, in strips.
+    let zero = to_y(0.0);
+    let mut area = egui::Mesh::default();
+    for pair in line.windows(2) {
+        if let [a, b] = pair {
+            let index = u32::try_from(area.vertices.len()).unwrap_or(u32::MAX);
+            for point in [*a, Pos2::new(a.x, zero), *b, Pos2::new(b.x, zero)] {
+                area.colored_vertex(point, theme::ACCENT_DIM);
+            }
+            area.add_triangle(index, index + 1, index + 2);
+            area.add_triangle(index + 1, index + 3, index + 2);
+        }
+    }
+    painter.add(area);
+    painter.add(egui::Shape::line(line, Stroke::new(2.0_f32, theme::ACCENT)));
+    // Beside the label of 0 dB, which the curve never goes above.
+    if let Some(headroom) = headroom {
+        painter.text(
+            Pos2::new(rect.left() + 44.0, to_y(0.0) - 2.0),
+            egui::Align2::LEFT_BOTTOM,
+            headroom,
+            egui::FontId::proportional(11.0),
+            theme::WEAK,
+        );
+    }
+    if let Some(at) = hovered {
+        hover_point(&painter, rect, at.x, points, lang);
+    }
+}
+
+/// The grid of the curve: lines at 2, 5 and 10 times each decade, and every 6 dB, with labels.
+fn draw_grid(
+    painter: &egui::Painter,
+    rect: Rect,
+    to_x: &dyn Fn(f64) -> f32,
+    to_y: &dyn Fn(f64) -> f32,
+) {
+    let grid = Stroke::new(1.0_f32, theme::GRID);
+    let label = |position: Pos2, align: egui::Align2, text: String| {
+        painter.text(
+            position,
+            align,
+            text,
+            egui::FontId::proportional(10.0),
+            theme::WEAK,
+        );
+    };
+    // Each decade from 20 Hz, its labels at 100 Hz, 1 kHz and 10 kHz.
+    for decade in [10.0, 100.0, 1000.0, 10_000.0] {
+        for (step, labelled) in [(2.0, false), (5.0, false), (10.0, true)] {
+            let frequency: f64 = decade * step;
+            if !(20.0..=20_000.0).contains(&frequency) {
+                continue;
+            }
+            let x = to_x(frequency);
+            painter.line_segment(
+                [Pos2::new(x, rect.top()), Pos2::new(x, rect.bottom())],
+                grid,
+            );
+            if labelled && frequency < 20_000.0 {
+                let text = if frequency < 1000.0 {
+                    format!("{frequency} Hz")
+                } else {
+                    format!("{} kHz", frequency / 1000.0)
+                };
+                label(
+                    Pos2::new(x + 4.0, rect.bottom() - 3.0),
+                    egui::Align2::LEFT_BOTTOM,
+                    text,
+                );
+            }
+        }
+    }
+    for db in [0.0, -6.0, -12.0, -18.0] {
+        let y = to_y(db);
+        let stroke = if db == 0.0 {
+            Stroke::new(1.0_f32, Color32::from_gray(90))
+        } else {
+            grid
+        };
+        painter.line_segment(
+            [Pos2::new(rect.left(), y), Pos2::new(rect.right(), y)],
+            stroke,
+        );
+        label(
+            Pos2::new(rect.left() + 4.0, y - 2.0),
+            egui::Align2::LEFT_BOTTOM,
+            format!("{db} dB"),
+        );
+    }
+}
+
+/// Under the pointer: a line at its frequency, a dot on the curve, and their values.
+fn hover_point(painter: &egui::Painter, rect: Rect, x: f32, points: &[(f64, f64)], lang: Lang) {
+    let share = f64::from((x - rect.left()) / rect.width());
+    let frequency = 20.0 * 10.0_f64.powf(3.0 * share.clamp(0.0, 1.0));
+    // The nearest point of the grid, which is dense enough.
+    let Some(&(at, db)) = points.iter().min_by(|a, b| {
+        (a.0 / frequency)
+            .ln()
+            .abs()
+            .total_cmp(&(b.0 / frequency).ln().abs())
+    }) else {
+        return;
+    };
+    #[expect(clippy::cast_possible_truncation, reason = "a position on the screen")]
+    let (x, y) = {
+        let share = ((at / 20.0).log10() / 3.0) as f32;
+        let db = (db as f32).clamp(CURVE_DB.1, CURVE_DB.0);
+        (
+            rect.left() + share * rect.width(),
+            rect.top() + (CURVE_DB.0 - db) / (CURVE_DB.0 - CURVE_DB.1) * rect.height(),
+        )
+    };
+    painter.line_segment(
+        [Pos2::new(x, rect.top()), Pos2::new(x, rect.bottom())],
+        Stroke::new(1.0_f32, Color32::from_gray(110)),
+    );
+    painter.circle_filled(Pos2::new(x, y), 4.0, theme::ACCENT);
+    let text = Message::CurvePoint {
+        frequency_hz: at,
+        db,
+    }
+    .text(lang);
+    painter.text(
+        Pos2::new(rect.right() - 8.0, rect.top() + 6.0),
+        egui::Align2::RIGHT_TOP,
+        text,
+        egui::FontId::proportional(12.0),
+        theme::TEXT,
+    );
 }
 
 /// The parameters: the output level, the bypass and the render guard; the routing of the
@@ -793,47 +1034,77 @@ fn parameters(
     setter: &ParamSetter,
     state: &State,
 ) {
-    ui.horizontal(|ui| {
-        ui.label(params.output.name())
+    let on = params.meters.load(Ordering::Relaxed);
+    let mut clicked = false;
+    ui.columns(3, |columns| {
+        let [output, stereo, protection] = columns else {
+            return;
+        };
+        theme::card_of_height(output, params.output.name(), CONTROLS_HEIGHT, |ui| {
+            ui.add(
+                widgets::ParamSlider::for_param(&params.output, setter)
+                    .with_width(ui.available_width() - 64.0),
+            )
             .on_hover_text(Hint::Output.text(lang));
-        ui.add(widgets::ParamSlider::for_param(&params.output, setter))
-            .on_hover_text(Hint::Output.text(lang));
-        toggle(ui, &params.bypass, setter, Hint::Bypass.text(lang));
-        toggle(
-            ui,
-            &params.bypass_on_export,
-            setter,
-            Hint::BypassOnExport.text(lang),
+            ui.horizontal(|ui| clicked |= level(ui, lang, on, state.level));
+            toggle(ui, &params.bypass, setter, Hint::Bypass.text(lang));
+        });
+        theme::card_of_height(stereo, Text::Stereo.text(lang), CONTROLS_HEIGHT, |ui| {
+            egui::Grid::new("stereo")
+                .num_columns(2)
+                .spacing([8.0, 6.0])
+                .show(ui, |ui| {
+                    let channels =
+                        Channels::ALL.map(|channels| (channels.index(), channels.text(lang)));
+                    choice(
+                        ui,
+                        &params.channels,
+                        setter,
+                        &channels,
+                        Hint::Channels.text(lang),
+                    );
+                    ui.end_row();
+                    let crossfeed =
+                        Crossfeed::ALL.map(|crossfeed| (crossfeed.index(), crossfeed.text(lang)));
+                    choice(
+                        ui,
+                        &params.crossfeed,
+                        setter,
+                        &crossfeed,
+                        Hint::Crossfeed.text(lang),
+                    );
+                    ui.end_row();
+                });
+        });
+        theme::card_of_height(
+            protection,
+            Text::Protection.text(lang),
+            CONTROLS_HEIGHT,
+            |ui| {
+                ui.horizontal(|ui| {
+                    toggle(ui, &params.limiter, setter, Hint::Limiter.text(lang));
+                    clicked |= reduction(ui, lang, on, state.meter);
+                });
+                toggle(
+                    ui,
+                    &params.bypass_on_export,
+                    setter,
+                    Hint::BypassOnExport.text(lang),
+                );
+                // Always a line, so the cards don't change their height.
+                let lower = on && state.meter >= LOWER_OUTPUT_DB;
+                let text = if lower {
+                    Hint::LowerOutput.text(lang)
+                } else {
+                    ""
+                };
+                ui.label(egui::RichText::new(text).small().color(theme::WARM));
+            },
         );
     });
-    ui.horizontal(|ui| {
-        let channels = Channels::ALL.map(|channels| (channels.index(), channels.text(lang)));
-        choice(
-            ui,
-            &params.channels,
-            setter,
-            &channels,
-            Hint::Channels.text(lang),
-        );
-        ui.add_space(12.0);
-        let crossfeed = Crossfeed::ALL.map(|crossfeed| (crossfeed.index(), crossfeed.text(lang)));
-        choice(
-            ui,
-            &params.crossfeed,
-            setter,
-            &crossfeed,
-            Hint::Crossfeed.text(lang),
-        );
-        ui.add_space(12.0);
-        let on = params.meters.load(Ordering::Relaxed);
-        let mut clicked = level(ui, lang, on, state.level);
-        ui.add_space(12.0);
-        toggle(ui, &params.limiter, setter, Hint::Limiter.text(lang));
-        clicked |= reduction(ui, lang, on, state.meter);
-        if clicked {
-            params.meters.store(!on, Ordering::Relaxed);
-        }
-    });
+    if clicked {
+        params.meters.store(!on, Ordering::Relaxed);
+    }
 }
 
 /// The lowest level the display shows, in dB of full scale.
@@ -846,15 +1117,17 @@ fn floor_db() -> f32 {
 /// A bar of a display, filled to a share from 0 to 1, with a hint; crossed out if the displays
 /// are off. Whether it was clicked, which turns the displays on or off.
 fn bar(ui: &mut egui::Ui, lang: Lang, on: bool, share: f32, color: Color32, hint: &str) -> bool {
-    let (rect, response) = ui.allocate_exact_size(Vec2::new(BAR_WIDTH, 10.0), egui::Sense::click());
+    let (rect, response) = ui.allocate_exact_size(Vec2::new(BAR_WIDTH, 8.0), egui::Sense::click());
     let painter = ui.painter();
-    painter.rect_filled(rect, 2.0, Color32::from_gray(40));
+    painter.rect_filled(rect, 4.0, theme::DEEP);
     if on {
         let mut filled = rect;
         filled.set_width(rect.width() * share.clamp(0.0, 1.0));
-        painter.rect_filled(filled, 2.0, color);
+        if filled.width() > 0.5 {
+            painter.rect_filled(filled, 4.0, color);
+        }
     } else {
-        let stroke = egui::Stroke::new(1.5_f32, Color32::GRAY);
+        let stroke = egui::Stroke::new(1.5_f32, theme::WEAK);
         painter.line_segment([rect.left_bottom(), rect.right_top()], stroke);
         painter.line_segment([rect.left_top(), rect.right_bottom()], stroke);
     }
@@ -869,7 +1142,7 @@ fn bar(ui: &mut egui::Ui, lang: Lang, on: bool, share: f32, color: Color32, hint
 fn number(ui: &mut egui::Ui, on: bool, text: String, color: Color32) {
     let text = if on { text } else { String::new() };
     ui.add_sized(
-        [52.0, 14.0],
+        [44.0, 14.0],
         egui::Label::new(egui::RichText::new(text).small().color(color)),
     );
 }
@@ -881,13 +1154,15 @@ fn level(ui: &mut egui::Ui, lang: Lang, on: bool, db: f32) -> bool {
     let hint = Hint::Level.text(lang);
     ui.label(Text::Level.text(lang)).on_hover_text(hint);
     let color = if db >= LEVEL_HOT_DB {
-        Color32::from_rgb(255, 170, 60)
+        theme::HOT
+    } else if db >= LEVEL_WARM_DB {
+        theme::WARM
     } else {
-        Color32::from_rgb(110, 200, 120)
+        theme::GOOD
     };
     let clicked = bar(ui, lang, on, (db - floor) / -floor, color, hint);
     let text = Message::Level(f64::from(db)).text(lang);
-    number(ui, on, text, Color32::GRAY);
+    number(ui, on, text, theme::WEAK);
     clicked
 }
 
@@ -899,23 +1174,12 @@ fn reduction(ui: &mut egui::Ui, lang: Lang, on: bool, db: f32) -> bool {
         lang,
         on,
         db / METER_DB,
-        Color32::from_rgb(255, 170, 60),
+        theme::WARM,
         Hint::Limiter.text(lang),
     );
     let text = Message::Reduction(f64::from(db)).text(lang);
-    let color = if db > 0.05 {
-        Color32::from_rgb(255, 170, 60)
-    } else {
-        Color32::GRAY
-    };
+    let color = if db > 0.05 { theme::WARM } else { theme::WEAK };
     number(ui, on, text, color);
-    if db >= LOWER_OUTPUT_DB {
-        ui.label(
-            egui::RichText::new(Hint::LowerOutput.text(lang))
-                .small()
-                .color(color),
-        );
-    }
     clicked
 }
 

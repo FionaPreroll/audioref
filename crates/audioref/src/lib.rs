@@ -20,6 +20,7 @@
 mod about;
 pub mod background;
 pub mod editor;
+mod theme;
 
 use std::num::NonZeroU32;
 use std::sync::atomic::AtomicBool;
