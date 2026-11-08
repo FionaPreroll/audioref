@@ -86,9 +86,23 @@ click() {
     sleep 0.5
 }
 
-# Takes a picture of the window.
+# Takes a picture of the window, once it is drawn: on a slow machine, e.g. in CI, Mesa's software
+# OpenGL compiles its shaders for the first frames, and until then the window is black. Fails if
+# it stays black for 60 seconds.
 shoot() {
-    import -window "$window" "$out/$1.png"
+    local tries=0
+    while :; do
+        import -window "$window" "$out/$1.png"
+        # The window's background is dark grey, about 0.1; black is 0.
+        if [[ $(convert "$out/$1.png" -format '%[fx:mean>0.02]' info:) == 1 ]]; then
+            break
+        fi
+        if ((++tries >= 120)); then
+            echo "The window stayed black for $1, see $out/$lang.log." >&2
+            exit 1
+        fi
+        sleep 0.5
+    done
     echo "Wrote $out/$1.png"
 }
 

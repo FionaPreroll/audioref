@@ -223,7 +223,7 @@ pub enum Text {
     NoMatches,
     /// The heading of the presets of the chosen headphones.
     Presets,
-    /// The heading of the current correction.
+    /// The heading of the current correction and its curve.
     Correction,
     /// No correction is chosen.
     NoCorrection,
@@ -251,13 +251,15 @@ pub enum Text {
     Bass,
     /// The name of the limit for boosts.
     MaxBoost,
+    /// The label of the display of the output level.
+    Level,
     /// The unit of the tilt, with a space before it.
     DbPerOctave,
 }
 
 impl Text {
     /// All texts, e.g. for tests.
-    pub const ALL: [Self; 24] = [
+    pub const ALL: [Self; 25] = [
         Self::Database,
         Self::DatabaseHint,
         Self::Load,
@@ -281,6 +283,7 @@ impl Text {
         Self::Tilt,
         Self::Bass,
         Self::MaxBoost,
+        Self::Level,
         Self::DbPerOctave,
     ];
 
@@ -306,7 +309,7 @@ impl Text {
             Self::Search => "Search headphones",
             Self::NoMatches => "No headphones match.",
             Self::Presets => "Presets",
-            Self::Correction => "Correction",
+            Self::Correction => "Frequency response of the correction EQ",
             Self::NoCorrection => "No correction: the signal passes unchanged.",
             Self::TurnOff => "Off",
             Self::SourceOpra => "OPRA presets",
@@ -324,6 +327,7 @@ impl Text {
             Self::Tilt => "Tilt",
             Self::Bass => "Bass",
             Self::MaxBoost => "Max. boost",
+            Self::Level => "Level",
             Self::DbPerOctave => " dB/oct",
         }
     }
@@ -341,7 +345,7 @@ impl Text {
             Self::Search => "Kopfhörer suchen",
             Self::NoMatches => "Keine Kopfhörer passen.",
             Self::Presets => "Presets",
-            Self::Correction => "Korrektur",
+            Self::Correction => "Frequenzgang des Korrektur-EQ",
             Self::NoCorrection => "Keine Korrektur: Das Signal bleibt unverändert.",
             Self::TurnOff => "Aus",
             Self::SourceOpra => "OPRA-Presets",
@@ -359,6 +363,7 @@ impl Text {
             Self::Tilt => "Neigung",
             Self::Bass => "Bass",
             Self::MaxBoost => "Max. Anhebung",
+            Self::Level => "Pegel",
             Self::DbPerOctave => " dB/Okt.",
         }
     }
@@ -404,15 +409,21 @@ pub enum Hint {
     Channels,
     /// The crossfeed.
     Crossfeed,
+    /// The display of the output level.
+    Level,
     /// The limiter and its display.
     Limiter,
     /// The limiter lowers the signal by much: what to do.
     LowerOutput,
+    /// A click on a display turns the displays off.
+    MetersOn,
+    /// The displays are off; a click turns them on.
+    MetersOff,
 }
 
 impl Hint {
     /// All hints, e.g. for tests.
-    pub const ALL: [Self; 20] = [
+    pub const ALL: [Self; 23] = [
         Self::LoadDatabase,
         Self::Search,
         Self::PickHeadphones,
@@ -431,8 +442,11 @@ impl Hint {
         Self::BypassOnExport,
         Self::Channels,
         Self::Crossfeed,
+        Self::Level,
         Self::Limiter,
         Self::LowerOutput,
+        Self::MetersOn,
+        Self::MetersOff,
     ];
 
     /// The hint in a language.
@@ -494,10 +508,19 @@ impl Hint {
             Self::Crossfeed => {
                 "Each ear hears some of the other channel's bass, as from speakers, so wide mixes tire less. Light, Medium and Strong feed it 9.5, 6 and 4.5 dB lower."
             }
+            Self::Level => {
+                "The peak level that leaves AudioRef, in dB of full scale, from −60 dB. With the limiter on, it stays at or below −0.3 dB."
+            }
             Self::Limiter => {
-                "Keeps the output at or below −0.3 dBFS, without latency. The bar shows by how much it lowers the signal."
+                "Keeps the output at or below −0.3 dBFS, without latency. Its bar shows by how much it lowers the signal: it only moves when the level would go above."
             }
             Self::LowerOutput => "Lower the output level",
+            Self::MetersOn => {
+                "Click to turn both displays off, e.g. on slow graphics: the window is then only drawn again when something in it changes."
+            }
+            Self::MetersOff => {
+                "The displays are off, so the window isn't drawn again and again. Click to turn them on."
+            }
         }
     }
 
@@ -551,13 +574,26 @@ impl Hint {
             Self::Crossfeed => {
                 "Jedes Ohr hört etwas vom Bass des anderen Kanals, wie von Lautsprechern, damit breite Mixe weniger ermüden. Leicht, Mittel und Stark mischen ihn 9,5, 6 und 4,5 dB leiser bei."
             }
+            Self::Level => {
+                "Der Spitzenpegel, der AudioRef verlässt, in dB relativ zur Vollaussteuerung, ab −60 dB. Mit Limiter bleibt er bei höchstens −0,3 dB."
+            }
             Self::Limiter => {
-                "Hält den Ausgang bei höchstens −0,3 dBFS, ohne Latenz. Der Balken zeigt, um wie viel er das Signal absenkt."
+                "Hält den Ausgang bei höchstens −0,3 dBFS, ohne Latenz. Sein Balken zeigt, um wie viel er das Signal absenkt: Er bewegt sich nur, wenn der Pegel darüber ginge."
             }
             Self::LowerOutput => "Senke den Ausgang",
+            Self::MetersOn => {
+                "Klicke, um beide Anzeigen abzuschalten, z. B. bei schwacher Grafik: Das Fenster wird dann nur neu gezeichnet, wenn sich darin etwas ändert."
+            }
+            Self::MetersOff => {
+                "Die Anzeigen sind aus, damit das Fenster nicht ständig neu gezeichnet wird. Klicke, um sie einzuschalten."
+            }
         }
     }
 }
+
+/// The lowest level the display of the output shows, in dB of full scale: below, it shows
+/// silence.
+pub const LEVEL_FLOOR_DB: f64 = -60.0;
 
 /// The texts of the window with numbers or names in them.
 #[derive(Debug, Clone, PartialEq)]
@@ -582,6 +618,8 @@ pub enum Message<'a> {
     Headroom(f64),
     /// The limiter lowers the signal by so many dB, see [`crate::limiter`].
     Reduction(f64),
+    /// The peak level of the output, in dB of full scale; nothing at or below [`LEVEL_FLOOR_DB`].
+    Level(f64),
     /// Whose preset it is and where it comes from, as OPRA's license asks.
     Attribution {
         /// Who made it.
@@ -664,6 +702,10 @@ impl Message<'_> {
             // Without a minus while it rounds to nothing.
             (Self::Reduction(db), _) if *db < 0.05 => format!("{} dB", decimal(0.0, lang)),
             (Self::Reduction(db), _) => format!("−{} dB", decimal(*db, lang)),
+            (Self::Level(db), _) if db.is_nan() || *db <= LEVEL_FLOOR_DB => "−∞ dB".to_owned(),
+            (Self::Level(db), _) if *db <= -0.05 => format!("−{} dB", decimal(-db, lang)),
+            (Self::Level(db), _) if *db < 0.05 => format!("{} dB", decimal(0.0, lang)),
+            (Self::Level(db), _) => format!("+{} dB", decimal(*db, lang)),
             (Self::Attribution { author, details }, Lang::En) => {
                 format!(
                     "EQ by {author}{}, from OPRA, CC BY-SA 4.0",
@@ -1042,6 +1084,13 @@ mod tests {
         );
         assert_eq!(Message::Reduction(2.46).text(Lang::En), "−2.5 dB");
         assert_eq!(Message::Reduction(0.04).text(Lang::De), "0,0 dB");
+        assert_eq!(Message::Level(-12.34).text(Lang::De), "−12,3 dB");
+        assert_eq!(Message::Level(-0.01).text(Lang::En), "0.0 dB");
+        assert_eq!(Message::Level(1.5).text(Lang::En), "+1.5 dB");
+        assert_eq!(Message::Level(-60.0).text(Lang::En), "−∞ dB");
+        assert_eq!(Message::Level(-59.96).text(Lang::En), "−60.0 dB");
+        assert_eq!(Message::Level(f64::NEG_INFINITY).text(Lang::De), "−∞ dB");
+        assert_eq!(Message::Level(f64::NAN).text(Lang::En), "−∞ dB");
         assert_eq!(Message::Reduction(0.05).text(Lang::De), "−0,1 dB");
         let full = Message::Attribution {
             author: "oratory1990",

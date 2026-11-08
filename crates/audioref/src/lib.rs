@@ -22,6 +22,7 @@ pub mod background;
 pub mod editor;
 
 use std::num::NonZeroU32;
+use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, RwLock};
 
 use audioref_core::engine::Engine;
@@ -105,6 +106,10 @@ pub struct AudioRefParams {
     pub measurement_path: RwLock<String>,
     #[persist = "target-path"]
     pub target_path: RwLock<String>,
+    /// Whether the window shows the level and the limiter's reduction, and so is drawn again 30
+    /// times a second. Users turn it off on slow graphics.
+    #[persist = "meters"]
+    pub meters: AtomicBool,
     /// The size of the window.
     #[persist = "editor-state"]
     pub editor_state: Arc<EguiState>,
@@ -162,6 +167,7 @@ impl AudioRefParams {
             design: RwLock::new(None),
             measurement_path: RwLock::new(String::new()),
             target_path: RwLock::new(String::new()),
+            meters: AtomicBool::new(true),
             editor_state: editor::default_state(),
         }
     }
@@ -258,6 +264,7 @@ impl Plugin for AudioRef {
         self.apply_params();
         self.engine.process(buffer.as_slice());
         self.shared.note_reduction(self.engine.take_reduction_db());
+        self.shared.note_peak(self.engine.take_peak());
         ProcessStatus::Normal
     }
 }
