@@ -12,6 +12,7 @@
 #   coverage      : Measure the test coverage and fail below COVERAGE_MIN percent of lines or functions (needs cargo-llvm-cov).
 #   deny          : Check the dependencies' advisories, licenses and sources (needs cargo-deny).
 #   zizmor        : Audit the GitHub Actions workflows for security problems (needs zizmor).
+#   fuzz          : Run each fuzz target for FUZZ_SECONDS seconds (needs nightly Rust and cargo-fuzz).
 #   clean         : Clean build artifacts using Cargo's built-in clean command.
 #   version       : Prepare a release: set VERSION in Cargo.toml, Cargo.lock and CHANGELOG.md.
 #
@@ -22,11 +23,17 @@
 #   make bundle
 #       Writes AudioRef.vst3 and AudioRef.clap to target/bundled.
 #
+#   make fuzz FUZZ_SECONDS=600
+#       Runs each fuzz target for ten minutes.
+#
 #   make version VERSION=0.1.0
 #       Prepares the release of version 0.1.0.
 #############################################
 
-.PHONY: all build bundle lint lint_fix check test coverage deny zizmor clean version
+.PHONY: all build bundle lint lint_fix check test coverage deny zizmor fuzz clean version
+
+# Seconds to run each fuzz target for, see the target fuzz.
+FUZZ_SECONDS ?= 60
 
 # The share of lines, and of functions, that the tests must cover, in percent, see the target
 # coverage.
@@ -139,6 +146,16 @@ deny:
 zizmor:
 	@echo "Auditing the workflows (zizmor)..."
 	@zizmor $(ZIZMOR_ARGS) .github/
+
+# Run each fuzz target in fuzz/ for FUZZ_SECONDS seconds, e.g. make fuzz FUZZ_SECONDS=600.
+# Stops at the first failure; fuzz/README.md describes how to reproduce it.
+# Install the tools with: rustup toolchain install nightly && cargo install cargo-fuzz
+# * (This target is called by CI as well.)
+fuzz:
+	@cd fuzz && for target in $$(cargo +nightly fuzz list); do \
+		echo "Fuzzing $$target for $(FUZZ_SECONDS) seconds..."; \
+		cargo +nightly fuzz run $$target -- -max_total_time=$(FUZZ_SECONDS) -dict=audioref.dict || exit 1; \
+	done
 
 # Prepare a release, e.g. make version VERSION=0.1.0, see Changelog and versions in
 # docs/DEVELOPMENT.md.

@@ -1,0 +1,24 @@
+[package]
+name = "audioref-fuzz"
+version = "0.0.0"
+edition = "2024"
+license = "GPL-3.0-only"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4.13"
+audioref-core = { path = "../crates/audioref-core" }
+
+# A workspace of its own, so the Cargo.lock of AudioRef stays free of fuzzing dependencies.
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "opra_database"
+path = "fuzz_targets/opra_database.rs"
+test = false
+doc = false
+bench = false

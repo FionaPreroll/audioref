@@ -37,6 +37,12 @@ It prints a summary per file, writes an HTML report with the covered lines to `t
 - Coverage leaves out `crates/audioref` and `xtask` (`COVERAGE_EXCLUDE` in the `Makefile`): a test can't build nih-plug's `Buffer` or `Transport` without `unsafe`, so it can't call `process`, and `xtask` only hands over to nih-plug's bundler. The plugin crate stays a thin translation; clap-validator and pluginval check it in CI. Everything that can be tested without a host goes into `audioref-core`.
 - The coverage of a generic function is that of its best instantiation, not of all of them together. Functions that the tests need to call with other types, e.g. readers that fail, take trait objects (`&mut dyn Read`) instead.
 
+## Fuzzing
+
+The fuzz targets in `fuzz/` feed random input to the parsers of what AudioRef reads from outside, so far OPRA's database.
+They need a nightly toolchain and [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz); `make fuzz` runs each of them for a minute, see [fuzz/README.md](../fuzz/README.md).
+Every new parser of input from outside gets a target, with a smoke test in the crate's `src/fuzz.rs` that `cargo test` runs.
+
 ## Dependency Checks
 
 [cargo-deny](https://github.com/EmbarkStudios/cargo-deny) checks the dependencies for known vulnerabilities, unmaintained crates, licenses that don't go with the GPL, and sources other than crates.io and the git repositories that nih-plug pins, as configured in `deny.toml`:
@@ -54,13 +60,14 @@ make deny
 | `rust-test.yml` | pull requests, `main` | the tests |
 | `coverage.yml` | pull requests, `main` | 100 % of lines and functions of the core; the summary is on the run's page, the reports are an artifact and go to Codecov |
 | `deny.yml`, `audit.yml` | pull requests, `main`, weekly | the dependencies, with cargo-deny and cargo-audit |
+| `fuzz.yml` | pull requests (30 s per target), weekly (15 min), by hand | the fuzz targets |
 | `codeql.yml` | pull requests, `main`, weekly | CodeQL's analysis of the Rust code and of the workflows |
 | `zizmor.yml` | pull requests, `main`, weekly | the workflows, with zizmor: e.g. template injection, permissions, known vulnerable actions |
 | `release.yml` | pull requests, `main`, version tags | the tests and the VST3 and CLAP bundles on Windows, macOS (universal, signed ad hoc) and Linux, the CLAP bundles checked with clap-validator, the VST3 bundles with pluginval at strictness 10; publishes them for `main` as the pre-release `snapshot` and for version tags as releases, see [Changelog and versions](#changelog-and-versions) |
 
 clap-validator and pluginval are pinned in `release.yml` (pluginval's archives by their SHA-256), as Dependabot doesn't update them. Four tests of clap-validator are left out because of two bugs of nih-plug, see Dependencies in [PLAN.md](PLAN.md#dependencies).
 
-Dependabot proposes updates of the crates and the GitHub Actions once a week, each kind in one pull request, and only for versions at least a week old. It doesn't move nih-plug, which is pinned to a git commit, see Dependencies in [PLAN.md](PLAN.md#dependencies).
+Dependabot proposes updates of the crates, those of the fuzz targets and the GitHub Actions once a week, each kind in one pull request, and only for versions at least a week old. It doesn't move nih-plug, which is pinned to a git commit, see Dependencies in [PLAN.md](PLAN.md#dependencies).
 All GitHub Actions are pinned to the SHA of their commit, and no workflow gets more permissions than it needs.
 
 Settings of the repository that the workflows rely on, made once by an admin:

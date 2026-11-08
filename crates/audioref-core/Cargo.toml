@@ -10,6 +10,9 @@ publish.workspace = true
 
 # Only crates without plugin APIs, GUI or I/O: no nih-plug, no egui, no files. make lint checks it.
 [dependencies]
+# OPRA's database, see src/opra.rs.
+serde.workspace = true
+serde_json.workspace = true
 
 [lints]
 workspace = true
