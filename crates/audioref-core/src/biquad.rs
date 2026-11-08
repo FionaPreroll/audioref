@@ -428,31 +428,27 @@ mod tests {
 
     #[test]
     fn bands_at_or_above_half_the_sample_rate_are_left_out() {
+        let none: Vec<Coefficients> = Vec::new();
         for frequency in [22_050.0, 30_000.0] {
-            assert!(
-                design(
-                    &Band::Peak {
-                        frequency,
-                        gain_db: 3.0,
-                        q: 1.0
-                    },
-                    44_100.0
-                )
-                .is_empty()
-            );
+            let band = Band::Peak {
+                frequency,
+                gain_db: 3.0,
+                q: 1.0,
+            };
+            assert_eq!(design(&band, 44_100.0), none);
         }
         let band = Band::LowPass {
             frequency: 1000.0,
             slope: Slope::Db12,
         };
-        assert!(design(&band, f64::NAN).is_empty());
+        assert_eq!(design(&band, f64::NAN), none);
+        assert_eq!(design(&band, f64::INFINITY), none);
         let band = Band::Peak {
             frequency: 1000.0,
             gain_db: f64::NAN,
             q: 1.0,
         };
-        assert!(design(&band, 48_000.0).is_empty());
-        assert!(design(&band, f64::INFINITY).is_empty());
+        assert_eq!(design(&band, 48_000.0), none);
     }
 
     #[test]

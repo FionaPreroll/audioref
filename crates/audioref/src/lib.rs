@@ -20,7 +20,7 @@
 use std::num::NonZeroU32;
 use std::sync::Arc;
 
-use audioref_core::gain::Engine;
+use audioref_core::engine::Engine;
 use audioref_core::i18n::{Lang, Param};
 use nih_plug::prelude::*;
 

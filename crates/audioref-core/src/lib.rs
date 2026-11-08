@@ -6,6 +6,8 @@
 //! only crates without plugin APIs, GUI or I/O; `make lint` checks that.
 
 pub mod biquad;
+pub mod cascade;
+pub mod engine;
 pub mod eq;
 #[cfg(any(test, fuzzing))]
 pub mod fuzz;
