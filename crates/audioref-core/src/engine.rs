@@ -7,6 +7,11 @@
 //! the one before. The engine never allocates or frees: it hands back the filter it no longer
 //! needs, to be freed outside the audio thread.
 //!
+//! With a latency ([`Engine::set_latency`]), e.g. for linear-phase corrections, the engine delays
+//! every path by as much: the unchanged signal of the bypass, the signal without a correction, and
+//! each correction by the latency less its own. So the bypass, the fades and corrections of either
+//! phase stay in line, and the host can make up for one latency that doesn't change with them.
+//!
 //! ```
 //! use audioref_core::cascade::Cascade;
 //! use audioref_core::engine::Engine;
@@ -26,7 +31,9 @@
 //! # Ok::<(), audioref_core::eq::EqError>(())
 //! ```
 
+use crate::delay::Delay;
 use crate::filter::Filter;
+use crate::fir::MAX_LATENCY;
 use crate::gain::{Ramp, db_to_gain, ramp_samples};
 use crate::limiter::Limiter;
 use crate::stereo::{Channels, Crossfeed, Stereo};
@@ -51,6 +58,12 @@ pub struct Engine {
     previous: Option<Box<Filter>>,
     /// The highest absolute sample of the output since it was last taken.
     peak: f32,
+    /// By how much every path is delayed, in samples.
+    latency: usize,
+    /// The input, left and right, for the bypass.
+    dry: [Delay; 2],
+    /// The output of the stereo stage, left and right, for the corrections.
+    routed: [Delay; 2],
 }
 
 impl Engine {
@@ -70,7 +83,23 @@ impl Engine {
             current: None,
             previous: None,
             peak: 0.0,
+            latency: 0,
+            dry: [Delay::new(MAX_LATENCY), Delay::new(MAX_LATENCY)],
+            routed: [Delay::new(MAX_LATENCY), Delay::new(MAX_LATENCY)],
         }
+    }
+
+    /// Delays every path by a latency in samples, at most [`MAX_LATENCY`], e.g.
+    /// [`Phase::latency`](crate::filter::Phase::latency) of the corrections to come. The host
+    /// must be told, so it makes up for it.
+    pub fn set_latency(&mut self, latency: usize) {
+        self.latency = latency.min(MAX_LATENCY);
+    }
+
+    /// By how much every path is delayed, in samples.
+    #[must_use]
+    pub fn latency(&self) -> usize {
+        self.latency
     }
 
     /// Adapts the length of the fades to a new sample rate in Hz. The correction must be designed
@@ -150,6 +179,9 @@ impl Engine {
         {
             filter.reset();
         }
+        for delay in self.dry.iter_mut().chain(self.routed.iter_mut()) {
+            delay.reset();
+        }
     }
 
     /// Processes one block in place: one slice per channel, all of the same length. The first two
@@ -176,11 +208,28 @@ impl Engine {
     fn frame(&mut self, left: f32, right: f32) -> (f32, f32) {
         let (left, right) = (f64::from(left), f64::from(right));
         let (routed_left, routed_right) = self.stereo.process(left, right);
+        let [dry_left, dry_right] = &mut self.dry;
+        let [delayed_left, delayed_right] = &mut self.routed;
+        for (delay, sample) in [
+            (dry_left, left),
+            (dry_right, right),
+            (delayed_left, routed_left),
+            (delayed_right, routed_right),
+        ] {
+            delay.push(sample);
+        }
+        let [dry_left, dry_right] = &self.dry;
+        let (left, right) = (dry_left.get(self.latency), dry_right.get(self.latency));
         let mix = f64::from(self.fade.next_value());
         let gain = f64::from(self.gain.next_value());
         let wet = f64::from(self.wet.next_value());
-        let corrected_left = self.correct(0, routed_left, mix);
-        let corrected_right = self.correct(1, routed_right, mix);
+        let [routed_left, routed_right] = &self.routed;
+        let mut correct = |channel, routed| {
+            let filters = (self.current.as_deref_mut(), self.previous.as_deref_mut());
+            correct(filters, channel, routed, self.latency, mix)
+        };
+        let corrected_left = correct(0, routed_left);
+        let corrected_right = correct(1, routed_right);
         let (limited_left, limited_right) = self
             .limiter
             .process(gain * corrected_left, gain * corrected_right);
@@ -195,23 +244,31 @@ impl Engine {
         self.peak = self.peak.max(output.0.abs()).max(output.1.abs());
         output
     }
+}
 
-    /// One sample of a channel through the correction, cross-faded from the one before while
-    /// `mix` is below 1.
-    fn correct(&mut self, channel: usize, input: f64, mix: f64) -> f64 {
-        let new = self
-            .current
-            .as_deref_mut()
-            .map_or(input, |filter| filter.process(channel, input));
-        if mix < 1.0 {
-            let old = self
-                .previous
-                .as_deref_mut()
-                .map_or(input, |filter| filter.process(channel, input));
-            old + mix * (new - old)
-        } else {
-            new
+/// The latest sample of a channel out of the stereo stage, from its delay line, through the
+/// current correction and the one before, each delayed so it comes out at the latency, and
+/// cross-faded from the one before while `mix` is below 1.
+fn correct(
+    (current, previous): (Option<&mut Filter>, Option<&mut Filter>),
+    channel: usize,
+    routed: &Delay,
+    latency: usize,
+    mix: f64,
+) -> f64 {
+    let through = |filter: Option<&mut Filter>| match filter {
+        None => routed.get(latency),
+        Some(filter) => {
+            let input = routed.get(latency.saturating_sub(filter.latency()));
+            filter.process(channel, input)
         }
+    };
+    let new = through(current);
+    if mix < 1.0 {
+        let old = through(previous);
+        old + mix * (new - old)
+    } else {
+        new
     }
 }
 
@@ -220,7 +277,8 @@ mod tests {
     use super::Engine;
     use crate::cascade::Cascade;
     use crate::eq::{Band, ParametricEq};
-    use crate::filter::Filter;
+    use crate::filter::{Filter, Phase};
+    use crate::fir::MAX_LATENCY;
     use crate::stereo::{Channels, Crossfeed};
 
     fn close(a: f32, b: f32) -> bool {
@@ -407,5 +465,72 @@ mod tests {
         let mut loud = [1.5_f32; 2];
         engine.process(&mut [&mut loud]);
         assert!(loud.iter().all(|sample| close(*sample, 1.5)));
+    }
+
+    /// Where the samples of an impulse through the engine end up: each index with a level above
+    /// 0.01, and the level.
+    fn impulse_through(engine: &mut Engine, length: usize) -> Vec<(usize, f32)> {
+        let mut left = vec![0.0_f32; length];
+        let mut right = vec![0.0_f32; length];
+        left[0] = 1.0;
+        engine.process(&mut [&mut left, &mut right]);
+        left.iter()
+            .enumerate()
+            .filter(|(_, sample)| sample.abs() > 0.01)
+            .map(|(index, &sample)| (index, sample))
+            .collect()
+    }
+
+    #[test]
+    fn a_latency_delays_every_path() {
+        let mut engine = Engine::new(200.0);
+        assert_eq!(engine.latency(), 0);
+        engine.set_latency(usize::MAX);
+        assert_eq!(engine.latency(), MAX_LATENCY);
+        engine.set_latency(3);
+        // Without a correction.
+        assert_eq!(impulse_through(&mut engine, 8), [(3, 1.0)]);
+        // A minimum-phase correction, delayed to the latency.
+        drop(engine.set_correction(Some(Box::new(flat(-6.0)))));
+        engine.reset();
+        let delayed = impulse_through(&mut engine, 8);
+        assert_eq!(delayed.len(), 1);
+        assert_eq!(delayed[0].0, 3);
+        assert!((delayed[0].1 - 0.501).abs() < 1e-3);
+        // The bypass too, and a reset empties the delay lines.
+        let mut left = [1.0_f32, 0.0];
+        let mut right = [0.0_f32; 2];
+        engine.process(&mut [&mut left, &mut right]);
+        engine.set_bypass(true);
+        engine.reset();
+        assert_eq!(impulse_through(&mut engine, 8), [(3, 1.0)]);
+    }
+
+    #[test]
+    fn corrections_of_either_phase_stay_in_line() {
+        let eq = ParametricEq::new(-6.0, Vec::new()).expect("accepted");
+        let linear = Filter::of_eq(&eq, 48_000.0, Phase::Linear).expect("designed");
+        let latency = Phase::Linear.latency(48_000.0);
+        assert_eq!(linear.latency(), latency);
+        let mut engine = Engine::new(48_000.0);
+        engine.set_latency(latency);
+        drop(engine.set_correction(Some(Box::new(linear))));
+        engine.reset();
+        let through = impulse_through(&mut engine, 4096);
+        assert_eq!(through.len(), 1);
+        assert_eq!(through[0].0, latency);
+        // While it fades to the biquads, both come out at the latency: one impulse, still at
+        // -6 dB.
+        let minimum = Filter::of_eq(&eq, 48_000.0, Phase::Minimum).expect("designed");
+        drop(engine.set_correction(Some(Box::new(minimum))));
+        let mut left = vec![0.0_f32; 4096];
+        let mut right = vec![0.0_f32; 4096];
+        left[0] = 1.0;
+        engine.process(&mut [&mut left, &mut right]);
+        let loud: Vec<usize> = (0..left.len())
+            .filter(|&index| left[index].abs() > 0.01)
+            .collect();
+        assert_eq!(loud, [latency]);
+        assert!((left[latency] - 0.501).abs() < 1e-3);
     }
 }

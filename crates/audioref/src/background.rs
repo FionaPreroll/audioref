@@ -19,8 +19,7 @@ use std::thread::{self, JoinHandle};
 
 use audioref_core::autoeq::{self, Curve};
 use audioref_core::bundled;
-use audioref_core::cascade::Cascade;
-use audioref_core::filter::Filter;
+use audioref_core::filter::{Filter, Phase};
 use audioref_core::i18n::Lang;
 use audioref_core::opra::{Database, ParseError};
 
@@ -297,10 +296,12 @@ fn load_curve(path: &Path) -> CurveLoad {
     }
 }
 
-/// The filter of the saved correction at a sample rate: the FIR of the design if there is one,
-/// else the cascade of the preset. None for no correction or one whose values are out of range.
+/// The filter of the saved correction at a sample rate, in the chosen phase: that of the design
+/// if there is one, else that of the preset. None for no correction or one whose values are out
+/// of range.
 #[must_use]
 pub fn design(params: &AudioRefParams, sample_rate: f32) -> Correction {
+    let phase = phase(params);
     let design = params
         .design
         .read()
@@ -308,7 +309,7 @@ pub fn design(params: &AudioRefParams, sample_rate: f32) -> Correction {
         .clone();
     if let Some(design) = design {
         let correction = design.correction()?;
-        return Filter::fir(&correction, sample_rate).map(Box::new);
+        return Filter::of_correction(&correction, sample_rate, phase).map(Box::new);
     }
     let preset = params
         .correction
@@ -316,5 +317,11 @@ pub fn design(params: &AudioRefParams, sample_rate: f32) -> Correction {
         .unwrap_or_else(PoisonError::into_inner)
         .clone();
     let eq = preset?.eq()?;
-    Some(Box::new(Filter::from(Cascade::new(&eq, sample_rate))))
+    Filter::of_eq(&eq, sample_rate, phase).map(Box::new)
+}
+
+/// The phase of the corrections, as chosen in the window.
+#[must_use]
+pub fn phase(params: &AudioRefParams) -> Phase {
+    Phase::from_linear(params.linear_phase.load(Ordering::Relaxed))
 }

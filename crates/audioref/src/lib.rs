@@ -111,6 +111,11 @@ pub struct AudioRefParams {
     /// times a second. Users turn it off on slow graphics.
     #[persist = "meters"]
     pub meters: AtomicBool,
+    /// Whether the corrections are linear-phase FIRs, which delay the signal, rather than of
+    /// minimum phase, see `audioref_core::filter::Phase`. A setting, not a parameter: hosts
+    /// shouldn't automate the latency.
+    #[persist = "linear-phase"]
+    pub linear_phase: AtomicBool,
     /// The size of the window.
     #[persist = "editor-state"]
     pub editor_state: Arc<EguiState>,
@@ -169,6 +174,7 @@ impl AudioRefParams {
             measurement_path: RwLock::new(String::new()),
             target_path: RwLock::new(String::new()),
             meters: AtomicBool::new(true),
+            linear_phase: AtomicBool::new(false),
             editor_state: editor::default_state(),
         }
     }
@@ -228,9 +234,12 @@ impl Plugin for AudioRef {
         &mut self,
         _audio_io_layout: &AudioIOLayout,
         buffer_config: &BufferConfig,
-        _context: &mut impl InitContext<Self>,
+        context: &mut impl InitContext<Self>,
     ) -> bool {
         self.engine.set_sample_rate(buffer_config.sample_rate);
+        self.engine
+            .set_latency(background::phase(&self.params).latency(buffer_config.sample_rate));
+        context.set_latency_samples(latency_samples(self.engine.latency()));
         self.sample_rate = f64::from(buffer_config.sample_rate);
         self.shared.set_sample_rate(buffer_config.sample_rate);
         // Outside the audio thread, and after loading a project too: corrections that were on
@@ -259,8 +268,15 @@ impl Plugin for AudioRef {
         &mut self,
         buffer: &mut Buffer,
         _aux: &mut AuxiliaryBuffers,
-        _context: &mut impl ProcessContext<Self>,
+        context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
+        // At once when the setting changes, so the corrections of either phase stay in line
+        // while the new one is designed, see `audioref_core::engine`.
+        let latency = background::phase(&self.params).latency(self.shared.sample_rate());
+        if latency != self.engine.latency() {
+            self.engine.set_latency(latency);
+            context.set_latency_samples(latency_samples(self.engine.latency()));
+        }
         self.receive_corrections();
         self.apply_params();
         self.engine.process(buffer.as_slice());
@@ -268,6 +284,11 @@ impl Plugin for AudioRef {
         self.shared.note_peak(self.engine.take_peak());
         ProcessStatus::Normal
     }
+}
+
+/// A latency in samples as hosts take it.
+fn latency_samples(latency: usize) -> u32 {
+    u32::try_from(latency).unwrap_or(u32::MAX)
 }
 
 impl AudioRef {

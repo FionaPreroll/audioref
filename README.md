@@ -56,7 +56,11 @@ Instead of a preset, AudioRef can compute the correction from a measurement of y
 2. Click **Use as correction**. AudioRef smooths the difference, so narrow dips of one measurement aren't copied, corrects nothing above 16 kHz, and lowers its level by its largest boost, so nothing gets louder.
 3. Adjust it to your taste: **Tilt** (−1 to +1 dB per octave around 1 kHz, darker or brighter), **Bass** (−6 to +12 dB below about 100 Hz) and **Max. boost** (0 to 12 dB, 6 dB by default: how much it may lift frequencies your headphones lack). The curve follows at once, the sound when you let go of the slider.
 
-The project saves both curves and the settings, so it opens with the same correction without the files. Choosing a preset replaces it. The correction adds no latency.
+The project saves both curves and the settings, so it opens with the same correction without the files. Choosing a preset replaces it. The correction adds no latency, unless you turn on **Linear phase**.
+
+### Linear phase
+
+**Linear phase**, at the top right of the frequency response, runs the correction, a preset or your own curves, as a linear-phase filter: the level at each frequency stays the same, but the phase doesn't shift where the level changes, so transients keep their shape. In exchange it delays the sound by 43 to 46 ms, depending on the sample rate; the window shows how much. AudioRef tells your DAW, which makes up for it in playback, so the tracks stay in time; while you monitor a live input, e.g. when recording, you hear the delay. Off, the default, the correction has no latency and shifts the phase a little, as an analog EQ does. The project saves the choice.
 
 ### Fetching the files
 

@@ -11,6 +11,7 @@ pub mod biquad;
 pub mod bundled;
 pub mod cascade;
 pub mod convolver;
+pub mod delay;
 pub mod design;
 pub mod engine;
 pub mod eq;

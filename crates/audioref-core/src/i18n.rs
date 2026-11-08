@@ -259,11 +259,13 @@ pub enum Text {
     Stereo,
     /// The title of the group of the limiter and the bypass on export.
     Protection,
+    /// The switch of the linear-phase correction, see [`crate::filter::Phase`].
+    LinearPhase,
 }
 
 impl Text {
     /// All texts, e.g. for tests.
-    pub const ALL: [Self; 27] = [
+    pub const ALL: [Self; 28] = [
         Self::Database,
         Self::DatabaseHint,
         Self::Load,
@@ -291,6 +293,7 @@ impl Text {
         Self::DbPerOctave,
         Self::Stereo,
         Self::Protection,
+        Self::LinearPhase,
     ];
 
     /// The text in a language.
@@ -336,6 +339,7 @@ impl Text {
             Self::Level => "Level",
             Self::Stereo => "Stereo",
             Self::Protection => "Protection",
+            Self::LinearPhase => "Linear phase",
             Self::DbPerOctave => " dB/oct",
         }
     }
@@ -374,6 +378,7 @@ impl Text {
             Self::Level => "Pegel",
             Self::Stereo => "Stereo",
             Self::Protection => "Schutz",
+            Self::LinearPhase => "Linearphasig",
             Self::DbPerOctave => " dB/Okt.",
         }
     }
@@ -424,6 +429,8 @@ pub enum Hint {
     /// The limiter and its display.
     Limiter,
     /// The limiter lowers the signal by much: what to do.
+    /// What the linear-phase correction does, and its latency.
+    LinearPhase,
     LowerOutput,
     /// A click on a display turns the displays off.
     MetersOn,
@@ -433,7 +440,7 @@ pub enum Hint {
 
 impl Hint {
     /// All hints, e.g. for tests.
-    pub const ALL: [Self; 23] = [
+    pub const ALL: [Self; 24] = [
         Self::LoadDatabase,
         Self::Search,
         Self::PickHeadphones,
@@ -454,6 +461,7 @@ impl Hint {
         Self::Crossfeed,
         Self::Level,
         Self::Limiter,
+        Self::LinearPhase,
         Self::LowerOutput,
         Self::MetersOn,
         Self::MetersOff,
@@ -524,6 +532,9 @@ impl Hint {
             Self::Limiter => {
                 "Keeps the output at or below −0.3 dBFS, without latency. Its bar shows by how much it lowers the signal: it only moves when the level would go above."
             }
+            Self::LinearPhase => {
+                "Corrects without shifting the phase, but delays the sound by 43 to 46 ms, depending on the sample rate. Your DAW makes up for it in playback, not while you monitor a live input. Off: no latency, with the small phase shifts of an analog EQ."
+            }
             Self::LowerOutput => "Lower the output level",
             Self::MetersOn => {
                 "Click to turn both displays off, e.g. on slow graphics: the window is then only drawn again when something in it changes."
@@ -590,6 +601,9 @@ impl Hint {
             Self::Limiter => {
                 "Hält den Ausgang bei höchstens −0,3 dBFS, ohne Latenz. Sein Balken zeigt, um wie viel er das Signal absenkt: Er bewegt sich nur, wenn der Pegel darüber ginge."
             }
+            Self::LinearPhase => {
+                "Korrigiert, ohne die Phase zu verschieben, verzögert den Klang aber um 43 bis 46 ms, je nach Abtastrate. Deine DAW gleicht das bei der Wiedergabe aus, nicht beim Abhören eines Live-Eingangs. Aus: keine Latenz, mit den kleinen Phasenverschiebungen eines analogen EQ."
+            }
             Self::LowerOutput => "Senke den Ausgang",
             Self::MetersOn => {
                 "Klicke, um beide Anzeigen abzuschalten, z. B. bei schwacher Grafik: Das Fenster wird dann nur neu gezeichnet, wenn sich darin etwas ändert."
@@ -638,6 +652,8 @@ pub enum Message<'a> {
         /// The response, in dB.
         db: f64,
     },
+    /// The latency of the linear-phase correction, in milliseconds.
+    Latency(f64),
     /// Whose preset it is and where it comes from, as OPRA's license asks.
     Attribution {
         /// Who made it.
@@ -724,21 +740,9 @@ impl Message<'_> {
             (Self::Level(db), _) if *db <= -0.05 => format!("−{} dB", decimal(-db, lang)),
             (Self::Level(db), _) if *db < 0.05 => format!("{} dB", decimal(0.0, lang)),
             (Self::Level(db), _) => format!("+{} dB", decimal(*db, lang)),
-            (Self::CurvePoint { frequency_hz, db }, _) => {
-                let frequency = if *frequency_hz < 999.5 {
-                    format!("{frequency_hz:.0} Hz")
-                } else {
-                    format!("{} kHz", decimal(frequency_hz / 1000.0, lang))
-                };
-                let level = if *db <= -0.05 {
-                    format!("−{} dB", decimal(-db, lang))
-                } else if *db < 0.05 {
-                    format!("{} dB", decimal(0.0, lang))
-                } else {
-                    format!("+{} dB", decimal(*db, lang))
-                };
-                format!("{frequency}  {level}")
-            }
+            (Self::CurvePoint { frequency_hz, db }, _) => curve_point(*frequency_hz, *db, lang),
+            (Self::Latency(ms), Lang::En) => format!("{ms:.0} ms latency"),
+            (Self::Latency(ms), Lang::De) => format!("{ms:.0} ms Latenz"),
             (Self::Attribution { author, details }, Lang::En) => {
                 format!(
                     "EQ by {author}{}, from OPRA, CC BY-SA 4.0",
@@ -846,6 +850,23 @@ fn decimal(value: f64, lang: Lang) -> String {
         Lang::En => text,
         Lang::De => text.replace('.', ","),
     }
+}
+
+/// A point of the curve, e.g. "1.2 kHz  −4.3 dB", see [`Message::CurvePoint`].
+fn curve_point(frequency_hz: f64, db: f64, lang: Lang) -> String {
+    let frequency = if frequency_hz < 999.5 {
+        format!("{frequency_hz:.0} Hz")
+    } else {
+        format!("{} kHz", decimal(frequency_hz / 1000.0, lang))
+    };
+    let level = if db <= -0.05 {
+        format!("−{} dB", decimal(-db, lang))
+    } else if db < 0.05 {
+        format!("{} dB", decimal(0.0, lang))
+    } else {
+        format!("+{} dB", decimal(db, lang))
+    };
+    format!("{frequency}  {level}")
 }
 
 /// " (details)", or nothing for empty details.
@@ -1124,6 +1145,8 @@ mod tests {
         assert_eq!(point(62.4, -4.26).text(Lang::En), "62 Hz  −4.3 dB");
         assert_eq!(point(1234.0, 0.01).text(Lang::De), "1,2 kHz  0,0 dB");
         assert_eq!(point(999.6, 2.0).text(Lang::En), "1.0 kHz  +2.0 dB");
+        assert_eq!(Message::Latency(42.6).text(Lang::En), "43 ms latency");
+        assert_eq!(Message::Latency(42.6).text(Lang::De), "43 ms Latenz");
         assert_eq!(Message::Level(-60.0).text(Lang::En), "−∞ dB");
         assert_eq!(Message::Level(-59.96).text(Lang::En), "−60.0 dB");
         assert_eq!(Message::Level(f64::NEG_INFINITY).text(Lang::De), "−∞ dB");

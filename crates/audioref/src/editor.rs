@@ -14,6 +14,7 @@ use std::time::Duration;
 use audioref_core::autoeq::ParseError;
 use audioref_core::cascade::{Cascade, grid};
 use audioref_core::design::{BASS_DB, MAX_BOOST_DB, Settings, TILT_DB_PER_OCTAVE};
+use audioref_core::filter::Phase;
 use audioref_core::gain::gain_to_db;
 use audioref_core::i18n::{About, CurveMessage, Hint, LEVEL_FLOOR_DB, Lang, Message, Notice, Text};
 use audioref_core::opra::Database;
@@ -235,9 +236,12 @@ pub fn create(params: Arc<AudioRefParams>, shared: Arc<Shared>) -> Option<Box<dy
                         Tab::Curves => curves(ui, lang, state, &params, &shared),
                     });
                     ui.add_space(8.0);
-                    theme::card(ui, Text::Correction.text(lang), |ui| {
-                        correction(ui, lang, state, &params, &shared);
-                    });
+                    theme::card_with(
+                        ui,
+                        Text::Correction.text(lang),
+                        |ui| linear_phase(ui, lang, &params, &shared),
+                        |ui| correction(ui, lang, state, &params, &shared),
+                    );
                 });
             about::window(ctx, lang, &mut state.about);
         },
@@ -639,6 +643,25 @@ fn curve_status(ui: &mut egui::Ui, lang: Lang, load: &CurveLoad) {
         }
     };
     ui.add(egui::Label::new(egui::RichText::new(text).small().color(color)).wrap());
+}
+
+/// The switch of the linear phase, with the latency while it is on. A change designs the
+/// correction again, in the new phase.
+fn linear_phase(ui: &mut egui::Ui, lang: Lang, params: &AudioRefParams, shared: &Shared) {
+    let mut on = params.linear_phase.load(Ordering::Relaxed);
+    // From the right: the switch, then the latency left of it.
+    if ui
+        .checkbox(&mut on, Text::LinearPhase.text(lang))
+        .on_hover_text(Hint::LinearPhase.text(lang))
+        .changed()
+    {
+        params.linear_phase.store(on, Ordering::Relaxed);
+        shared.execute(Task::Design, params);
+    }
+    if on {
+        let latency = Phase::Linear.latency_ms(shared.sample_rate());
+        ui.label(theme::note(Message::Latency(latency).text(lang)));
+    }
 }
 
 /// The current correction: where it comes from, its settings, its headroom, its curve, and the
