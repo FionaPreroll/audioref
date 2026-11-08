@@ -9,6 +9,10 @@
 //! The overall gain is lowered by [`Correction::headroom_db`], so the filter boosts nothing.
 //! [`minimum_phase`] allocates and takes a few milliseconds, so it runs in the background.
 //!
+//! [`linear_phase`] makes the linear-phase filter of any response instead: symmetric around its
+//! middle, so it shifts no phase and delays every frequency by the same [`latency`], about 43 ms
+//! at every sample rate, which the plugin reports to the host.
+//!
 //! ```
 //! use audioref_core::design::Correction;
 //! use audioref_core::fir;
@@ -46,6 +50,65 @@ pub fn taps(sample_rate: f64) -> usize {
     } else {
         16_384
     }
+}
+
+/// The delay of a linear-phase filter at a sample rate in Hz, in samples: the middle of its
+/// [`taps`], of which it uses all but the last, so it is symmetric around one tap. About 43 ms.
+#[must_use]
+pub fn latency(sample_rate: f64) -> usize {
+    taps(sample_rate) / 2 - 1
+}
+
+/// The largest [`latency`], at the highest sample rates.
+pub const MAX_LATENCY: usize = 16_384 / 2 - 1;
+
+/// The linear-phase filter of a response in dB at a sample rate in Hz, [`taps`] long, its last
+/// tap 0: symmetric around [`latency`]. The response is taken as it is, so its gain must already
+/// leave room for its boosts. `None` only if an FFT fails, which it doesn't for these lengths.
+///
+/// The filter comes from sampling the response: its magnitude, without phase, transformed back
+/// to the time domain is the zero-phase impulse response, centred on 0; delayed by
+/// [`latency`] and faded out at both ends, it becomes causal.
+#[must_use]
+#[allow(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    reason = "lengths of at most 2^17 are exact in f64, and the taps are small"
+)]
+pub fn linear_phase(response_db: &dyn Fn(f64) -> f64, sample_rate: f64) -> Option<Vec<f32>> {
+    let length = taps(sample_rate);
+    let middle = latency(sample_rate);
+    let size = length * OVERSAMPLING;
+    let mut planner = RealFftPlanner::<f64>::new();
+    let inverse = planner.plan_fft_inverse(size);
+    let mut spectrum = inverse.make_input_vec();
+    for (bin, value) in spectrum.iter_mut().enumerate() {
+        let frequency = bin as f64 * sample_rate / size as f64;
+        *value = Complex::new(10.0_f64.powf(response_db(frequency) / 20.0), 0.0);
+    }
+    let mut impulse = inverse.make_output_vec();
+    inverse.process(&mut spectrum, &mut impulse).ok()?;
+
+    // Faded at both ends over the same share as the minimum-phase filter at its end.
+    let fade = (middle + 1) / FADE_SHARE;
+    let taps = (0..length)
+        .map(|index| {
+            let Some(distance) = middle.checked_sub(index.abs_diff(middle)) else {
+                // The last tap, beyond the symmetric part.
+                return 0.0;
+            };
+            // Circularly, the zero-phase response before 0 is at the end.
+            let offset = index.wrapping_sub(middle).wrapping_add(size) % size;
+            let value = impulse.get(offset).copied().unwrap_or_default();
+            let weight = if distance >= fade {
+                1.0
+            } else {
+                0.5 - 0.5 * (PI * distance as f64 / fade as f64).cos()
+            };
+            (value / size as f64 * weight) as f32
+        })
+        .collect();
+    Some(taps)
 }
 
 /// The minimum-phase filter of a correction at a sample rate in Hz, [`taps`] long, with the
@@ -186,6 +249,50 @@ mod tests {
         for sample_rate in [44_100.0, 48_000.0, 88_200.0, 96_000.0, 176_400.0, 192_000.0] {
             let taps = minimum_phase(&correction, sample_rate).unwrap();
             assert_eq!(taps.len(), super::taps(sample_rate));
+            let mut worst = (0.0, 0.0_f64);
+            for (f, db) in response_db(&taps, sample_rate, 20_000.0) {
+                let error = (db - (correction.response_db(f) - headroom)).abs();
+                if f >= 30.0 && error > worst.1 {
+                    worst = (f, error);
+                }
+                assert!(db < 0.1, "{db} dB at {f} Hz, {sample_rate} Hz");
+            }
+            assert!(
+                worst.1 < 0.5,
+                "{} dB off at {} Hz, {sample_rate} Hz",
+                worst.1,
+                worst.0
+            );
+        }
+    }
+
+    #[test]
+    fn linear_phase_delays_by_its_latency() {
+        for (sample_rate, delay) in [(48_000.0, 2047), (96_000.0, 4095), (192_000.0, MAX_LATENCY)] {
+            assert_eq!(latency(sample_rate), delay);
+            let taps = linear_phase(&|_| -6.0, sample_rate).unwrap();
+            assert_eq!(taps.len(), super::taps(sample_rate));
+            // Flat: an impulse at the latency, at half the level.
+            assert!((taps[delay] - 0.501).abs() < 1e-3);
+            let rest = taps.iter().enumerate().filter(|&(index, _)| index != delay);
+            assert!(rest.clone().all(|(_, tap)| tap.abs() < 1e-6));
+        }
+        assert!((latency(48_000.0) as f64 / 48_000.0 - 0.0426).abs() < 1e-3);
+    }
+
+    #[test]
+    fn linear_phase_is_symmetric_and_follows_the_correction() {
+        let correction = correction();
+        let headroom = correction.headroom_db();
+        for sample_rate in [44_100.0, 96_000.0, 192_000.0] {
+            let taps = linear_phase(&|f| correction.response_db(f) - headroom, sample_rate).unwrap();
+            let middle = latency(sample_rate);
+            assert_eq!(taps.last(), Some(&0.0));
+            for offset in 1..=middle {
+                assert!((taps[middle - offset] - taps[middle + offset]).abs() < 1e-7);
+            }
+            // Its ends are faded to silence.
+            assert!(taps[0].abs() < 1e-6);
             let mut worst = (0.0, 0.0_f64);
             for (f, db) in response_db(&taps, sample_rate, 20_000.0) {
                 let error = (db - (correction.response_db(f) - headroom)).abs();
