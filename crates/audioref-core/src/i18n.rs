@@ -53,16 +53,19 @@ pub enum Param {
     Channels,
     /// The strength of the crossfeed, see [`Crossfeed`].
     Crossfeed,
+    /// Turns the limiter on or off, see [`crate::limiter`].
+    Limiter,
 }
 
 impl Param {
     /// All parameters, e.g. for tests.
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::Output,
         Self::Bypass,
         Self::BypassOnExport,
         Self::Channels,
         Self::Crossfeed,
+        Self::Limiter,
     ];
 
     /// The parameter's name in a language.
@@ -81,6 +84,7 @@ impl Param {
             Self::BypassOnExport => "Bypass on export",
             Self::Channels => "Channels",
             Self::Crossfeed => "Crossfeed",
+            Self::Limiter => "Limiter",
         }
     }
 
@@ -91,6 +95,7 @@ impl Param {
             Self::BypassOnExport => "Beim Export umgehen",
             Self::Channels => "Kanäle",
             Self::Crossfeed => "Crossfeed",
+            Self::Limiter => "Limiter",
         }
     }
 }
@@ -380,6 +385,8 @@ pub enum Message<'a> {
     Skipped(usize),
     /// The correction's gain was lowered by so many dB, see [`crate::cascade`].
     Headroom(f64),
+    /// The limiter lowers the signal by so many dB, see [`crate::limiter`].
+    Reduction(f64),
     /// Whose preset it is and where it comes from, as OPRA's license asks.
     Attribution {
         /// Who made it.
@@ -459,6 +466,9 @@ impl Message<'_> {
                     decimal(*db, lang)
                 )
             }
+            // Without a minus while it rounds to nothing.
+            (Self::Reduction(db), _) if *db < 0.05 => format!("{} dB", decimal(0.0, lang)),
+            (Self::Reduction(db), _) => format!("−{} dB", decimal(*db, lang)),
             (Self::Attribution { author, details }, Lang::En) => {
                 format!(
                     "EQ by {author}{}, from OPRA, CC BY-SA 4.0",
@@ -689,6 +699,9 @@ mod tests {
             Message::Headroom(2.46).text(Lang::De),
             "Um 2,5 dB abgesenkt, damit nichts lauter wird"
         );
+        assert_eq!(Message::Reduction(2.46).text(Lang::En), "−2.5 dB");
+        assert_eq!(Message::Reduction(0.04).text(Lang::De), "0,0 dB");
+        assert_eq!(Message::Reduction(0.05).text(Lang::De), "−0,1 dB");
         let full = Message::Attribution {
             author: "oratory1990",
             details: "Harman Target",

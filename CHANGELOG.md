@@ -19,4 +19,5 @@ All changes users of AudioRef can notice are listed here. The format follows [Ke
 - Tilt, bass and the limit for boosts, to adjust a correction from your own curves to your taste. The project saves both curves and the settings, so it opens without the files.
 - Mono and swapped channels, under **Channels**: to check a mix in mono, or which side is which.
 - Crossfeed in three strengths, off by default: each ear hears some of the other channel's bass, as from speakers, so wide mixes tire less on headphones. What both channels share stays as it is.
+- A limiter at the end, on by default: it keeps the output at or below −0.3 dBFS without adding latency, so raising the output level doesn't clip. A bar in the window shows by how much it lowers the signal.
 - The pre-release [`snapshot`](https://github.com/FionaPreroll/audioref/releases/tag/snapshot) with the plugin bundles of the latest commit on `main`.

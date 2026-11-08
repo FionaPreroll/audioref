@@ -19,6 +19,7 @@ pub mod fir;
 pub mod fuzz;
 pub mod gain;
 pub mod i18n;
+pub mod limiter;
 pub mod opra;
 pub mod render;
 pub mod state;

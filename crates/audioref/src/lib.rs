@@ -84,6 +84,9 @@ pub struct AudioRefParams {
     /// The strength of the crossfeed, off by default.
     #[id = "crossfeed"]
     pub crossfeed: IntParam,
+    /// The limiter at the end, on by default, see `audioref_core::limiter`.
+    #[id = "limiter"]
+    pub limiter: BoolParam,
     /// The chosen preset with its bands, so the project opens with it without OPRA's file. Its
     /// values are checked again before it is used, see `audioref_core::state`.
     #[persist = "correction"]
@@ -152,6 +155,7 @@ impl AudioRefParams {
             .with_string_to_value(Arc::new(|text| {
                 Crossfeed::from_text(text).map(Crossfeed::index)
             })),
+            limiter: BoolParam::new(Param::Limiter.name(lang), true),
             correction: RwLock::new(None),
             opra_path: RwLock::new(String::new()),
             design: RwLock::new(None),
@@ -252,6 +256,7 @@ impl Plugin for AudioRef {
         self.receive_corrections();
         self.apply_params();
         self.engine.process(buffer.as_slice());
+        self.shared.note_reduction(self.engine.take_reduction_db());
         ProcessStatus::Normal
     }
 }
@@ -285,6 +290,7 @@ impl AudioRef {
         self.engine
             .set_crossfeed(Crossfeed::from_index(self.params.crossfeed.value()));
         self.engine.set_output_db(self.params.output.value());
+        self.engine.set_limiter(self.params.limiter.value());
         self.engine.set_bypass(render::bypassed(
             self.params.bypass.value(),
             self.params.bypass_on_export.value(),
@@ -339,6 +345,7 @@ mod tests {
             );
             assert_eq!(params.channels.name(), Param::Channels.name(lang));
             assert_eq!(params.crossfeed.name(), Param::Crossfeed.name(lang));
+            assert_eq!(params.limiter.name(), Param::Limiter.name(lang));
             // Hosts show the choices by name, and take them back typed in.
             assert_eq!(params.channels.to_string(), Channels::Stereo.text(lang));
             assert_eq!(params.crossfeed.to_string(), Crossfeed::Off.text(lang));
@@ -359,6 +366,7 @@ mod tests {
         assert!(params.bypass_on_export.value());
         assert_eq!(params.channels.value(), Channels::Stereo.index());
         assert_eq!(params.crossfeed.value(), Crossfeed::Off.index());
+        assert!(params.limiter.value());
     }
 
     #[test]
@@ -377,7 +385,8 @@ mod tests {
                 "bypass",
                 "bypass_on_export",
                 "channels",
-                "crossfeed"
+                "crossfeed",
+                "limiter"
             ]
         );
         // Whatever the system's locale, it is one of the languages.

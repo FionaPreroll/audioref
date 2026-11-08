@@ -1,6 +1,6 @@
 //! The processing of the plugin: the stereo stage ([`crate::stereo`]), the correction, the output
-//! level and the bypass, each faded over [`RAMP_SECONDS`](crate::gain::RAMP_SECONDS), so changing
-//! them doesn't click.
+//! level, the limiter ([`crate::limiter`]) and the bypass, each faded over
+//! [`RAMP_SECONDS`](crate::gain::RAMP_SECONDS), so changing them doesn't click.
 //!
 //! A new correction is designed in the background as a [`Filter`], the biquads of a preset or the
 //! FIR of a designed correction, and handed to [`Engine::set_correction`], which cross-fades from
@@ -28,14 +28,17 @@
 
 use crate::filter::Filter;
 use crate::gain::{Ramp, db_to_gain, ramp_samples};
+use crate::limiter::Limiter;
 use crate::stereo::{Channels, Crossfeed, Stereo};
 
-/// The processing of the plugin: the stereo stage, the correction, the output level and the
-/// bypass.
+/// The processing of the plugin: the stereo stage, the correction, the output level, the limiter
+/// and the bypass.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Engine {
     /// The routing of the channels and the crossfeed.
     stereo: Stereo,
+    /// The limiter after the output level.
+    limiter: Limiter,
     gain: Ramp,
     /// 1 while processing, 0 while bypassed.
     wet: Ramp,
@@ -49,13 +52,16 @@ pub struct Engine {
 }
 
 impl Engine {
-    /// An engine at 0 dB, in stereo without crossfeed, without a correction, not bypassed, for a
-    /// sample rate in Hz.
+    /// An engine at 0 dB, in stereo without crossfeed, without a correction or the limiter, not
+    /// bypassed, for a sample rate in Hz.
     #[must_use]
     pub fn new(sample_rate: f32) -> Self {
         let length = ramp_samples(sample_rate);
+        let mut limiter = Limiter::new(sample_rate);
+        limiter.set_enabled(false);
         Self {
             stereo: Stereo::new(sample_rate),
+            limiter,
             gain: Ramp::new(1.0, length),
             wet: Ramp::new(1.0, length),
             fade: Ramp::new(1.0, length),
@@ -69,6 +75,7 @@ impl Engine {
     pub fn set_sample_rate(&mut self, sample_rate: f32) {
         let length = ramp_samples(sample_rate);
         self.stereo.set_sample_rate(sample_rate);
+        self.limiter.set_sample_rate(sample_rate);
         self.gain.set_length(length);
         self.wet.set_length(length);
         self.fade.set_length(length);
@@ -87,6 +94,17 @@ impl Engine {
     /// Fades to a strength of the crossfeed.
     pub fn set_crossfeed(&mut self, crossfeed: Crossfeed) {
         self.stereo.set_crossfeed(crossfeed);
+    }
+
+    /// Turns the limiter on or off.
+    pub fn set_limiter(&mut self, enabled: bool) {
+        self.limiter.set_enabled(enabled);
+    }
+
+    /// The most the limiter lowered the signal since this was last asked, in dB, see
+    /// [`Limiter::take_reduction_db`].
+    pub fn take_reduction_db(&mut self) -> f64 {
+        self.limiter.take_reduction_db()
     }
 
     /// Fades to the unchanged signal, or back to the processed one.
@@ -113,6 +131,7 @@ impl Engine {
     /// Ends all fades at once and empties the filters, e.g. when playback starts again.
     pub fn reset(&mut self) {
         self.stereo.reset();
+        self.limiter.reset();
         self.gain.finish();
         self.wet.finish();
         self.fade.finish();
@@ -143,31 +162,28 @@ impl Engine {
         }
     }
 
-    /// Processes one sample of each channel: the stereo stage, the correction, the level and the
-    /// bypass.
+    /// Processes one sample of each channel: the stereo stage, the correction, the level, the
+    /// limiter and the bypass.
     fn frame(&mut self, left: f32, right: f32) -> (f32, f32) {
-        let input = [f64::from(left), f64::from(right)];
-        let (routed_left, routed_right) = self.stereo.process(f64::from(left), f64::from(right));
+        let (left, right) = (f64::from(left), f64::from(right));
+        let (routed_left, routed_right) = self.stereo.process(left, right);
         let mix = f64::from(self.fade.next_value());
         let gain = f64::from(self.gain.next_value());
         let wet = f64::from(self.wet.next_value());
-        let mut output = [0.0_f32; 2];
-        for (index, ((out, dry), routed)) in output
-            .iter_mut()
-            .zip(input)
-            .zip([routed_left, routed_right])
-            .enumerate()
-        {
-            let processed = gain * self.correct(index, routed, mix);
-            #[expect(
-                clippy::cast_possible_truncation,
-                reason = "the host takes 32-bit samples; the filters run with 64 bits"
-            )]
-            let sample = (dry + wet * (processed - dry)) as f32;
-            *out = sample;
-        }
-        let [left, right] = output;
-        (left, right)
+        let corrected_left = self.correct(0, routed_left, mix);
+        let corrected_right = self.correct(1, routed_right, mix);
+        let (limited_left, limited_right) = self
+            .limiter
+            .process(gain * corrected_left, gain * corrected_right);
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "the host takes 32-bit samples; the filters run with 64 bits"
+        )]
+        let output = (
+            (left + wet * (limited_left - left)) as f32,
+            (right + wet * (limited_right - right)) as f32,
+        );
+        output
     }
 
     /// One sample of a channel through the correction, cross-faded from the one before while
@@ -357,5 +373,26 @@ mod tests {
         let mut mono = [0.25_f32, -0.5, 1.0];
         engine.process(&mut [&mut mono]);
         assert_eq!(mono, [0.25, -0.5, 1.0]);
+    }
+
+    #[test]
+    fn the_limiter_comes_after_the_level_and_the_bypass_passes_all() {
+        let mut engine = Engine::new(48_000.0);
+        engine.set_limiter(true);
+        engine.set_output_db(6.0);
+        engine.reset();
+        let mut left = [0.9_f32; 4];
+        let mut right = [-0.45_f32; 4];
+        engine.process(&mut [&mut left, &mut right]);
+        // 0.9 at +6 dB would be 1.8, 5.4 dB above the ceiling: lowered to -0.3 dBFS, the right channel alike.
+        assert!(left.iter().all(|sample| close(*sample, 0.966_05)));
+        assert!(right.iter().all(|sample| close(*sample, -0.483_03)));
+        assert!((engine.take_reduction_db() - 5.38).abs() < 0.01);
+
+        engine.set_bypass(true);
+        engine.reset();
+        let mut loud = [1.5_f32; 2];
+        engine.process(&mut [&mut loud]);
+        assert!(loud.iter().all(|sample| close(*sample, 1.5)));
     }
 }

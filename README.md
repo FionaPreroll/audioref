@@ -5,7 +5,7 @@
 
 AudioRef is a VST3 and CLAP plugin that evens out the frequency response of your headphones, so that budget and consumer headphones, e.g. Bose QC25, Sony WH-1000XM4 or AKG K240 Studio, sound closer to neutral studio monitoring while you mix and master.
 
-> **Early development.** AudioRef corrects headphones with OPRA's EQ presets, built in for the Bose QC25, the Sony WH-1000XM4 and the AKG K240 Studio, for all others from OPRA's database, or from a measurement and a target you load yourself, with crossfeed and mono if you like. A limiter and more follow, see [docs/PLAN.md](docs/PLAN.md#next-steps).
+> **Early development.** AudioRef corrects headphones with OPRA's EQ presets, built in for the Bose QC25, the Sony WH-1000XM4 and the AKG K240 Studio, for all others from OPRA's database, or from a measurement and a target you load yourself, with crossfeed and mono if you like, and a limiter that keeps it from clipping. More follows, see [docs/PLAN.md](docs/PLAN.md#next-steps).
 
 ## Disclaimer
 
@@ -67,6 +67,7 @@ Put AudioRef last on your master track, after everything else. The correction is
 | Bypass on export | on (default), off | Bypasses AudioRef while your DAW exports offline. Not automatable. |
 | Channels | Stereo (default), Mono, Swapped | Mono plays both channels in both ears, to check how a mix sounds in mono; Swapped plays the left channel right and the other way round |
 | Crossfeed | Off (default), Light, Medium, Strong | Lets each ear hear some of the other channel's bass, as from speakers, so wide mixes sound less wide and tire less. What both channels share stays as it is. Light, Medium and Strong feed the bass 9.5, 6 and 4.5 dB below the channel itself, as Jan Meier's, Chu Moy's and bs2b's crossfeeds. |
+| Limiter | on (default), off | Keeps the output at or below −0.3 dBFS, without latency, e.g. when you raise the output level. The bar beside it shows by how much it lowers the signal; a little now and then is fine, much and often means the output level is too high. |
 
 Changes of every parameter fade over 20 ms, so they don't click. The window and the parameter names follow the language of your operating system: German on German systems, English on all others.
 
