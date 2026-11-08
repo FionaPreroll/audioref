@@ -30,7 +30,7 @@ use audioref_core::state::SavedCorrection;
 use nih_plug::prelude::*;
 use nih_plug_egui::EguiState;
 
-use crate::background::{AudioEnds, Shared, Task};
+use crate::background::{AudioEnds, Shared, Worker};
 
 /// The plugin's ID for CLAP hosts. Never change it: hosts find saved plugins by it.
 pub const CLAP_ID: &str = "io.github.fionapreroll.audioref";
@@ -59,6 +59,8 @@ pub struct AudioRef {
     shared: Arc<Shared>,
     /// The audio thread's ends of the queues of corrections.
     queues: AudioEnds,
+    /// The background thread, joined when the plugin is dropped.
+    _worker: Worker,
 }
 
 /// The parameters that hosts automate and save with a project. Their IDs never change; their
@@ -122,13 +124,16 @@ impl Default for AudioRef {
     fn default() -> Self {
         let lang = system_lang();
         let (shared, queues) = Shared::new(lang);
+        let params = Arc::new(AudioRefParams::new(lang));
+        let worker = Worker::start(shared.clone(), params.clone());
         Self {
-            params: Arc::new(AudioRefParams::new(lang)),
+            params,
             engine: Engine::new(48_000.0),
             processing: Processing::Realtime,
             sample_rate: 48_000.0,
             shared,
             queues,
+            _worker: worker,
         }
     }
 }
@@ -147,20 +152,16 @@ impl Plugin for AudioRef {
     }];
 
     type SysExMessage = ();
-    type BackgroundTask = Task;
+    // AudioRef runs its own background, see `background`.
+    type BackgroundTask = ();
 
     fn params(&self) -> Arc<dyn Params> {
         self.params.clone()
     }
 
-    fn task_executor(&mut self) -> TaskExecutor<Self> {
-        let shared = self.shared.clone();
-        let params = self.params.clone();
-        Box::new(move |task| shared.run(task, &params.correction))
-    }
-
-    fn editor(&mut self, async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
-        editor::create(self.params.clone(), self.shared.clone(), async_executor)
+    fn editor(&mut self, _async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
+        // Keeping the executor would keep the plugin alive, see `background`.
+        editor::create(self.params.clone(), self.shared.clone())
     }
 
     fn initialize(

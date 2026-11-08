@@ -11,12 +11,12 @@ use audioref_core::cascade::{Cascade, grid};
 use audioref_core::i18n::{Lang, Message, Notice, Text};
 use audioref_core::opra::Database;
 use audioref_core::state::SavedCorrection;
-use nih_plug::prelude::{AsyncExecutor, BoolParam, Editor, Param, ParamSetter};
+use nih_plug::prelude::{BoolParam, Editor, Param, ParamSetter};
 use nih_plug_egui::egui::{self, Color32, Pos2, Rect, Stroke, Vec2};
 use nih_plug_egui::{EguiState, create_egui_editor, widgets};
 
+use crate::AudioRefParams;
 use crate::background::{Load, Shared, Task, lock};
-use crate::{AudioRef, AudioRefParams};
 
 /// The size of the window, in logical pixels.
 pub const SIZE: (u32, u32) = (760, 680);
@@ -59,11 +59,7 @@ pub fn default_state() -> Arc<EguiState> {
 }
 
 /// The editor of the plugin.
-pub fn create(
-    params: Arc<AudioRefParams>,
-    shared: Arc<Shared>,
-    executor: AsyncExecutor<AudioRef>,
-) -> Option<Box<dyn Editor>> {
+pub fn create(params: Arc<AudioRefParams>, shared: Arc<Shared>) -> Option<Box<dyn Editor>> {
     let state = State {
         path: params
             .opra_path
@@ -73,14 +69,14 @@ pub fn create(
         ..State::default()
     };
     let build_shared = shared.clone();
-    let build_executor = executor.clone();
+    let build_params = params.clone();
     create_egui_editor(
         params.editor_state.clone(),
         state,
         move |_, state| {
             // Reads the file again that was loaded last time, once per window.
             if !state.path.is_empty() && matches!(*lock(&build_shared.database), Load::None) {
-                build_executor.execute_background(Task::Load(PathBuf::from(&state.path)));
+                build_shared.execute(Task::Load(PathBuf::from(&state.path)), &build_params);
             }
         },
         move |ctx, setter, state| {
@@ -96,9 +92,9 @@ pub fn create(
                 ui.label(egui::RichText::new(Notice::MonitoringOnly.text(lang)).small());
             });
             egui::CentralPanel::default().show(ctx, |ui| {
-                database(ui, lang, state, &params, &shared, &executor);
+                database(ui, lang, state, &params, &shared);
                 ui.separator();
-                correction(ui, lang, state, &params, &executor);
+                correction(ui, lang, state, &params, &shared);
             });
         },
     )
@@ -111,7 +107,6 @@ fn database(
     state: &mut State,
     params: &AudioRefParams,
     shared: &Shared,
-    executor: &AsyncExecutor<AudioRef>,
 ) {
     ui.strong(Text::Database.text(lang));
     ui.horizontal(|ui| {
@@ -122,7 +117,7 @@ fn database(
                 .write()
                 .unwrap_or_else(PoisonError::into_inner)
                 .clone_from(&state.path);
-            executor.execute_background(Task::Load(PathBuf::from(&state.path)));
+            shared.execute(Task::Load(PathBuf::from(&state.path)), params);
         }
     });
     ui.label(egui::RichText::new(Text::DatabaseHint.text(lang)).small());
@@ -171,7 +166,7 @@ fn database(
     ui.columns(2, |columns| {
         if let [left, right] = columns {
             headphones(left, lang, state, &database);
-            presets(right, lang, state, &database, params, executor);
+            presets(right, lang, state, &database, params, shared);
         }
     });
 }
@@ -211,7 +206,7 @@ fn presets(
     state: &State,
     database: &Database,
     params: &AudioRefParams,
-    executor: &AsyncExecutor<AudioRef>,
+    shared: &Shared,
 ) {
     let Some(product) = &state.product else {
         return;
@@ -230,7 +225,7 @@ fn presets(
                 };
                 let selected = current.as_deref() == Some(id);
                 if ui.selectable_label(selected, label).clicked() && !selected {
-                    set_correction(params, executor, SavedCorrection::from_preset(database, id));
+                    set_correction(params, shared, SavedCorrection::from_preset(database, id));
                 }
             }
         });
@@ -242,7 +237,7 @@ fn correction(
     lang: Lang,
     state: &mut State,
     params: &AudioRefParams,
-    executor: &AsyncExecutor<AudioRef>,
+    shared: &Shared,
 ) {
     ui.strong(Text::Correction.text(lang));
     let Some(saved) = current(params) else {
@@ -271,7 +266,7 @@ fn correction(
     ui.horizontal(|ui| {
         ui.label(egui::RichText::new(&saved.headphones).strong());
         if ui.button(Text::TurnOff.text(lang)).clicked() {
-            set_correction(params, executor, None);
+            set_correction(params, shared, None);
         }
     });
     let attribution = Message::Attribution {
@@ -297,16 +292,12 @@ fn current(params: &AudioRefParams) -> Option<SavedCorrection> {
 }
 
 /// Saves a correction, or none, and has the background design it.
-fn set_correction(
-    params: &AudioRefParams,
-    executor: &AsyncExecutor<AudioRef>,
-    correction: Option<SavedCorrection>,
-) {
+fn set_correction(params: &AudioRefParams, shared: &Shared, correction: Option<SavedCorrection>) {
     *params
         .correction
         .write()
         .unwrap_or_else(PoisonError::into_inner) = correction;
-    executor.execute_background(Task::Design);
+    shared.execute(Task::Design, params);
 }
 
 /// The response of the correction over the frequencies, on a logarithmic axis.
