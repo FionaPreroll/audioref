@@ -349,6 +349,8 @@ AudioRef korrigiert deine Kopfhörer, nicht deinen Mix, und gehört deshalb in d
 
 Setze AudioRef nicht auf einzelne Spuren oder Busse: Es würde sie nur für deine Kopfhörer korrigieren.
 
+So findest du es im Plugin-Browser deiner DAW: AudioRef gibt sich als Mastering-Effekt aus, in der VST3- wie in der CLAP-Version, daher führen DAWs, die Plugins nach Kategorien sortieren, es unter **Mastering**, manche auch unter **EQ**.
+
 ### Exportieren
 
 Was du exportierst, darf die Korrektur nicht enthalten. AudioRef sorgt dafür, wo es kann:
