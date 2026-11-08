@@ -55,6 +55,8 @@ Every new parser of input from outside gets a target, with a smoke test in the c
 
 The workflow `screenshots.yml` takes them for every pull request and keeps them as the artifact `screenshots` of its run, for the pull request's "How to see it".
 
+`docs/screenshots/` holds the pictures of `make screenshots` in both languages, for the project's card on [fionapreroll.github.io](https://fionapreroll.github.io/#audioref), which fetches the English ones from `main`. Replace them with newer pictures under the same names, e.g. after changing the window; renaming or removing them breaks the card's screenshots.
+
 ## Dependency Checks
 
 [cargo-deny](https://github.com/EmbarkStudios/cargo-deny) checks the dependencies for known vulnerabilities, unmaintained crates, licenses that don't go with the GPL, and sources other than crates.io and AudioRef's fork of nih-plug with the git repositories it pins, as configured in `deny.toml`:
