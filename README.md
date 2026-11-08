@@ -48,7 +48,7 @@ Then let your DAW rescan its plugins again.
 The [user manual](#documentation) describes all of this in more detail, in English and German.
 
 1. Open AudioRef's window. It lists the headphones with built-in presets: the Bose QC25, the Sony WH-1000XM4 and the AKG K240 Studio. If yours are among them, go on with step 3.
-2. For other headphones, download OPRA's database, the file [`dist/database_v1.jsonl`](https://github.com/opra-project/OPRA/tree/main/dist) from OPRA's repository (about 12 MB), and keep it anywhere. Open **OPRA database** below the lists, paste the file's path into its field, and click **Load**. AudioRef remembers the path and loads the file again the next time; **Load** with an empty field goes back to the built-in presets.
+2. For other headphones, download OPRA's database, the file [`dist/database_v1.jsonl`](https://github.com/opra-project/OPRA/tree/main/dist) from OPRA's repository (about 12 MB), and keep it anywhere. Open **OPRA database** below the lists, click **Browse…** and pick the file, or paste its path into the field and click **Load**. AudioRef remembers the path and loads the file again the next time; **Load** with an empty field goes back to the built-in presets.
 3. Search for your headphones, e.g. "WH-1000XM4". Some come in several modes, e.g. "(ANC on)" and "(ANC off)": pick the one you listen in.
 4. Click a preset. Presets by oratory1990, or "Measured by oratory1990", are a good start. The curve shows what the correction does; rest the pointer on it to read the level at a frequency. If the preset boosts some frequencies, AudioRef lowers its level by as much, so nothing gets louder and nothing clips.
 
@@ -58,7 +58,7 @@ The project saves the chosen preset, so it opens with the same correction even o
 
 Instead of a preset, AudioRef can compute the correction from a measurement of your headphones and a target curve, as CSV files: a column of frequencies and one of levels, as in [AutoEQ's repository](https://github.com/jaakkopasanen/AutoEq), e.g. `measurements/oratory1990/data/over-ear/AKG K240 Studio.csv` and `targets/Harman over-ear 2018.csv`. Download them yourself; AudioRef ships no measurements.
 
-1. Open the tab **Own curves (AutoEQ)**, paste the path of the measurement and of the target, and click **Load** beside each. AudioRef shows how many points it read, or why it can't use a file.
+1. Open the tab **Own curves (AutoEQ)** and pick the measurement and the target with **Browse…** beside each, or paste their paths and click **Load**. AudioRef shows how many points it read, or why it can't use a file.
 2. Click **Use as correction**. AudioRef smooths the difference, so narrow dips of one measurement aren't copied, corrects nothing above 16 kHz, and lowers its level by its largest boost, so nothing gets louder.
 3. Adjust it to your taste: **Tilt** (−1 to +1 dB per octave around 1 kHz, darker or brighter), **Bass** (−6 to +12 dB below about 100 Hz) and **Max. boost** (0 to 12 dB, 6 dB by default: how much it may lift frequencies your headphones lack). The curve follows at once, the sound when you let go of the slider.
 

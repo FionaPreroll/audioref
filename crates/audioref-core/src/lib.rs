@@ -8,6 +8,7 @@
 pub mod about;
 pub mod autoeq;
 pub mod biquad;
+pub mod browse;
 pub mod bundled;
 pub mod cascade;
 pub mod convolver;
