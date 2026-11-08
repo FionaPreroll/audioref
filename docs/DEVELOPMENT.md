@@ -55,7 +55,7 @@ Every new parser of input from outside gets a target, with a smoke test in the c
 
 The workflow `screenshots.yml` takes them for every pull request and keeps them as the artifact `screenshots` of its run, for the pull request's "How to see it".
 
-`docs/screenshots/` holds the pictures of `make screenshots` in both languages, for the project's card on [fionapreroll.github.io](https://fionapreroll.github.io/#audioref), which fetches the English ones from `main`, and for the [user manual](#user-manual). Replace them with newer pictures under the same names, e.g. after changing the window; renaming or removing them breaks the card's screenshots and the manual's figures.
+`docs/screenshots/` holds the pictures of `make screenshots` in both languages, for the project's card on [fionapreroll.github.io](https://fionapreroll.github.io/#audioref), which fetches the English ones from `main`, for the [user manual](#user-manual), and `en-correction.png` for the README. Replace them with newer pictures under the same names, e.g. after changing the window; renaming or removing them breaks the card's screenshots, the manual's figures and the README's picture.
 
 ## User manual
 

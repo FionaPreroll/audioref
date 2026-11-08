@@ -7,6 +7,8 @@ AudioRef is a VST3 and CLAP plugin that evens out the frequency response of your
 
 > **Early development.** AudioRef corrects headphones with OPRA's EQ presets, built in for the Bose QC25, the Sony WH-1000XM4 and the AKG K240 Studio, for all others from OPRA's database, or from a measurement and a target you load yourself, with crossfeed and mono if you like, and a limiter that keeps it from clipping. More follows, see [docs/PLAN.md](docs/PLAN.md#next-steps).
 
+![AudioRef's window with a built-in preset for the AKG K240 Studio. The curve shows what the correction does at each frequency.](docs/screenshots/en-correction.png)
+
 ## Disclaimer
 
 **AudioRef is for private, non-commercial use only**, and comes without any warranty.
