@@ -24,6 +24,7 @@ use audioref_core::i18n::Lang;
 use audioref_core::opra::{Database, ParseError};
 
 use crate::AudioRefParams;
+use crate::browse::Dialog;
 
 /// How many corrections fit into each queue: more than the window can ask for between two blocks
 /// of audio.
@@ -102,6 +103,9 @@ pub struct Shared {
     pub measurement: Mutex<CurveLoad>,
     /// The file of the target.
     pub target: Mutex<CurveLoad>,
+    /// The system's dialog that picks a file for a field of the window. Dropped with the rest,
+    /// which joins its thread.
+    pub dialog: Dialog,
     /// The end of the queue of new corrections that the background sends into.
     outgoing: Mutex<rtrb::Producer<Correction>>,
     /// The end of the queue of old corrections that the background frees.
@@ -179,6 +183,7 @@ impl Shared {
             bundled: Arc::new(bundled::database()),
             measurement: Mutex::new(CurveLoad::None),
             target: Mutex::new(CurveLoad::None),
+            dialog: Dialog::default(),
             outgoing: Mutex::new(outgoing),
             returned: Mutex::new(returned),
             tasks,

@@ -30,6 +30,9 @@ rtrb = "0.4.1"
 # FFTs for the design of the FIR filters and the convolution, see crates/audioref-core/src/fir.rs.
 realfft = "3.5.1"
 sys-locale = "0.3.2"
+# The native dialog that picks a file, see crates/audioref/src/browse.rs. On Linux through the
+# XDG desktop portal, or zenity without one, so the plugin links no GTK.
+rfd = { version = "0.18.0", default-features = false, features = ["xdg-portal"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

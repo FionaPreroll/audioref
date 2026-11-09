@@ -164,7 +164,9 @@ For other headphones, download OPRA's whole database and let AudioRef read it:
 
 1. Download the file [`dist/database_v1.jsonl`](https://github.com/opra-project/OPRA/tree/main/dist) from OPRA's repository, about 12 MB, and keep it anywhere, e.g. in your documents. The note under the field in **OPRA database** links the file too: click `database_v1.jsonl` there to download it in your browser, or **OPRA's repository** to see where it comes from.
 2. In AudioRef's window, open **OPRA database** below the lists.
-3. Paste the file's path into the field, e.g. `C:\Users\you\Documents\database_v1.jsonl` or `/Users/you/Documents/database_v1.jsonl`, and click **Load**.
+3. Click **Browse…** beside the field and pick the file in your system's file dialog. Or paste the file's path into the field, e.g. `C:\Users\you\Documents\database_v1.jsonl` or `/Users/you/Documents/database_v1.jsonl`, and click **Load**.
+
+The dialog opens in the folder of the file in the field, if there is one, and lists OPRA's `.jsonl` files; choose "All files" in it for others. AudioRef loads the file you pick at once. On macOS the dialog stays in front of the DAW until you close it; on Windows and Linux the DAW goes on, and while the dialog is open, AudioRef opens no other. On Linux, the dialog comes from the XDG desktop portal of your desktop, or from zenity without one; if neither is installed, no dialog opens: paste the path instead.
 
 AudioRef reads the file in the background, in about a tenth of a second, and then says how many presets it found, as "… presets for … headphones". It remembers the path in the project and loads the file again the next time it opens. **Load** with an empty field goes back to the built-in presets.
 
@@ -224,8 +226,10 @@ AudioRef reads AutoEQ's format, a header `frequency,raw` and a line per frequenc
 ### Loading the curves
 
 1. Open the tab **Own curves (AutoEQ)**.
-2. Paste the path of the measurement into **Measurement** and click **Load** beside it.
-3. Paste the path of the target into **Target** and click **Load** beside it.
+2. Click **Browse…** beside **Measurement** and pick the measurement's file. Or paste its path into the field and click **Load** beside it.
+3. Do the same for the target, beside **Target**.
+
+The dialog lists CSV and text files (`.csv`, `.txt`, `.tsv`), and opens in the folder of the file in the field, if there is one. AudioRef loads the file you pick at once.
 
 Beside each, AudioRef shows the curve's name and how many points it read, e.g. "AKG K240 Studio: 695 points", or why it can't use the file:
 
@@ -446,6 +450,9 @@ Check that the bundles are in the folders of [Copying the plugins](#copying-the-
 
 **My headphones aren't in the list.**
 Only three models are built in. Load OPRA's database, see [More headphones from OPRA's database](#more-headphones-from-opras-database), and search for them. If OPRA has no preset for them either, use a measurement from AutoEQ and a target, see [Your own measurement and target](#your-own-measurement-and-target).
+
+**Browse… opens no dialog on Linux.**
+AudioRef asks your desktop for the dialog through the XDG desktop portal, or else zenity. Install your desktop's portal, e.g. `xdg-desktop-portal-gtk` or `xdg-desktop-portal-kde`, or zenity, or paste the path into the field and click **Load**.
 
 **The corrected sound is quieter.**
 That is the headroom, which keeps the correction from clipping. Raise **Output** by as much as the window says the correction was lowered.

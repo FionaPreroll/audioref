@@ -8,10 +8,11 @@
 
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
-use std::sync::{Arc, PoisonError};
+use std::sync::{Arc, PoisonError, RwLock};
 use std::time::Duration;
 
 use audioref_core::autoeq::ParseError;
+use audioref_core::browse::Pick;
 use audioref_core::cascade::{Cascade, grid};
 use audioref_core::design::{BASS_DB, MAX_BOOST_DB, Settings, TILT_DB_PER_OCTAVE};
 use audioref_core::filter::Phase;
@@ -39,6 +40,19 @@ const LIST_HEIGHT: f32 = 140.0;
 
 /// The most headphones the search lists.
 const RESULTS: usize = 200;
+
+/// The width of the buttons that open the dialog to pick a file, the same in both languages, so
+/// the buttons beside them don't move, in logical pixels.
+const BROWSE_WIDTH: f32 = 116.0;
+
+/// Room beside the field of OPRA's file for its buttons, in logical pixels.
+const BUTTONS_WIDTH: f32 = 190.0;
+
+/// The width of the fields of the measurement and the target, in logical pixels.
+const CURVE_FIELD_WIDTH: f32 = 280.0;
+
+/// How often the window looks whether the open dialog picked a file.
+const DIALOG_FRAME: Duration = Duration::from_millis(100);
 
 /// The height of the cards of the controls, so they end together.
 const CONTROLS_HEIGHT: f32 = 92.0;
@@ -146,9 +160,7 @@ pub fn default_state() -> Arc<EguiState> {
 
 /// The editor of the plugin.
 pub fn create(params: Arc<AudioRefParams>, shared: Arc<Shared>) -> Option<Box<dyn Editor>> {
-    let read = |path: &std::sync::RwLock<String>| {
-        path.read().unwrap_or_else(PoisonError::into_inner).clone()
-    };
+    let read = |path: &RwLock<String>| path.read().unwrap_or_else(PoisonError::into_inner).clone();
     let state = State {
         tab: if current_design(&params).is_some() {
             Tab::Curves
@@ -193,6 +205,11 @@ pub fn create(params: Arc<AudioRefParams>, shared: Arc<Shared>) -> Option<Box<dy
                 // Off, the window is only drawn again when something changes in it.
                 state.meter = 0.0;
                 state.level = floor_db();
+            }
+            take_picked(state, &params, &shared);
+            if shared.dialog.is_open() {
+                // Draws again to take the file, also with the displays off.
+                ctx.request_repaint_after(DIALOG_FRAME);
             }
             let margin = |top: i8, bottom: i8| egui::Margin {
                 left: 14,
@@ -346,25 +363,16 @@ fn database(
         .default_open(!state.path.is_empty() || problem.is_some())
         .show(ui, |ui| {
             ui.horizontal(|ui| {
-                let width = ui.available_width() - 70.0;
+                let width = ui.available_width() - BUTTONS_WIDTH;
                 ui.add(egui::TextEdit::singleline(&mut state.path).desired_width(width))
                     .on_hover_text(Hint::LoadDatabase.text(lang));
+                browse(ui, lang, shared, Pick::Database, &state.path);
                 if ui
                     .button(Text::Load.text(lang))
                     .on_hover_text(Hint::LoadDatabase.text(lang))
                     .clicked()
                 {
-                    // An empty path goes back to the built-in presets.
-                    let path = state.path.trim().to_owned();
-                    if path.is_empty() {
-                        state.path.clear();
-                    }
-                    let task = Task::Load((!path.is_empty()).then(|| PathBuf::from(&path)));
-                    *params
-                        .opra_path
-                        .write()
-                        .unwrap_or_else(PoisonError::into_inner) = path;
-                    shared.execute(task, params);
+                    load_database(state, params, shared);
                 }
             });
             if let Some(problem) = problem {
@@ -576,35 +584,31 @@ fn curves(
     let rows = [
         (
             Which::Measurement,
+            Pick::Measurement,
             Text::Measurement,
             &mut state.measurement_path,
             &params.measurement_path,
         ),
         (
             Which::Target,
+            Pick::Target,
             Text::Target,
             &mut state.target_path,
             &params.target_path,
         ),
     ];
-    for (which, label, path, saved_path) in rows {
+    for (which, pick, label, path, saved_path) in rows {
         ui.horizontal(|ui| {
             ui.add_sized([90.0, 20.0], egui::Label::new(label.text(lang)));
-            ui.add(egui::TextEdit::singleline(path).desired_width(400.0))
+            ui.add(egui::TextEdit::singleline(path).desired_width(CURVE_FIELD_WIDTH))
                 .on_hover_text(Hint::LoadCurve.text(lang));
+            browse(ui, lang, shared, pick, path);
             if ui
                 .button(Text::Load.text(lang))
                 .on_hover_text(Hint::LoadCurve.text(lang))
                 .clicked()
             {
-                let trimmed = path.trim().to_owned();
-                saved_path
-                    .write()
-                    .unwrap_or_else(PoisonError::into_inner)
-                    .clone_from(&trimmed);
-                if !trimmed.is_empty() {
-                    shared.execute(Task::LoadCurve(which, PathBuf::from(trimmed)), params);
-                }
+                load_curve(which, path, saved_path, params, shared);
             }
             // Beside the field, so the fields below don't move.
             curve_status(ui, lang, &lock(shared.curve(which)));
@@ -630,6 +634,75 @@ fn curves(
         let settings = current_design(params).map_or_else(Settings::default, |d| d.settings);
         let design = SavedDesign::new((m, measurement), (t, target), settings);
         set_design(params, shared, Some(design));
+    }
+}
+
+/// The button that opens the system's dialog to pick the file of a field, starting in the folder
+/// of the file in it. Disabled while a dialog is open.
+fn browse(ui: &mut egui::Ui, lang: Lang, shared: &Shared, pick: Pick, field: &str) {
+    let button = egui::Button::new(Text::Browse.text(lang)).min_size(Vec2::new(BROWSE_WIDTH, 0.0));
+    if ui
+        .add_enabled(!shared.dialog.is_open(), button)
+        .on_hover_text(Hint::Browse.text(lang))
+        .clicked()
+    {
+        shared.dialog.open(pick, lang, field);
+    }
+}
+
+/// Puts the file the dialog picked into its field and loads it, as the button Load would.
+fn take_picked(state: &mut State, params: &AudioRefParams, shared: &Shared) {
+    let Some((pick, path)) = shared.dialog.take() else {
+        return;
+    };
+    let path = path.to_string_lossy().into_owned();
+    let (which, field, saved) = match pick {
+        Pick::Database => {
+            state.path = path;
+            load_database(state, params, shared);
+            return;
+        }
+        Pick::Measurement => (
+            Which::Measurement,
+            &mut state.measurement_path,
+            &params.measurement_path,
+        ),
+        Pick::Target => (Which::Target, &mut state.target_path, &params.target_path),
+    };
+    *field = path;
+    load_curve(which, field, saved, params, shared);
+}
+
+/// Loads OPRA's file at the path in the field and saves the path; an empty path goes back to the
+/// built-in presets.
+fn load_database(state: &mut State, params: &AudioRefParams, shared: &Shared) {
+    let path = state.path.trim().to_owned();
+    if path.is_empty() {
+        state.path.clear();
+    }
+    let task = Task::Load((!path.is_empty()).then(|| PathBuf::from(&path)));
+    *params
+        .opra_path
+        .write()
+        .unwrap_or_else(PoisonError::into_inner) = path;
+    shared.execute(task, params);
+}
+
+/// Loads the file of a curve at the path in its field and saves the path.
+fn load_curve(
+    which: Which,
+    path: &str,
+    saved_path: &RwLock<String>,
+    params: &AudioRefParams,
+    shared: &Shared,
+) {
+    let trimmed = path.trim().to_owned();
+    saved_path
+        .write()
+        .unwrap_or_else(PoisonError::into_inner)
+        .clone_from(&trimmed);
+    if !trimmed.is_empty() {
+        shared.execute(Task::LoadCurve(which, PathBuf::from(trimmed)), params);
     }
 }
 

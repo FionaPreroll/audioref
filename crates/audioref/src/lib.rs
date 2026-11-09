@@ -19,6 +19,7 @@
 
 mod about;
 pub mod background;
+mod browse;
 pub mod editor;
 mod theme;
 

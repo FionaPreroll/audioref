@@ -18,6 +18,7 @@ nih_plug.workspace = true
 nih_plug_egui.workspace = true
 rtrb.workspace = true
 sys-locale.workspace = true
+rfd.workspace = true
 
 [build-dependencies]
 # The list of crates and their licenses for the about window, see build.rs.

@@ -257,11 +257,25 @@ pub enum Text {
     Protection,
     /// The switch of the linear-phase correction, see [`crate::filter::Phase`].
     LinearPhase,
+    /// The button beside a field that opens the system's dialog to pick a file.
+    Browse,
+    /// The title of the dialog that picks OPRA's file, see [`crate::browse::Pick`].
+    PickDatabase,
+    /// The title of the dialog that picks the measurement.
+    PickMeasurement,
+    /// The title of the dialog that picks the target.
+    PickTarget,
+    /// The files the dialog for OPRA's file lists first.
+    DatabaseFiles,
+    /// The files the dialog for a curve lists first.
+    CurveFiles,
+    /// The dialog's choice to list every file.
+    AllFiles,
 }
 
 impl Text {
     /// All texts, e.g. for tests.
-    pub const ALL: [Self; 26] = [
+    pub const ALL: [Self; 33] = [
         Self::Database,
         Self::Load,
         Self::Loading,
@@ -288,6 +302,13 @@ impl Text {
         Self::Stereo,
         Self::Protection,
         Self::LinearPhase,
+        Self::Browse,
+        Self::PickDatabase,
+        Self::PickMeasurement,
+        Self::PickTarget,
+        Self::DatabaseFiles,
+        Self::CurveFiles,
+        Self::AllFiles,
     ];
 
     /// The text in a language.
@@ -329,6 +350,13 @@ impl Text {
             Self::Protection => "Protection",
             Self::LinearPhase => "Linear phase",
             Self::DbPerOctave => " dB/oct",
+            Self::Browse => "Browse…",
+            Self::PickDatabase => "Choose OPRA's database_v1.jsonl",
+            Self::PickMeasurement => "Choose the measurement",
+            Self::PickTarget => "Choose the target",
+            Self::DatabaseFiles => "OPRA database (JSONL)",
+            Self::CurveFiles => "Curves (CSV, TXT)",
+            Self::AllFiles => "All files",
         }
     }
 
@@ -362,6 +390,13 @@ impl Text {
             Self::Protection => "Schutz",
             Self::LinearPhase => "Linearphasig",
             Self::DbPerOctave => " dB/Okt.",
+            Self::Browse => "Durchsuchen …",
+            Self::PickDatabase => "OPRAs database_v1.jsonl auswählen",
+            Self::PickMeasurement => "Messung auswählen",
+            Self::PickTarget => "Zielkurve auswählen",
+            Self::DatabaseFiles => "OPRA-Datenbank (JSONL)",
+            Self::CurveFiles => "Kurven (CSV, TXT)",
+            Self::AllFiles => "Alle Dateien",
         }
     }
 }
@@ -472,6 +507,8 @@ pub enum Hint {
     Headroom,
     /// The field of a measurement or a target and its button.
     LoadCurve,
+    /// The button that opens the system's dialog to pick a file.
+    Browse,
     /// The button that makes the curves the correction.
     UseCurves,
     /// That button, while a curve is missing.
@@ -508,7 +545,7 @@ pub enum Hint {
 
 impl Hint {
     /// All hints, e.g. for tests.
-    pub const ALL: [Self; 24] = [
+    pub const ALL: [Self; 25] = [
         Self::LoadDatabase,
         Self::Search,
         Self::PickHeadphones,
@@ -517,6 +554,7 @@ impl Hint {
         Self::Curve,
         Self::Headroom,
         Self::LoadCurve,
+        Self::Browse,
         Self::UseCurves,
         Self::LoadBoth,
         Self::Tilt,
@@ -570,6 +608,9 @@ impl Hint {
             }
             Self::UseCurves => {
                 "Computes the correction from the measurement and the target: smoothed, nothing above 16 kHz, boosts limited. It replaces the preset."
+            }
+            Self::Browse => {
+                "Opens a window to pick the file on your computer. AudioRef loads it at once and remembers the path."
             }
             Self::LoadBoth => "Load a measurement and a target first.",
             Self::Tilt => {
@@ -639,6 +680,9 @@ impl Hint {
             }
             Self::UseCurves => {
                 "Berechnet die Korrektur aus Messung und Zielkurve: geglättet, nichts über 16 kHz, Anhebungen begrenzt. Sie ersetzt das Preset."
+            }
+            Self::Browse => {
+                "Öffnet ein Fenster, um die Datei auf deinem Computer auszuwählen. AudioRef lädt sie sofort und merkt sich den Pfad."
             }
             Self::LoadBoth => "Lade zuerst eine Messung und eine Zielkurve.",
             Self::Tilt => {
