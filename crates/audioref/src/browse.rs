@@ -5,9 +5,14 @@
 //! which hands the file to the window through a mutex the window looks at in each frame; the
 //! window's thread goes on drawing, and no message of the host reaches the window while it is in
 //! the middle of a frame. The thread is joined when the plugin is freed, so it never outlives the
-//! library: if the dialog is still open then, the host waits until it is closed. On macOS the
-//! system shows dialogs only from the main thread, which the window runs on: there the dialog is
-//! modal, as usual on macOS, and the window waits for it.
+//! library: if the dialog is still open then, the host waits until it is closed.
+//!
+//! On macOS the system shows dialogs only from the main thread, which the window runs on: there
+//! the dialog is modal, as usual on macOS. It must not run inside a frame, though: baseview holds
+//! the window's handler while egui draws, and the modal loop of the dialog hands the window
+//! events, which baseview can't give the handler then ("`RefCell` already borrowed"), and the host
+//! crashed. So the frame only queues the dialog on the main queue (Grand Central Dispatch), and
+//! it runs once the frame is over, as the main thread's next task.
 //!
 //! nih-plug's executor isn't used, for the reason given in [`crate::background`].
 
@@ -90,7 +95,10 @@ impl Dialog {
             *status = Status::Open(pick);
         }
         #[cfg(target_os = "macos")]
-        finish(&self.status, pick, dialog());
+        {
+            let status = self.status.clone();
+            on_main_queue(move || finish(&status, pick, dialog()));
+        }
         #[cfg(not(target_os = "macos"))]
         {
             let mut thread = lock(&self.thread);
@@ -109,6 +117,19 @@ impl Dialog {
             }
         }
     }
+}
+
+/// Runs a dialog on the main thread once the frame that opens it is over, outside baseview's
+/// handler.
+#[cfg(all(target_os = "macos", not(test)))]
+fn on_main_queue(dialog: impl FnOnce() + Send + 'static) {
+    dispatch2::DispatchQueue::main().exec_async(dialog);
+}
+
+/// In the tests, the main thread doesn't run the main queue: the dialog runs at once.
+#[cfg(all(target_os = "macos", test))]
+fn on_main_queue(dialog: impl FnOnce() + Send + 'static) {
+    dialog();
 }
 
 /// Notes what a dialog for a field picked, if anything.
@@ -140,7 +161,7 @@ mod tests {
         assert!(!dialog.is_open());
         assert_eq!(dialog.take(), None);
         let (opened, wait) = mpsc::channel::<()>();
-        // On macOS the dialog runs in the window's thread, so it must close at once.
+        // On macOS the tests run the dialog at once, so it must close at once.
         if cfg!(target_os = "macos") {
             let _ = opened.send(());
         }

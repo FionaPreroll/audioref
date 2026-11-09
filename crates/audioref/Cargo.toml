@@ -20,6 +20,10 @@ rtrb.workspace = true
 sys-locale.workspace = true
 rfd.workspace = true
 
+# Queues the file dialog on the main thread, outside the frame, see src/browse.rs.
+[target.'cfg(target_os = "macos")'.dependencies]
+dispatch2.workspace = true
+
 [build-dependencies]
 # The list of crates and their licenses for the about window, see build.rs.
 audioref-core.workspace = true
