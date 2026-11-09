@@ -38,7 +38,7 @@ The rig matters: the Harman target was defined on a GRAS rig, which oratory1990 
 | Parsing | serde, serde_json; AutoEQ's CSV by hand | serde 1.0.229, serde_json 1.0.154 | OPRA's JSON lines. AutoEQ's CSV files are two columns of numbers, read with the standard library: the csv crate wouldn't help with the separators and headers of other tools, and would be one more dependency. |
 | Texts | Typed texts in `audioref-core`: an enum per area, one exhaustive `match` per language | | A missing translation doesn't compile, nothing is parsed at run time, and tests reach every text. |
 | System language | sys-locale | 0.3.2 | Pure Rust, reads the locale of Windows, macOS and Linux |
-| File dialog | rfd, without default features, with `xdg-portal` | 0.18.0 | The system's own dialog on Windows, macOS and Linux. On Linux it asks the XDG desktop portal through D-Bus, which it loads at run time, or else runs zenity, so the plugin links no GTK and needs no libraries to build. |
+| File dialog | rfd, without default features, with `xdg-portal` | 0.18.0 | The system's own dialog on Windows, macOS and Linux. On Linux it asks the XDG desktop portal through D-Bus, which it loads at run time, or else runs zenity, so the plugin links no GTK and needs no libraries to build. On macOS, dispatch2 0.3.1 queues it on the main thread after the frame that opens it. |
 
 ## Dependencies
 
