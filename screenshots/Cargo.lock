@@ -215,6 +215,7 @@ name = "audioref"
 version = "0.1.0"
 dependencies = [
  "audioref-core",
+ "dispatch2",
  "nih_plug",
  "nih_plug_egui",
  "rfd",

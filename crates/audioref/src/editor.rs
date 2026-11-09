@@ -159,17 +159,11 @@ pub fn default_state() -> Arc<EguiState> {
 }
 
 /// The editor of the plugin.
+///
+/// nih-plug creates the editor with the plugin, before the host restores the project's state, so
+/// what the window shows of the saved state is read each time it opens.
 pub fn create(params: Arc<AudioRefParams>, shared: Arc<Shared>) -> Option<Box<dyn Editor>> {
-    let read = |path: &RwLock<String>| path.read().unwrap_or_else(PoisonError::into_inner).clone();
     let state = State {
-        tab: if current_design(&params).is_some() {
-            Tab::Curves
-        } else {
-            Tab::Opra
-        },
-        path: read(&params.opra_path),
-        measurement_path: read(&params.measurement_path),
-        target_path: read(&params.target_path),
         level: floor_db(),
         ..State::default()
     };
@@ -180,10 +174,7 @@ pub fn create(params: Arc<AudioRefParams>, shared: Arc<Shared>) -> Option<Box<dy
         state,
         move |ctx, state| {
             theme::apply(ctx);
-            // Reads the file again that was loaded last time, once per window.
-            if !state.path.is_empty() && matches!(*lock(&build_shared.database), Load::None) {
-                build_shared.execute(Task::Load(Some(PathBuf::from(&state.path))), &build_params);
-            }
+            opened(state, &build_params, &build_shared);
         },
         move |ctx, setter, state| {
             let lang = shared.lang;
@@ -263,6 +254,27 @@ pub fn create(params: Arc<AudioRefParams>, shared: Arc<Shared>) -> Option<Box<dy
             about::window(ctx, lang, setter.raw_context.plugin_api(), &mut state.about);
         },
     )
+}
+
+/// Takes what the window shows of the saved state when it opens, as the host restores it after
+/// creating the editor: the tab of the current correction, the paths in the fields, and the
+/// headphones of the saved preset, chosen again once their database is there. Reads OPRA's file
+/// again if the project names one and it isn't loaded.
+fn opened(state: &mut State, params: &AudioRefParams, shared: &Shared) {
+    let read = |path: &RwLock<String>| path.read().unwrap_or_else(PoisonError::into_inner).clone();
+    state.tab = if current_design(params).is_some() {
+        Tab::Curves
+    } else {
+        Tab::Opra
+    };
+    state.path = read(&params.opra_path);
+    state.measurement_path = read(&params.measurement_path);
+    state.target_path = read(&params.target_path);
+    state.product = None;
+    state.reselected = false;
+    if !state.path.is_empty() && matches!(*lock(&shared.database), Load::None) {
+        shared.execute(Task::Load(Some(PathBuf::from(&state.path))), params);
+    }
 }
 
 /// The name, which opens the about window, the notice of private use, and the button of the
