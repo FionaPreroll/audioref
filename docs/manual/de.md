@@ -8,7 +8,7 @@ Jeder Kopfhörer färbt den Klang: Consumer-Kopfhörer heben oft den Bass und ei
 
 Dafür nutzt es einen EQ, der für dein Kopfhörermodell gemacht ist:
 
-- **EQ-Presets aus OPRA**, der offenen Datenbank für Kopfhörer-EQs. Presets für den Bose QC25, den Sony WH-1000XM4 und den AKG K240 Studio sind eingebaut, diese Kopfhörer funktionieren also ohne Download. Für alle anderen lädst du OPRAs Datenbank, die du selbst herunterlädst.
+- **EQ-Presets aus OPRA**, der offenen Datenbank für Kopfhörer-EQs. OPRAs ganze Datenbank ist eingebaut, mehr als 12.000 Presets für über 6.000 Kopfhörer, sie funktionieren also ohne Download.
 - **Eigene Messung und Zielkurve**, als CSV-Dateien, z. B. aus AutoEQs Repository: AudioRef berechnet daraus die Korrektur, und du passt sie an deinen Geschmack an.
 
 Rund um die Korrektur hat AudioRef, was das Abhören auf Kopfhörern braucht: automatischen Headroom, damit die Korrektur nie etwas lauter macht, einen wahlweise linearphasigen Modus, Mono und vertauschte Kanäle, einen Crossfeed in drei Stärken, einen Ausgangspegel mit Anzeige und einen Limiter, der den Ausgang vor dem Übersteuern bewahrt. Exportiert deine DAW einen Mix offline, umgeht AudioRef sich selbst, damit die Korrektur deiner Kopfhörer nicht im Mix landet.
@@ -33,7 +33,7 @@ AudioRef korrigiert den durchschnittlichen Frequenzgang eines Kopfhörermodells,
 > [!IMPORTANT]
 > **AudioRef ist nur für die private, nicht-kommerzielle Nutzung**, und ohne jede Gewährleistung.
 >
-> Die eingebauten Presets stammen aus OPRA, von oratory1990 und AutoEQ, unter CC BY-SA 4.0. Alles andere liest AudioRef aus Dateien, die du selbst herunterlädst, von AutoEQ oder OPRA. Diese Daten gehören ihren Urhebern und haben eigene Bedingungen: oratory1990 untersagt die unlizenzierte kommerzielle Nutzung seiner Messungen. Nutze AudioRef oder solche Daten nicht kommerziell ohne die Erlaubnis ihrer Urheber.
+> Die eingebauten Presets sind OPRAs Datenbank, von oratory1990 und AutoEQ, unter CC BY-SA 4.0. Alles andere liest AudioRef aus Dateien, die du selbst herunterlädst, von AutoEQ oder OPRA. Diese Daten gehören ihren Urhebern und haben eigene Bedingungen: oratory1990 untersagt die unlizenzierte kommerzielle Nutzung seiner Messungen. Nutze AudioRef oder solche Daten nicht kommerziell ohne die Erlaubnis ihrer Urheber.
 
 ### Über dieses Handbuch
 
@@ -110,15 +110,15 @@ Um AudioRef zu entfernen, lösche `AudioRef.vst3` und `AudioRef.clap` aus den Or
 ## Schnellstart
 
 1. Setze AudioRef auf deine Master-Spur, als letztes Plugin, nach allem anderen.
-2. Öffne das Fenster von AudioRef. Es listet die Kopfhörer mit eingebauten Presets.
-3. Klicke deine Kopfhörer an, z. B. „Sony WH-1000XM4“. Gibt es sie in mehreren Modi, z. B. „(ANC on)“ und „(ANC Off)“, wähle den, mit dem du hörst.
+2. Öffne das Fenster von AudioRef. Es listet die Kopfhörer aus OPRAs Datenbank, die eingebaut ist.
+3. Suche deine Kopfhörer, z. B. „WH-1000XM4“, und klicke sie an. Gibt es sie in mehreren Modi, z. B. „(ANC on)“ und „(ANC Off)“, wähle den, mit dem du hörst.
 4. Klicke rechts ein Preset an. Presets von oratory1990 oder „Measured by oratory1990“ sind ein guter Anfang.
 5. Hör hin. **Umgehen** schaltet die Korrektur aus und an, zum Vergleichen.
 6. Bevor du einen Mix exportierst, musst du in den meisten DAWs nichts tun: AudioRef umgeht sich selbst, während die DAW offline exportiert. Exportiert deine DAW in Echtzeit, umgehe AudioRef selbst, siehe [Exportieren](#exportieren).
 
 ![AudioRef mit einem eingebauten Preset für den AKG K240 Studio. Die Kurve zeigt, was die Korrektur bei jeder Frequenz tut.](../screenshots/de-correction.png)
 
-Das Projekt speichert das gewählte Preset und öffnet sich deshalb mit derselben Korrektur, auch auf einem Rechner ganz ohne Dateien. Sind deine Kopfhörer nicht eingebaut, siehe [Weitere Kopfhörer aus OPRAs Datenbank](#weitere-kopfhörer-aus-opras-datenbank).
+Das Projekt speichert das gewählte Preset und öffnet sich deshalb mit derselben Korrektur, auch auf einem Rechner ganz ohne Dateien. Sind deine Kopfhörer nicht in der Liste, siehe [Fehlerbehebung](#fehlerbehebung).
 
 ## Das Fenster
 
@@ -159,21 +159,15 @@ Zwei seiner Zeilen helfen, wenn etwas nicht wie erwartet geht, z. B. um beim Mel
 
 [OPRA](https://github.com/opra-project/OPRA) ist eine offene, von der Community gepflegte Datenbank mit EQ-Presets für Kopfhörer. oratory1990 veröffentlicht seine Presets dort selbst, und AutoEQ ergänzt Presets, die aus den Messungen mehrerer Tester berechnet sind. Ein Preset ist ein parametrischer EQ: eine Liste von Filtern, z. B. Glocken und Kuhschwanzfilter, mit Frequenz, Verstärkung und Güte, und eine Gesamtverstärkung. AudioRef setzt es mit Filtern um, die dem Preset bis in die höchsten Frequenzen genau folgen, bei jeder Abtastrate.
 
-### Eingebaute Kopfhörer
+### Die eingebaute Datenbank
 
-Ohne Datei enthält die Liste die Kopfhörer, deren Presets in AudioRef eingebaut sind, aus OPRAs Datenbank vom 8. November 2026:
+AudioRef hat OPRAs ganze Datenbank eingebaut, ihre Version vom 8. November 2026: 12.594 Presets für 6.230 Kopfhörer von 714 Herstellern, Over-Ear, On-Ear, In-Ear und Earbuds. Ohne Datei enthält die Liste sie alle, es gibt also nichts herunterzuladen oder zu wählen. Beim Start entpackt das Plugin die Datenbank im Hintergrund, in etwa einer Zehntelsekunde; bis dahin steht in der Liste „Wird geladen …“.
 
-| Kopfhörer | In der Liste |
-|---|---|
-| AKG K240 Studio | K240 Studio |
-| Bose QC25 | QC25, QuietComfort 25, QuietComfort 25 (passive) |
-| Sony WH-1000XM4 | WH-1000XM4, WH-1000XM4 (ANC on), WH-1000XM4 (ANC Off) |
+Neben der Suche steht, wie viele Presets die Liste enthält: „Eingebaut: 12.594 Presets für 6.230 Kopfhörer“. OPRA führt manche Modi eines Modells als eigene Kopfhörer, z. B. mit aktiver Geräuschunterdrückung an oder aus, und manche Modelle unter mehreren Namen, z. B. QC25 und QuietComfort 25: Ihre Presets stammen von verschiedenen Urhebern.
 
-Neben der Suche steht, wie viele Presets die Liste enthält, z. B. „Eingebaut: 20 Presets für 7 Kopfhörer“. OPRA führt manche Modi eines Modells als eigene Kopfhörer, z. B. mit aktiver Geräuschunterdrückung an oder aus, und manche Modelle unter mehreren Namen, z. B. QC25 und QuietComfort 25: Ihre Presets stammen von verschiedenen Urhebern.
+### Eine neuere Version von OPRAs Datenbank
 
-### Weitere Kopfhörer aus OPRAs Datenbank
-
-Für andere Kopfhörer lädst du OPRAs ganze Datenbank herunter und lässt AudioRef sie lesen:
+OPRA wächst: Kopfhörer, die es nach der eingebauten Version ergänzt, kommen mit einer neueren Version von AudioRef, oder schon jetzt, wenn du OPRAs Datenbank selbst herunterlädst und AudioRef sie statt der eingebauten lesen lässt:
 
 1. Lade die Datei [`dist/database_v1.jsonl`](https://github.com/opra-project/OPRA/tree/main/dist) aus OPRAs Repository herunter, etwa 12 MB, und leg sie irgendwo ab, z. B. in deinen Dokumenten. Der Hinweis unter dem Feld in **OPRA-Datenbank** verlinkt die Datei auch: Klicke dort auf `database_v1.jsonl`, um sie im Browser herunterzuladen, oder auf **OPRAs Repository**, um zu sehen, woher sie kommt.
 2. Öffne im Fenster von AudioRef **OPRA-Datenbank** unter den Listen.
@@ -181,7 +175,7 @@ Für andere Kopfhörer lädst du OPRAs ganze Datenbank herunter und lässt Audio
 
 Der Dialog öffnet sich im Ordner der Datei im Feld, falls dort eine steht, und listet OPRAs `.jsonl`-Dateien; wähle darin „Alle Dateien“ für andere. AudioRef lädt die gewählte Datei sofort. Unter macOS bleibt der Dialog vor der DAW, bis du ihn schließt; unter Windows und Linux läuft die DAW weiter, und solange der Dialog offen ist, öffnet AudioRef keinen weiteren. Unter Linux kommt der Dialog vom XDG-Desktop-Portal deines Desktops, ohne eines von zenity; ist keines von beiden installiert, öffnet sich kein Dialog: Füge dann den Pfad ein.
 
-AudioRef liest die Datei im Hintergrund, in etwa einer Zehntelsekunde, und sagt dann, wie viele Presets es gefunden hat, als „… Presets für … Kopfhörer“. Es merkt sich den Pfad im Projekt und lädt die Datei bei jedem Öffnen des Fensters wieder. Ist sie dann nicht da, z. B. weil du sie verschoben hast, zeigt AudioRef die eingebauten Presets und sagt das grau unter dem Feld, ohne Fehlermeldung, und versucht es beim nächsten Mal wieder. **Laden** mit leerem Feld führt zurück zu den eingebauten Presets.
+AudioRef liest die Datei im Hintergrund, in etwa einer Zehntelsekunde, verwendet sie dann statt der eingebauten Datenbank und sagt, wie viele Presets es gefunden hat, als „… Presets für … Kopfhörer“. Es merkt sich den Pfad im Projekt und lädt die Datei bei jedem Öffnen des Fensters wieder. Ist sie dann nicht da, z. B. weil du sie verschoben hast, zeigt AudioRef die eingebauten Presets und sagt das grau unter dem Feld, ohne Fehlermeldung, und versucht es beim nächsten Mal wieder. **Laden** mit leerem Feld führt zurück zu den eingebauten Presets.
 
 ![Der Bereich OPRA-Datenbank, aufgeklappt, mit einer kleinen Demo-Datenbank: Die Liste zeigt ihre Kopfhörer.](../screenshots/de-file.png)
 
@@ -432,7 +426,7 @@ Neben den Parametern speichert das Projekt:
 
 | Meldung | Bedeutung |
 |-------|------|
-| Eingebaut: 20 Presets für 7 Kopfhörer | Keine Datenbank geladen: Die Liste enthält die eingebauten Presets. |
+| Eingebaut: 12.594 Presets für 6.230 Kopfhörer | Keine Datei geladen: Die Liste enthält die eingebaute Datenbank. |
 | … Presets für … Kopfhörer | OPRAs Datenbank ist geladen, mit so vielen Presets. |
 | … Zeilen ausgelassen, die AudioRef nicht versteht | Zeilen der Datenbank, die ein neueres OPRA ergänzt hat, oder mit Werten außerhalb dessen, was AudioRef zulässt. Die übrigen funktionieren. |
 | Diese Datei ist nicht OPRAs Datenbank. | Die Datei unter dem Pfad hat keine Zeilen in OPRAs Format. |
@@ -462,7 +456,7 @@ Neben den Parametern speichert das Projekt:
 Prüfe, dass die Bundles in den Ordnern aus [Die Plugins kopieren](#die-plugins-kopieren) liegen, und lass die DAW ihre Plugins neu einlesen. Unter macOS erlaube sie zuerst, siehe [macOS: die Plugins erlauben](#macos-die-plugins-erlauben). Unter Windows brauchst du Administratorrechte, um in die Ordner unter `C:\Program Files` zu kopieren.
 
 **Meine Kopfhörer sind nicht in der Liste.**
-Nur drei Modelle sind eingebaut. Lade OPRAs Datenbank, siehe [Weitere Kopfhörer aus OPRAs Datenbank](#weitere-kopfhörer-aus-opras-datenbank), und suche nach ihnen. Hat auch OPRA kein Preset für sie, nimm eine Messung von AutoEQ und eine Zielkurve, siehe [Eigene Messung und Zielkurve](#eigene-messung-und-zielkurve).
+Suche nur nach einem Teil ihres Namens, z. B. „1000XM4“ statt „WH-1000XM4 wireless“. Kopfhörer, die OPRA nach der eingebauten Version ergänzt hat, stehen in einer neueren Version seiner Datenbank, siehe [Eine neuere Version von OPRAs Datenbank](#eine-neuere-version-von-opras-datenbank). Hat OPRA kein Preset für sie, nimm eine Messung von AutoEQ und eine Zielkurve, siehe [Eigene Messung und Zielkurve](#eigene-messung-und-zielkurve).
 
 **Durchsuchen … öffnet unter Linux keinen Dialog.**
 AudioRef fragt deinen Desktop über das XDG-Desktop-Portal nach dem Dialog, sonst zenity. Installiere das Portal deines Desktops, z. B. `xdg-desktop-portal-gtk` oder `xdg-desktop-portal-kde`, oder zenity, oder füge den Pfad in das Feld ein und klicke **Laden**.
@@ -489,7 +483,7 @@ AudioRef folgt der Sprache, die dein Betriebssystem Programmen meldet, nicht der
 
 AudioRef ist freie Software unter der [GNU General Public License v3.0 only](https://github.com/FionaPreroll/audioref/blob/main/LICENSE). Seine VST3-Unterstützung nutzt die VST3-Bindings von nih-plug, die ebenfalls unter der GPLv3 stehen. Der Quellcode liegt auf [GitHub](https://github.com/FionaPreroll/audioref).
 
-Die eingebauten EQ-Presets sind ein Auszug aus der Datenbank von [OPRA](https://github.com/opra-project/OPRA), von oratory1990 und AutoEQ (Jaakko Pasanen), berechnet aus Messungen von oratory1990, crinacle, Innerfidelity, Rtings und HypetheSonics. Sie stehen unter [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), nicht unter der Lizenz von AudioRef; die Archive enthalten ihre Quelle und ihre Urheber als `OPRA-PRESETS.md`.
+Die eingebauten EQ-Presets sind die ganze Datenbank von [OPRA](https://github.com/opra-project/OPRA), von oratory1990 und AutoEQ (Jaakko Pasanen), berechnet aus Messungen von crinacle, Innerfidelity, Rtings, Super Review, oratory1990, HypetheSonics und vielen anderen, wie jedes Preset nennt. Sie stehen unter [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), nicht unter der Lizenz von AudioRef; die Archive enthalten ihre Quelle und ihre Urheber als `OPRA-PRESETS.md`.
 
 Das Fenster nutzt die Schriften, die egui mitbringt: Ubuntu Light unter der [Ubuntu Font Licence 1.0](https://ubuntu.com/legal/font-licence), sowie Noto Emoji und emoji-icon-font unter der [SIL Open Font License 1.1](https://openfontlicense.org). Das Fenster „Über AudioRef“ listet jede weitere Software, mit der AudioRef gebaut ist, mit ihrem Lizenztext.
 
