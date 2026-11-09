@@ -271,11 +271,13 @@ pub enum Text {
     CurveFiles,
     /// The dialog's choice to list every file.
     AllFiles,
+    /// OPRA's file that the project names couldn't be read again when the window opened.
+    DatabaseUnavailable,
 }
 
 impl Text {
     /// All texts, e.g. for tests.
-    pub const ALL: [Self; 33] = [
+    pub const ALL: [Self; 34] = [
         Self::Database,
         Self::Load,
         Self::Loading,
@@ -309,6 +311,7 @@ impl Text {
         Self::DatabaseFiles,
         Self::CurveFiles,
         Self::AllFiles,
+        Self::DatabaseUnavailable,
     ];
 
     /// The text in a language.
@@ -357,6 +360,9 @@ impl Text {
             Self::DatabaseFiles => "OPRA database (JSONL)",
             Self::CurveFiles => "Curves (CSV, TXT)",
             Self::AllFiles => "All files",
+            Self::DatabaseUnavailable => {
+                "The saved database isn't there at the moment, e.g. as it was moved, so the built-in presets are shown. AudioRef tries again the next time the window opens, or load it again."
+            }
         }
     }
 
@@ -397,6 +403,9 @@ impl Text {
             Self::DatabaseFiles => "OPRA-Datenbank (JSONL)",
             Self::CurveFiles => "Kurven (CSV, TXT)",
             Self::AllFiles => "Alle Dateien",
+            Self::DatabaseUnavailable => {
+                "Die gespeicherte Datenbank ist gerade nicht da, z. B. weil sie verschoben wurde, daher stehen die eingebauten Presets hier. AudioRef versucht es beim nächsten Öffnen des Fensters wieder, oder lade sie neu."
+            }
         }
     }
 }

@@ -168,7 +168,7 @@ Für andere Kopfhörer lädst du OPRAs ganze Datenbank herunter und lässt Audio
 
 Der Dialog öffnet sich im Ordner der Datei im Feld, falls dort eine steht, und listet OPRAs `.jsonl`-Dateien; wähle darin „Alle Dateien“ für andere. AudioRef lädt die gewählte Datei sofort. Unter macOS bleibt der Dialog vor der DAW, bis du ihn schließt; unter Windows und Linux läuft die DAW weiter, und solange der Dialog offen ist, öffnet AudioRef keinen weiteren. Unter Linux kommt der Dialog vom XDG-Desktop-Portal deines Desktops, ohne eines von zenity; ist keines von beiden installiert, öffnet sich kein Dialog: Füge dann den Pfad ein.
 
-AudioRef liest die Datei im Hintergrund, in etwa einer Zehntelsekunde, und sagt dann, wie viele Presets es gefunden hat, als „… Presets für … Kopfhörer“. Es merkt sich den Pfad im Projekt und lädt die Datei beim nächsten Öffnen wieder. **Laden** mit leerem Feld führt zurück zu den eingebauten Presets.
+AudioRef liest die Datei im Hintergrund, in etwa einer Zehntelsekunde, und sagt dann, wie viele Presets es gefunden hat, als „… Presets für … Kopfhörer“. Es merkt sich den Pfad im Projekt und lädt die Datei bei jedem Öffnen des Fensters wieder. Ist sie dann nicht da, z. B. weil du sie verschoben hast, zeigt AudioRef die eingebauten Presets und sagt das grau unter dem Feld, ohne Fehlermeldung, und versucht es beim nächsten Mal wieder. **Laden** mit leerem Feld führt zurück zu den eingebauten Presets.
 
 ![Der Bereich OPRA-Datenbank, aufgeklappt, mit einer kleinen Demo-Datenbank: Die Liste zeigt ihre Kopfhörer.](../screenshots/de-file.png)
 
@@ -267,7 +267,7 @@ Drei Regler über der Kurve passen die Korrektur an deinen Geschmack an. Die Kur
 
 ### Was das Projekt speichert
 
-Das Projekt speichert beide Kurven, ihre Namen und die Einstellungen der Regler und öffnet sich deshalb ohne die Dateien mit derselben Korrektur. Auch die Pfade der Dateien werden gespeichert.
+Das Projekt speichert beide Kurven, ihre Namen und die Einstellungen der Regler und öffnet sich deshalb ohne die Dateien mit derselben Korrektur. Auch die Pfade der Dateien werden gespeichert: Beim Öffnen des Fensters liest AudioRef die Dateien wieder, sodass Namen und Punkte neben den Feldern wieder dastehen und **Als Korrektur verwenden** ohne erneutes Laden geht. Eine Datei, die nicht mehr da ist, lässt ihr Feld ohne Meldung; die gespeicherte Korrektur bleibt.
 
 ### Die Dateien holen
 

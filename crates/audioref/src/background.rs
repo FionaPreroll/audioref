@@ -40,6 +40,13 @@ pub enum Task {
     Load(Option<PathBuf>),
     /// Reads and parses the file of a measurement or a target.
     LoadCurve(Which, PathBuf),
+    /// Reads OPRA's file again that the project names, when the window opens. If it can't, e.g.
+    /// as it was moved, the built-in presets stay, without an error: see [`Load::Unavailable`].
+    Reload(PathBuf),
+    /// Reads the file of a measurement or a target again that the project names, when the window
+    /// opens. If it can't, the field shows nothing beside it: the design is saved with the
+    /// project, so the correction doesn't need the file.
+    ReloadCurve(Which, PathBuf),
     /// Designs the saved correction for the current sample rate and sends it to the audio thread.
     Design,
 }
@@ -58,6 +65,9 @@ pub enum Load {
     ReadFailed(String),
     /// The file isn't OPRA's database.
     NotOpra,
+    /// The file the project names couldn't be read again when the window opened: the built-in
+    /// presets are used, and the window says so softly, not as an error.
+    Unavailable,
 }
 
 /// One of the two curves a correction is designed from.
@@ -244,9 +254,17 @@ impl Shared {
     /// Does a task, on the background thread.
     pub fn run(&self, task: Task, params: &AudioRefParams) {
         match task {
-            Task::Load(Some(path)) => self.load(&path),
+            Task::Load(Some(path)) => self.load(&path, false),
             Task::Load(None) => *lock(&self.database) = Load::None,
+            Task::Reload(path) => self.load(&path, true),
             Task::LoadCurve(which, path) => *lock(self.curve(which)) = load_curve(&path),
+            Task::ReloadCurve(which, path) => {
+                let load = match load_curve(&path) {
+                    loaded @ CurveLoad::Loaded(..) => loaded,
+                    _ => CurveLoad::None,
+                };
+                *lock(self.curve(which)) = load;
+            }
             Task::Design => self.send(design(params, self.sample_rate())),
         }
     }
@@ -260,13 +278,16 @@ impl Shared {
         }
     }
 
-    /// Reads and parses OPRA's file.
-    fn load(&self, path: &Path) {
+    /// Reads and parses OPRA's file; again, as the project names it, without an error if it
+    /// can't.
+    fn load(&self, path: &Path, again: bool) {
         *lock(&self.database) = Load::Loading;
         let load = match std::fs::read_to_string(path) {
+            Err(_) if again => Load::Unavailable,
             Err(error) => Load::ReadFailed(error.to_string()),
             Ok(text) => match Database::parse(&text) {
                 Ok(database) => Load::Loaded(Arc::new(database)),
+                Err(ParseError::NoEntries) if again => Load::Unavailable,
                 Err(ParseError::NoEntries) => Load::NotOpra,
             },
         };
@@ -329,4 +350,64 @@ pub fn design(params: &AudioRefParams, sample_rate: f32) -> Correction {
 #[must_use]
 pub fn phase(params: &AudioRefParams) -> Phase {
     Phase::from_linear(params.linear_phase.load(Ordering::Relaxed))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use audioref_core::i18n::Lang;
+
+    use super::{CurveLoad, Load, Shared, Task, Which, lock};
+    use crate::AudioRefParams;
+
+    /// A file in the system's temporary folder, unique to a test.
+    fn temp(name: &str, text: &str) -> PathBuf {
+        let path = std::env::temp_dir().join(format!("audioref-{}-{name}", std::process::id()));
+        std::fs::write(&path, text).expect("writes the file");
+        path
+    }
+
+    fn missing() -> PathBuf {
+        std::env::temp_dir().join("audioref-this-file-does-not-exist.jsonl")
+    }
+
+    #[test]
+    fn a_file_loaded_by_hand_that_is_missing_is_an_error() {
+        let (shared, _ends) = Shared::new(Lang::En);
+        let params = AudioRefParams::new(Lang::En);
+        shared.run(Task::Load(Some(missing())), &params);
+        assert!(matches!(*lock(&shared.database), Load::ReadFailed(_)));
+        shared.run(Task::LoadCurve(Which::Target, missing()), &params);
+        assert!(matches!(*lock(&shared.target), CurveLoad::ReadFailed(_)));
+    }
+
+    #[test]
+    fn a_saved_file_that_is_missing_fails_softly() {
+        let (shared, _ends) = Shared::new(Lang::En);
+        let params = AudioRefParams::new(Lang::En);
+        shared.run(Task::Reload(missing()), &params);
+        assert!(matches!(*lock(&shared.database), Load::Unavailable));
+        let not_opra = temp("not-opra.jsonl", "frequency,raw\n");
+        shared.run(Task::Reload(not_opra.clone()), &params);
+        assert!(matches!(*lock(&shared.database), Load::Unavailable));
+        shared.run(Task::ReloadCurve(Which::Measurement, missing()), &params);
+        assert!(matches!(*lock(&shared.measurement), CurveLoad::None));
+        shared.run(Task::ReloadCurve(Which::Target, not_opra.clone()), &params);
+        assert!(matches!(*lock(&shared.target), CurveLoad::None));
+        drop(std::fs::remove_file(not_opra));
+    }
+
+    #[test]
+    fn a_saved_curve_is_read_again() {
+        let (shared, _ends) = Shared::new(Lang::En);
+        let params = AudioRefParams::new(Lang::En);
+        let curve = temp(
+            "target.csv",
+            "frequency,raw\n20,0\n100,1\n1000,0\n10000,-2\n20000,-3\n",
+        );
+        shared.run(Task::ReloadCurve(Which::Target, curve.clone()), &params);
+        assert!(matches!(&*lock(&shared.target), CurveLoad::Loaded(_, c) if c.points().len() == 5));
+        drop(std::fs::remove_file(curve));
+    }
 }

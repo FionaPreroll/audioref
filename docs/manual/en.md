@@ -168,7 +168,7 @@ For other headphones, download OPRA's whole database and let AudioRef read it:
 
 The dialog opens in the folder of the file in the field, if there is one, and lists OPRA's `.jsonl` files; choose "All files" in it for others. AudioRef loads the file you pick at once. On macOS the dialog stays in front of the DAW until you close it; on Windows and Linux the DAW goes on, and while the dialog is open, AudioRef opens no other. On Linux, the dialog comes from the XDG desktop portal of your desktop, or from zenity without one; if neither is installed, no dialog opens: paste the path instead.
 
-AudioRef reads the file in the background, in about a tenth of a second, and then says how many presets it found, as "… presets for … headphones". It remembers the path in the project and loads the file again the next time it opens. **Load** with an empty field goes back to the built-in presets.
+AudioRef reads the file in the background, in about a tenth of a second, and then says how many presets it found, as "… presets for … headphones". It remembers the path in the project and loads the file again each time the window opens. If the file isn't there then, e.g. because you moved it, AudioRef shows the built-in presets and says so in grey under the field, without an error, and tries again the next time. **Load** with an empty field goes back to the built-in presets.
 
 ![The section OPRA database, opened, with a small demo database loaded: the list shows its headphones.](../screenshots/en-file.png)
 
@@ -267,7 +267,7 @@ Three sliders above the curve adjust the correction to your taste. The curve fol
 
 ### What the project saves
 
-The project saves both curves, their names and the settings of the sliders, so it opens with the same correction without the files. The paths of the files are saved too.
+The project saves both curves, their names and the settings of the sliders, so it opens with the same correction without the files. The paths of the files are saved too: when the window opens, AudioRef reads the files again, so the names and points beside the fields are back and **Use as correction** works without loading them by hand. A file that isn't there any more leaves its field without a message; the saved correction stays.
 
 ### Fetching the files
 
