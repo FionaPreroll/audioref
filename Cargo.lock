@@ -134,6 +134,7 @@ dependencies = [
 name = "audioref-core"
 version = "0.1.0"
 dependencies = [
+ "miniz_oxide",
  "realfft",
  "serde",
  "serde_json",

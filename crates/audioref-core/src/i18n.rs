@@ -428,8 +428,8 @@ pub enum Piece {
 /// their words are.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Linked {
-    /// What OPRA's file is for, where it comes from, that users download it themselves, and how
-    /// to go back to the built-in presets.
+    /// What OPRA's file is for, a newer version than the built-in one, where it comes from, that
+    /// users download it themselves, and how to go back to the built-in presets.
     DatabaseHint,
     /// What the files of the own curves are, where they come from, and that users download them
     /// themselves.
@@ -449,7 +449,9 @@ impl Linked {
         };
         match (self, lang) {
             (Self::DatabaseHint, Lang::En) => &[
-                Piece::Plain("Optional, for more headphones: the path of "),
+                Piece::Plain(
+                    "Optional, as OPRA's whole database is built in: for a newer version, the path of ",
+                ),
                 DATABASE,
                 Piece::Plain(" from "),
                 Piece::Link {
@@ -461,7 +463,9 @@ impl Linked {
                 ),
             ],
             (Self::DatabaseHint, Lang::De) => &[
-                Piece::Plain("Optional, für weitere Kopfhörer: der Pfad von "),
+                Piece::Plain(
+                    "Optional, denn OPRAs ganze Datenbank ist eingebaut: für eine neuere Version der Pfad von ",
+                ),
                 DATABASE,
                 Piece::Plain(" aus "),
                 Piece::Link {
@@ -594,7 +598,7 @@ impl Hint {
     fn en(self) -> &'static str {
         match self {
             Self::LoadDatabase => {
-                "Reads OPRA's database_v1.jsonl at this path, for headphones that aren't built in. AudioRef remembers the path. With an empty field, it goes back to the built-in presets."
+                "Reads OPRA's database_v1.jsonl at this path instead of the built-in one, e.g. a newer version with more headphones. AudioRef remembers the path. With an empty field, it goes back to the built-in presets."
             }
             Self::Search => {
                 "Type part of the name, e.g. WH-1000XM4. Headphones with several modes, e.g. ANC on and off, are listed once for each: pick the one you listen in."
@@ -666,7 +670,7 @@ impl Hint {
     fn de(self) -> &'static str {
         match self {
             Self::LoadDatabase => {
-                "Liest OPRAs database_v1.jsonl unter diesem Pfad, für Kopfhörer, die nicht eingebaut sind. AudioRef merkt sich den Pfad. Mit leerem Feld geht es zurück zu den eingebauten Presets."
+                "Liest OPRAs database_v1.jsonl unter diesem Pfad statt der eingebauten, z. B. eine neuere Version mit mehr Kopfhörern. AudioRef merkt sich den Pfad. Mit leerem Feld geht es zurück zu den eingebauten Presets."
             }
             Self::Search => {
                 "Tippe einen Teil des Namens, z. B. WH-1000XM4. Kopfhörer mit mehreren Modi, z. B. ANC an und aus, stehen für jeden einmal da: Wähle den, mit dem du hörst."
@@ -1104,7 +1108,7 @@ impl About {
                 "AudioRef is free software under the GNU General Public License v3.0 only, for private, non-commercial use."
             }
             Self::Presets => {
-                "The built-in presets are an excerpt of OPRA's database, by oratory1990 and AutoEQ, under CC BY-SA 4.0."
+                "The built-in presets are OPRA's whole database, by oratory1990 and AutoEQ, under CC BY-SA 4.0."
             }
             Self::ThirdParty => "Third-party software",
             Self::ThirdPartyHint => {
@@ -1140,7 +1144,7 @@ impl About {
                 "AudioRef ist freie Software unter der GNU General Public License v3.0 only, für private, nicht-kommerzielle Nutzung."
             }
             Self::Presets => {
-                "Die eingebauten Presets sind ein Auszug aus OPRAs Datenbank, von oratory1990 und AutoEQ, unter CC BY-SA 4.0."
+                "Die eingebauten Presets sind OPRAs ganze Datenbank, von oratory1990 und AutoEQ, unter CC BY-SA 4.0."
             }
             Self::ThirdParty => "Software von Dritten",
             Self::ThirdPartyHint => {

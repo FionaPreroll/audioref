@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Takes screenshots of the plugin's window, without a DAW and without a graphics card. AudioRef
 # runs as a standalone program (screenshots/) on Xvfb, drawn by Mesa's software OpenGL; xdotool
-# picks a built-in preset, then loads a small synthetic database in OPRA's format
-# (screenshots/demo_database.jsonl) and picks one of its presets, and ImageMagick's import takes
-# the pictures, in English and in German.
+# searches the built-in presets for the AKG K240 Studio and picks one, then loads a small
+# synthetic database in OPRA's format (screenshots/demo_database.jsonl) and picks one of its
+# presets, and ImageMagick's import takes the pictures, in English and in German.
 #
 # Usage: utils/screenshots.sh [directory], by default target/screenshots.
 # Needs the libraries and tools from: utils/install-linux-deps.sh --screenshots
@@ -17,6 +17,7 @@ out=$(realpath -m "${1:-$root/target/screenshots}")
 # Where the window's widgets are, in its logical pixels, for xdotool. They follow the layout in
 # crates/audioref/src/editor.rs: move them when it changes, the pictures show where the clicks
 # went.
+SEARCH_FIELD=(180 69)
 DATABASE_HEADER=(90 253)
 PATH_FIELD=(290 282)
 LOAD_BUTTON=(711 282)
@@ -126,11 +127,17 @@ for lang in en de; do
     sleep 1
     shoot "$lang-built-in"
 
+    click "${SEARCH_FIELD[@]}"
+    xdotool type --delay 30 "K240 Studio"
+    sleep 0.5
     click "${FIRST_HEADPHONES[@]}"
     click "${FIRST_PRESET[@]}"
     sleep 1
     shoot "$lang-correction"
 
+    # The demo database has no K240: back to the whole list.
+    click "${SEARCH_FIELD[@]}"
+    xdotool key --delay 30 ctrl+a BackSpace
     click "${DATABASE_HEADER[@]}"
     sleep 0.5
     click "${PATH_FIELD[@]}"

@@ -38,7 +38,7 @@ cargo +nightly fuzz run opra_database -- -dict=audioref.dict
 
 [`audioref.dict`](audioref.dict) holds tokens of the input, e.g. the fields of OPRA's database and the kinds of its bands, which help libFuzzer find valid input.
 The inputs it found go to `corpus/<target>`, and are used again in the next run.
-A real `database_v1.jsonl` in `corpus/opra_database` gives libFuzzer a good start; it stays out of the repository, which holds only the excerpt in `data/opra/` (copy `data/opra/presets.jsonl` there for a small start).
+A real `database_v1.jsonl` in `corpus/opra_database` gives libFuzzer a good start; copy `data/opra/database_v1.jsonl` there, the database AudioRef has built in.
 
 ## When a Target Fails
 
