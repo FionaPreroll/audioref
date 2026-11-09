@@ -47,11 +47,11 @@ Lade das Archiv für dein System vom [neuesten Release](https://github.com/Fiona
 
 | System | Archiv |
 |---|---|
-| Windows 10 oder neuer, x86_64 | `audioref-windows-x86_64.zip` |
+| Windows 10 oder neuer, x86_64 | `audioref-windows-x86_64-setup.exe` (Installer) oder `audioref-windows-x86_64.zip` |
 | macOS, Intel und Apple Silicon | `audioref-macos-universal.zip` |
 | Linux, x86_64 | `audioref-linux-x86_64.zip` |
 
-Jedes Archiv enthält das Plugin als `AudioRef.vst3` und `AudioRef.clap`, dieses Handbuch auf Deutsch und Englisch (`audioref-manual-de.pdf`, `audioref-manual-en.pdf`), die README, das Changelog, die Lizenz sowie Quelle und Lizenz der eingebauten Presets (`OPRA-PRESETS.md`). Das Release bietet die Handbücher auch einzeln zum Download an.
+Jedes Archiv enthält das Plugin als `AudioRef.vst3` und `AudioRef.clap`, dieses Handbuch auf Deutsch und Englisch (`audioref-manual-de.pdf`, `audioref-manual-en.pdf`), die README, das Changelog, die Lizenz sowie Quelle und Lizenz der eingebauten Presets (`OPRA-PRESETS.md`). Der Installer enthält die Plugins und dieses Handbuch, siehe [Windows: der Installer](#windows-der-installer). Das Release bietet die Handbücher auch einzeln zum Download an.
 
 Um einen Download zu prüfen, vergleiche seine Prüfsumme mit der Datei `SHA256SUMS` des Releases, und prüfe mit der [GitHub CLI](https://cli.github.com), dass AudioRefs eigener Workflow ihn gebaut hat:
 
@@ -60,9 +60,22 @@ sha256sum --check --ignore-missing SHA256SUMS
 gh attestation verify audioref-windows-x86_64.zip --repo FionaPreroll/audioref
 ```
 
+### Windows: der Installer
+
+Unter Windows kopiert der Installer die Plugins für dich. Starte `audioref-windows-x86_64-setup.exe`; er spricht Deutsch oder Englisch, wie Windows, und fragt nach der Erlaubnis eines Administrators, da die Plugins nach `C:\Program Files\Common Files` kommen.
+
+1. Windows warnt womöglich, es habe den PC geschützt, da der Installer nicht signiert ist. Klicke **Weitere Informationen**, dann **Trotzdem ausführen**.
+2. Wähle die Art der Installation:
+   - **Express-Installation** installiert das VST3-Plugin in `C:\Program Files\Common Files\VST3`, das CLAP-Plugin in `C:\Program Files\Common Files\CLAP` und dieses Handbuch, auf Deutsch und Englisch, in `C:\Program Files\AudioRef`, mit Einträgen im Startmenü.
+   - **Benutzerdefinierte Installation** installiert nur, was du ankreuzt: das VST3-Plugin, das CLAP-Plugin, das Handbuch.
+3. Klicke **Weiter**, dann **Installieren**.
+4. Die letzte Seite bietet an, dieses Handbuch zu öffnen, in der Sprache des Installers; hast du es nicht installiert, das auf GitHub. Klicke **Fertigstellen**.
+
+Lass deine DAW dann ihre Plugins neu einlesen. In Bitwig nimm die CLAP-Version.
+
 ### Die Plugins kopieren
 
-Entpacke das Archiv und kopiere die Bundles in die Ordner, in denen deine DAW nach Plugins sucht:
+Ohne den Installer, unter macOS und Linux oder unter Windows aus dem Archiv, entpacke das Archiv und kopiere die Bundles in die Ordner, in denen deine DAW nach Plugins sucht:
 
 | System | `AudioRef.vst3` nach | `AudioRef.clap` nach |
 |---|---|---|
@@ -90,9 +103,9 @@ Lass deine DAW dann ihre Plugins noch einmal neu einlesen.
 
 ### Aktualisieren und entfernen
 
-Um AudioRef zu aktualisieren, ersetze die Bundles bei geschlossener DAW durch die der neuen Version. Projekte behalten ihre Einstellungen: Sie öffnen sich in der neuen Version mit derselben Korrektur.
+Um AudioRef zu aktualisieren, ersetze die Bundles bei geschlossener DAW durch die der neuen Version, oder starte unter Windows den Installer der neuen Version. Projekte behalten ihre Einstellungen: Sie öffnen sich in der neuen Version mit derselben Korrektur.
 
-Um AudioRef zu entfernen, lösche `AudioRef.vst3` und `AudioRef.clap` aus den Ordnern oben. AudioRef schreibt keine weiteren Dateien: Alles, was es sich merkt, steht in deinen Projekten.
+Um AudioRef zu entfernen, lösche `AudioRef.vst3` und `AudioRef.clap` aus den Ordnern oben. Hast du es mit dem Installer installiert, deinstalliere es stattdessen unter **Einstellungen → Apps → Installierte Apps**: Das entfernt die Plugins und das Handbuch. AudioRef schreibt keine weiteren Dateien: Alles, was es sich merkt, steht in deinen Projekten.
 
 ## Schnellstart
 

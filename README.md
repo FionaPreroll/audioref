@@ -29,6 +29,8 @@ Download the archive for your system from the [latest release](https://github.co
 
 Each archive also holds the user manual as PDF, in English and German.
 
+On Windows, the installer `audioref-windows-x86_64-setup.exe` does the copying for you. Its express installation installs both plugins in the folders above and the user manual, in English and German; its custom installation only the ones you choose. Its last page offers to open the manual. It isn't signed, so Windows may warn that it protected your PC: click **More info**, then **Run anyway**. To remove AudioRef, uninstall it under **Settings → Apps**.
+
 Then let your DAW rescan its plugins. In Bitwig, use the CLAP version.
 
 On macOS, the bundles are signed ad hoc but not notarized, so macOS may refuse to load them:

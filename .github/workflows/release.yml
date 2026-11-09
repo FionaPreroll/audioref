@@ -11,6 +11,10 @@ name: Plugin bundles and releases
 # into every archive and, as files of their own, into the releases, see User manual in
 # docs/DEVELOPMENT.md.
 #
+# The Windows installer, audioref-windows-x86_64-setup.exe, is compiled with Inno Setup from the
+# files of the Windows archive, installed and removed once each way, and goes into the releases too,
+# see Windows installer in docs/DEVELOPMENT.md.
+#
 # The pre-release "snapshot" changes, so release immutability must stay off (Settings, General,
 # Releases). An immutable release takes no new files, its tag doesn't move, and GitHub never lets
 # its tag name be used again, not even after the release and the tag are deleted.
@@ -184,9 +188,109 @@ jobs:
           # Re-running the job replaces the archive of the previous attempt.
           overwrite: true
 
+  installer:
+    name: Windows installer
+    # From the Windows archive, so the installer holds the same files.
+    needs: build
+    runs-on: windows-2025
+    timeout-minutes: 20
+    env:
+      SETUP: audioref-windows-x86_64-setup
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download the Windows archive
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: audioref-windows-x86_64
+          path: dist
+      - name: Unpack the archive
+        run: 7z x -odist dist/audioref-windows-x86_64.zip > /dev/null
+      - name: Compile the installer (Inno Setup)
+        # PowerShell, as Git's bash would turn the options, e.g. /DVersion=, into paths.
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path Cargo.toml -Pattern '^version = "(.*)"$' | Select-Object -First 1).Matches[0].Groups[1].Value
+          # Inno Setup 6 comes with the runner's image.
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          & $iscc "/DVersion=$version" "/DBundles=$PWD\dist\audioref-windows-x86_64" "/O$PWD\setup" "/F$env:SETUP" installer\audioref.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
+      - name: Install and remove it
+        # Express installation, again over it as an update, removal, then custom installation of
+        # the CLAP plugin alone, and removal: each time, the files must be where DAWs look for them,
+        # the same as in the archive, or gone.
+        shell: pwsh
+        run: |
+          $setup = "setup\$env:SETUP.exe"
+          $bundles = 'dist\audioref-windows-x86_64'
+          $app = "$env:ProgramFiles\AudioRef"
+          $files = [ordered]@{
+            vst3 = "$env:CommonProgramFiles\VST3\AudioRef.vst3\Contents\x86_64-win\AudioRef.vst3"
+            clap = "$env:CommonProgramFiles\CLAP\AudioRef.clap"
+            'manual-en' = "$app\audioref-manual-en.pdf"
+            'manual-de' = "$app\audioref-manual-de.pdf"
+          }
+          $sources = @{
+            vst3 = "$bundles\AudioRef.vst3\Contents\x86_64-win\AudioRef.vst3"
+            clap = "$bundles\AudioRef.clap"
+            'manual-en' = "$bundles\audioref-manual-en.pdf"
+            'manual-de' = "$bundles\audioref-manual-de.pdf"
+          }
+          function Run([string] $exe, [string[]] $arguments) {
+            $process = Start-Process -FilePath $exe -ArgumentList $arguments -Wait -PassThru
+            if ($process.ExitCode -ne 0) { throw "$exe $arguments failed with exit code $($process.ExitCode)" }
+          }
+          function Expect([string[]] $installed) {
+            foreach ($name in $files.Keys) {
+              $path = $files[$name]
+              if ($installed -contains $name) {
+                if (-not (Test-Path -LiteralPath $path)) { throw "$path is missing" }
+                if ((Get-FileHash -LiteralPath $path).Hash -ne (Get-FileHash -LiteralPath $sources[$name]).Hash) {
+                  throw "$path isn't the file of the archive"
+                }
+              } elseif (Test-Path -LiteralPath $path) {
+                throw "$path is there, but shouldn't be"
+              }
+            }
+            Write-Output "Installed as expected: $($installed -join ', ')"
+          }
+          function Uninstall {
+            Run "$app\unins000.exe" @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART')
+            # The uninstaller runs as a copy of itself, which deletes the original at the end.
+            for ($i = 0; ($i -lt 60) -and (Test-Path -LiteralPath "$app\unins000.exe"); $i++) { Start-Sleep -Seconds 1 }
+          }
+          $silent = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART')
+
+          Run $setup ($silent + @('/TYPE=express', '/LOG=install-express.log'))
+          Expect @('vst3', 'clap', 'manual-en', 'manual-de')
+          if (-not (Test-Path -LiteralPath "$app\OPRA-PRESETS.md")) { throw 'OPRA-PRESETS.md is missing' }
+          if (-not (Test-Path -LiteralPath "$app\LICENSE.txt")) { throw 'LICENSE.txt is missing' }
+          Run $setup ($silent + @('/TYPE=express', '/LOG=install-update.log'))
+          Expect @('vst3', 'clap', 'manual-en', 'manual-de')
+          Uninstall
+          Expect @()
+
+          Run $setup ($silent + @('/COMPONENTS=clap', '/LOG=install-custom.log'))
+          Expect @('clap')
+          Uninstall
+          Expect @()
+      - name: Show the logs of the installer
+        if: failure()
+        shell: pwsh
+        run: Get-ChildItem -Filter 'install-*.log' | ForEach-Object { Write-Output "::group::$($_.Name)"; Get-Content $_; Write-Output '::endgroup::' }
+      - name: Upload the installer
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ env.SETUP }}
+          path: setup/${{ env.SETUP }}.exe
+          if-no-files-found: error
+          # Re-running the job replaces the installer of the previous attempt.
+          overwrite: true
+
   publish:
     name: Publish ${{ github.ref_type == 'tag' && format('release {0}', github.ref_name) || 'pre-release "snapshot"' }}
-    needs: build
+    needs: [build, installer]
     # Commits on main and version tags only, not pull requests or other branches started by hand.
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
@@ -230,7 +334,8 @@ jobs:
             exit 1
           fi
       - name: Download archives and the manual
-        # The archives, audioref-<system>.zip, and the manual, audioref-manual-en.pdf and -de.pdf.
+        # The archives, audioref-<system>.zip, the Windows installer, audioref-windows-x86_64-setup.exe,
+        # and the manual, audioref-manual-en.pdf and -de.pdf.
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: audioref-*
@@ -238,12 +343,13 @@ jobs:
           path: dist
       - name: Write checksums
         working-directory: dist
-        run: sha256sum audioref-*.zip audioref-manual-*.pdf | tee SHA256SUMS
+        run: sha256sum audioref-*.zip audioref-*-setup.exe audioref-manual-*.pdf | tee SHA256SUMS
       - name: Attest build provenance
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: |
             dist/audioref-*.zip
+            dist/audioref-*-setup.exe
             dist/audioref-manual-*.pdf
       - name: Describe the downloads
         # For the notes of both kinds of releases.
@@ -251,9 +357,12 @@ jobs:
           cat > downloads.md <<EOF
           | System | File |
           |---|---|
+          | Windows 10 or newer, x86_64: installer | \`audioref-windows-x86_64-setup.exe\` |
           | Windows 10 or newer, x86_64 | \`audioref-windows-x86_64.zip\` |
           | macOS, Intel and Apple silicon | \`audioref-macos-universal.zip\` |
           | Linux, x86_64 | \`audioref-linux-x86_64.zip\` |
+
+          On Windows, the installer puts the VST3 and the CLAP plugin where DAWs look for them, with the user manual; its custom installation installs only the ones you choose. It isn't signed, so Windows may warn before it runs: click **More info**, then **Run anyway**.
 
           Each archive holds \`AudioRef.vst3\` and \`AudioRef.clap\`, with the user manual in English and German, the README, the changelog, the license, and the source and license of the built-in presets (\`OPRA-PRESETS.md\`). See [Installing]($GITHUB_SERVER_URL/$GH_REPO#installing) in the README for where they go.
 
