@@ -258,8 +258,9 @@ pub fn create(params: Arc<AudioRefParams>, shared: Arc<Shared>) -> Option<Box<dy
 
 /// Takes what the window shows of the saved state when it opens, as the host restores it after
 /// creating the editor: the tab of the current correction, the paths in the fields, and the
-/// headphones of the saved preset, chosen again once their database is there. Reads OPRA's file
-/// again if the project names one and it isn't loaded.
+/// headphones of the saved preset, chosen again once their database is there. Reads the files the
+/// project names again, OPRA's and those of the curves, unless they are loaded; one that can't be
+/// read, e.g. as it was moved, fails softly.
 fn opened(state: &mut State, params: &AudioRefParams, shared: &Shared) {
     let read = |path: &RwLock<String>| path.read().unwrap_or_else(PoisonError::into_inner).clone();
     state.tab = if current_design(params).is_some() {
@@ -272,8 +273,21 @@ fn opened(state: &mut State, params: &AudioRefParams, shared: &Shared) {
     state.target_path = read(&params.target_path);
     state.product = None;
     state.reselected = false;
-    if !state.path.is_empty() && matches!(*lock(&shared.database), Load::None) {
-        shared.execute(Task::Load(Some(PathBuf::from(&state.path))), params);
+    // Tries each time the window opens, so a file that is back by then is read; one that isn't
+    // fails softly.
+    let unread = matches!(*lock(&shared.database), Load::None | Load::Unavailable);
+    if !state.path.trim().is_empty() && unread {
+        let path = PathBuf::from(state.path.trim());
+        shared.execute(Task::Reload(path), params);
+    }
+    for (which, path) in [
+        (Which::Measurement, &state.measurement_path),
+        (Which::Target, &state.target_path),
+    ] {
+        let path = path.trim();
+        if !path.is_empty() && matches!(*lock(shared.curve(which)), CurveLoad::None) {
+            shared.execute(Task::ReloadCurve(which, PathBuf::from(path)), params);
+        }
     }
 }
 
@@ -348,8 +362,9 @@ fn database(
 ) {
     let load = lock(&shared.database).clone();
     // Without a file, or when it couldn't be loaded, the built-in presets.
+    let unavailable = matches!(load, Load::Unavailable);
     let (database, from_file, problem) = match load {
-        Load::None => (Some(shared.bundled.clone()), false, None),
+        Load::None | Load::Unavailable => (Some(shared.bundled.clone()), false, None),
         Load::Loading => (None, false, None),
         Load::ReadFailed(reason) => (
             Some(shared.bundled.clone()),
@@ -389,6 +404,9 @@ fn database(
             });
             if let Some(problem) = problem {
                 ui.colored_label(theme::HOT, problem);
+            }
+            if unavailable {
+                ui.label(theme::note(Text::DatabaseUnavailable.text(lang)));
             }
             linked(ui, lang, Linked::DatabaseHint, |words| theme::note(words));
         });
