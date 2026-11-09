@@ -10,3 +10,7 @@ indent_size = 2
 
 [Makefile]
 indent_style = tab
+
+# Inno Setup reads files without a byte order mark in the code page of the system.
+[*.iss]
+charset = utf-8-bom

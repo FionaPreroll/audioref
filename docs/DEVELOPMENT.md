@@ -75,6 +75,20 @@ writes both PDFs to `target/manual`, in about 10 seconds each.
 
 A change users can see changes the manual too, in both languages, as the README and the changelog.
 
+## Windows installer
+
+`installer/audioref.iss` is the Windows installer, `audioref-windows-x86_64-setup.exe`, a script for [Inno Setup 6](https://jrsoftware.org/isinfo.php), which comes with GitHub's Windows runners. The job `installer` of `release.yml` compiles it from the files of the Windows archive, so it holds the same bundles and manual:
+
+```powershell
+& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DVersion=0.1.0 /DBundles=dist\audioref-windows-x86_64 /Osetup /Faudioref-windows-x86_64-setup installer\audioref.iss
+```
+
+- **Express installation** installs the components `vst3` (to `C:\Program Files\Common Files\VST3`), `clap` (to `C:\Program Files\Common Files\CLAP`) and `manual` (both PDFs, to `C:\Program Files\AudioRef`, with entries in the Start menu); **custom installation** lets the user untick them. `LICENSE` and `OPRA-PRESETS.md` always go to `C:\Program Files\AudioRef`, with the uninstaller. The last page offers to open the manual in the installer's language, or the one on GitHub if it wasn't installed.
+- It speaks English and German, as Windows does, with Inno Setup's own translations for its pages and the texts in `[CustomMessages]` for AudioRef's. The file is UTF-8 with a byte order mark, as Inno Setup reads a file without one in the system's code page (`.editorconfig` keeps it).
+- Its `AppId` never changes: Windows finds an installed AudioRef by it, to update or remove it. An update first deletes the old `AudioRef.vst3`, so no file of an earlier version stays in the bundle.
+- The job installs it silently (`/VERYSILENT`) by express installation, again over it as an update, uninstalls it, installs only the CLAP plugin (`/COMPONENTS=clap`) and uninstalls it again, and checks each time that the files are in their folders, the same as in the archive, or gone. If that fails, it shows the installer's logs.
+- The installer isn't signed, so SmartScreen warns before it runs; the README and the manual say how to go on.
+
 ## Dependency Checks
 
 [cargo-deny](https://github.com/EmbarkStudios/cargo-deny) checks the dependencies for known vulnerabilities, unmaintained crates, licenses that don't go with the GPL, and sources other than crates.io and AudioRef's fork of nih-plug with the git repositories it pins, as configured in `deny.toml`:
@@ -96,7 +110,7 @@ make deny
 | `screenshots.yml` | pull requests, `main`, by hand | that the window opens, without a graphics card; the screenshots in English and German are an artifact, see [Screenshots](#screenshots) |
 | `codeql.yml` | pull requests, `main`, weekly | CodeQL's analysis of the Rust code and of the workflows |
 | `zizmor.yml` | pull requests, `main`, weekly | the workflows, with zizmor: e.g. template injection, permissions, known vulnerable actions |
-| `release.yml` | pull requests, `main`, version tags | the user manual as PDF, see [User manual](#user-manual); the tests and the VST3 and CLAP bundles on Windows, macOS (universal, signed ad hoc) and Linux, the CLAP bundles checked with clap-validator, the VST3 bundles with pluginval at strictness 10, each archive with the manual; publishes them and the manual for `main` as the pre-release `snapshot` and for version tags as releases, see [Changelog and versions](#changelog-and-versions) |
+| `release.yml` | pull requests, `main`, version tags | the user manual as PDF, see [User manual](#user-manual); the tests and the VST3 and CLAP bundles on Windows, macOS (universal, signed ad hoc) and Linux, the CLAP bundles checked with clap-validator, the VST3 bundles with pluginval at strictness 10, each archive with the manual; the Windows installer, see [Windows installer](#windows-installer); publishes them, the installer and the manual for `main` as the pre-release `snapshot` and for version tags as releases, see [Changelog and versions](#changelog-and-versions) |
 
 clap-validator and pluginval are pinned in `release.yml` (pluginval's archives by their SHA-256), as Dependabot doesn't update them. clap-validator runs all its tests.
 

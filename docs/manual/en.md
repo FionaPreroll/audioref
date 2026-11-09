@@ -47,11 +47,11 @@ Download the archive for your system from the [latest release](https://github.co
 
 | System | Archive |
 |---|---|
-| Windows 10 or newer, x86_64 | `audioref-windows-x86_64.zip` |
+| Windows 10 or newer, x86_64 | `audioref-windows-x86_64-setup.exe` (installer) or `audioref-windows-x86_64.zip` |
 | macOS, Intel and Apple silicon | `audioref-macos-universal.zip` |
 | Linux, x86_64 | `audioref-linux-x86_64.zip` |
 
-Each archive holds the plugin as `AudioRef.vst3` and `AudioRef.clap`, this manual in English and German (`audioref-manual-en.pdf`, `audioref-manual-de.pdf`), the README, the changelog, the license, and the source and license of the built-in presets (`OPRA-PRESETS.md`). The release also offers the manuals as downloads of their own.
+Each archive holds the plugin as `AudioRef.vst3` and `AudioRef.clap`, this manual in English and German (`audioref-manual-en.pdf`, `audioref-manual-de.pdf`), the README, the changelog, the license, and the source and license of the built-in presets (`OPRA-PRESETS.md`). The installer holds the plugins and this manual, see [Windows: the installer](#windows-the-installer). The release also offers the manuals as downloads of their own.
 
 To check a download, compare its checksum with the file `SHA256SUMS` of the release, and verify with the [GitHub CLI](https://cli.github.com) that AudioRef's own workflow built it:
 
@@ -60,9 +60,22 @@ sha256sum --check --ignore-missing SHA256SUMS
 gh attestation verify audioref-windows-x86_64.zip --repo FionaPreroll/audioref
 ```
 
+### Windows: the installer
+
+On Windows, the installer copies the plugins for you. Run `audioref-windows-x86_64-setup.exe`; it speaks English or German, as Windows does, and asks for an administrator's permission, as the plugins go to `C:\Program Files\Common Files`.
+
+1. Windows may warn that it protected your PC, as the installer isn't signed. Click **More info**, then **Run anyway**.
+2. Choose the kind of installation:
+   - **Express installation** installs the VST3 plugin in `C:\Program Files\Common Files\VST3`, the CLAP plugin in `C:\Program Files\Common Files\CLAP` and this manual, in English and German, in `C:\Program Files\AudioRef`, with entries in the Start menu.
+   - **Custom installation** installs only the ones you tick: the VST3 plugin, the CLAP plugin, the manual.
+3. Click **Next**, then **Install**.
+4. The last page offers to open this manual, in the language of the installer; if you didn't install it, the one on GitHub. Click **Finish**.
+
+Then let your DAW rescan its plugins. In Bitwig, use the CLAP version.
+
 ### Copying the plugins
 
-Unpack the archive and copy the bundles to the folders where your DAW looks for plugins:
+Without the installer, on macOS and Linux, or on Windows from the archive, unpack the archive and copy the bundles to the folders where your DAW looks for plugins:
 
 | System | Copy `AudioRef.vst3` to | Copy `AudioRef.clap` to |
 |---|---|---|
@@ -90,9 +103,9 @@ Then let your DAW rescan its plugins again.
 
 ### Updating and removing
 
-To update AudioRef, replace the bundles with those of the new version, with your DAW closed. Projects keep their settings: they open with the same correction in the new version.
+To update AudioRef, replace the bundles with those of the new version, with your DAW closed, or on Windows run the installer of the new version. Projects keep their settings: they open with the same correction in the new version.
 
-To remove AudioRef, delete `AudioRef.vst3` and `AudioRef.clap` from the folders above. AudioRef writes no other files: everything it remembers is saved in your projects.
+To remove AudioRef, delete `AudioRef.vst3` and `AudioRef.clap` from the folders above. If you installed it with the installer, uninstall it instead under **Settings → Apps → Installed apps**: that removes the plugins and the manual. AudioRef writes no other files: everything it remembers is saved in your projects.
 
 ## Quick start
 
