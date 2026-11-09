@@ -4,6 +4,10 @@ All changes users of AudioRef can notice are listed here. The format follows [Ke
 
 ## [Unreleased]
 
+## [1.0.0-rc1] - 2026-11-09
+
+The first release candidate of AudioRef 1.0: headphone correction for the monitoring path, as a VST3 and a CLAP plugin for Windows, macOS and Linux, with OPRA's whole database built in, your own measurement and target, linear phase, crossfeed, a limiter, a window and a manual in English and German, and a Windows installer.
+
 ### Added
 
 - AudioRef as a VST3 and a CLAP plugin for Windows, macOS (Intel and Apple silicon) and Linux, see [Installing](README.md#installing).

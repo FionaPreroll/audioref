@@ -10,7 +10,7 @@ resolver = "3"
 [workspace.package]
 # The version of AudioRef, which make version sets, see Changelog and versions in
 # docs/DEVELOPMENT.md.
-version = "0.1.0"
+version = "1.0.0-rc1"
 edition = "2024"
 license = "GPL-3.0-only"
 repository = "https://github.com/FionaPreroll/audioref"
