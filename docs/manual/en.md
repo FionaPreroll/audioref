@@ -8,7 +8,7 @@ Every pair of headphones colors the sound: consumer headphones often lift the ba
 
 It does that with an EQ made for your model of headphones:
 
-- **EQ presets from OPRA**, the open database of headphone EQs. Presets for the Bose QC25, the Sony WH-1000XM4 and the AKG K240 Studio are built in, so these headphones work without a download. For all others, you load OPRA's database, which you download yourself.
+- **EQ presets from OPRA**, the open database of headphone EQs. OPRA's whole database is built in, more than 12,000 presets for over 6,000 headphones, so they work without a download.
 - **Your own measurement and target**, as CSV files, e.g. from AutoEQ's repository: AudioRef computes the correction from them, and you adjust it to your taste.
 
 Around the correction, AudioRef has what monitoring on headphones needs: automatic headroom, so the correction never makes anything louder, an optional linear-phase mode, mono and swapped channels, a crossfeed in three strengths, an output level with a meter, and a limiter that keeps the output from clipping. When your DAW exports a mix offline, AudioRef bypasses itself, so the correction of your headphones doesn't end up in the mix.
@@ -33,7 +33,7 @@ AudioRef corrects the average frequency response of a model of headphones, as me
 > [!IMPORTANT]
 > **AudioRef is for private, non-commercial use only**, and comes without any warranty.
 >
-> The built-in presets are OPRA's, by oratory1990 and AutoEQ, under CC BY-SA 4.0. Everything else AudioRef reads from files you download yourself, from AutoEQ or OPRA. These data belong to their authors and have their own terms: oratory1990 prohibits unlicensed commercial use of his measurements. Don't use AudioRef or such data commercially without their authors' permission.
+> The built-in presets are OPRA's database, by oratory1990 and AutoEQ, under CC BY-SA 4.0. Everything else AudioRef reads from files you download yourself, from AutoEQ or OPRA. These data belong to their authors and have their own terms: oratory1990 prohibits unlicensed commercial use of his measurements. Don't use AudioRef or such data commercially without their authors' permission.
 
 ### About this manual
 
@@ -97,15 +97,15 @@ To remove AudioRef, delete `AudioRef.vst3` and `AudioRef.clap` from the folders 
 ## Quick start
 
 1. Put AudioRef on your master track, as the last plugin, after everything else.
-2. Open AudioRef's window. It lists the headphones with built-in presets.
-3. Click your headphones, e.g. "Sony WH-1000XM4". If they come in several modes, e.g. "(ANC on)" and "(ANC Off)", pick the one you listen in.
+2. Open AudioRef's window. It lists the headphones of OPRA's database, which is built in.
+3. Search for your headphones, e.g. "WH-1000XM4", and click them. If they come in several modes, e.g. "(ANC on)" and "(ANC Off)", pick the one you listen in.
 4. Click a preset on the right. Presets by oratory1990, or "Measured by oratory1990", are a good start.
 5. Listen. **Bypass** switches the correction off and on, to compare.
 6. Before you export a mix, nothing needs doing in most DAWs: AudioRef bypasses itself while the DAW exports offline. If your DAW exports in real time, bypass AudioRef yourself, see [Exporting](#exporting).
 
 ![AudioRef with a built-in preset for the AKG K240 Studio. The curve shows what the correction does at each frequency.](../screenshots/en-correction.png)
 
-The project saves the chosen preset, so it opens with the same correction, even on a computer without any files. If your headphones aren't built in, see [More headphones from OPRA's database](#more-headphones-from-opras-database).
+The project saves the chosen preset, so it opens with the same correction, even on a computer without any files. If your headphones aren't in the list, see [Troubleshooting](#troubleshooting).
 
 ## The window
 
@@ -146,21 +146,15 @@ Two of its lines help when something doesn't work as expected, e.g. to say which
 
 [OPRA](https://github.com/opra-project/OPRA) is an open, community-maintained database of EQ presets for headphones. oratory1990 publishes his presets there himself, and AutoEQ adds presets computed from the measurements of several reviewers. A preset is a parametric EQ: a list of filters, e.g. peaks, dips and shelves, with their frequencies, gains and widths, and an overall gain. AudioRef runs it with filters that follow the preset closely up to the highest frequencies, at every sample rate.
 
-### Built-in headphones
+### The built-in database
 
-Without any file, the list holds the headphones whose presets are built into AudioRef, from OPRA's database of 8 November 2026:
+AudioRef has OPRA's whole database built in, its version of 8 November 2026: 12,594 presets for 6,230 headphones of 714 vendors, over-ear, on-ear and in-ear headphones and earbuds. Without any file, the list holds all of them, so there is nothing to download or choose. When the plugin starts, it unpacks the database in the background, in about a tenth of a second; until then the list says "Loading…".
 
-| Headphones | In the list |
-|---|---|
-| AKG K240 Studio | K240 Studio |
-| Bose QC25 | QC25, QuietComfort 25, QuietComfort 25 (passive) |
-| Sony WH-1000XM4 | WH-1000XM4, WH-1000XM4 (ANC on), WH-1000XM4 (ANC Off) |
+Beside the search, the window says how many presets the list holds: "Built in: 12,594 presets for 6,230 headphones". OPRA lists some modes of a model as headphones of their own, e.g. with active noise cancelling on or off, and some under the model's other names, e.g. QC25 and QuietComfort 25: their presets are by different authors.
 
-Beside the search, the window says how many presets the list holds, e.g. "Built in: 20 presets for 7 headphones". OPRA lists some modes of a model as headphones of their own, e.g. with active noise cancelling on or off, and some under the model's other names, e.g. QC25 and QuietComfort 25: their presets are by different authors.
+### A newer version of OPRA's database
 
-### More headphones from OPRA's database
-
-For other headphones, download OPRA's whole database and let AudioRef read it:
+OPRA grows: headphones it adds after the built-in version come with a newer version of AudioRef, or now, if you download OPRA's database yourself and let AudioRef read it instead of the built-in one:
 
 1. Download the file [`dist/database_v1.jsonl`](https://github.com/opra-project/OPRA/tree/main/dist) from OPRA's repository, about 12 MB, and keep it anywhere, e.g. in your documents. The note under the field in **OPRA database** links the file too: click `database_v1.jsonl` there to download it in your browser, or **OPRA's repository** to see where it comes from.
 2. In AudioRef's window, open **OPRA database** below the lists.
@@ -168,7 +162,7 @@ For other headphones, download OPRA's whole database and let AudioRef read it:
 
 The dialog opens in the folder of the file in the field, if there is one, and lists OPRA's `.jsonl` files; choose "All files" in it for others. AudioRef loads the file you pick at once. On macOS the dialog stays in front of the DAW until you close it; on Windows and Linux the DAW goes on, and while the dialog is open, AudioRef opens no other. On Linux, the dialog comes from the XDG desktop portal of your desktop, or from zenity without one; if neither is installed, no dialog opens: paste the path instead.
 
-AudioRef reads the file in the background, in about a tenth of a second, and then says how many presets it found, as "… presets for … headphones". It remembers the path in the project and loads the file again each time the window opens. If the file isn't there then, e.g. because you moved it, AudioRef shows the built-in presets and says so in grey under the field, without an error, and tries again the next time. **Load** with an empty field goes back to the built-in presets.
+AudioRef reads the file in the background, in about a tenth of a second, and then uses it instead of the built-in database and says how many presets it found, as "… presets for … headphones". It remembers the path in the project and loads the file again each time the window opens. If the file isn't there then, e.g. because you moved it, AudioRef shows the built-in presets and says so in grey under the field, without an error, and tries again the next time. **Load** with an empty field goes back to the built-in presets.
 
 ![The section OPRA database, opened, with a small demo database loaded: the list shows its headphones.](../screenshots/en-file.png)
 
@@ -419,7 +413,7 @@ Besides the parameters, the project saves:
 
 | Message | Meaning |
 |-------|------|
-| Built in: 20 presets for 7 headphones | No database is loaded: the list holds the built-in presets. |
+| Built in: 12,594 presets for 6,230 headphones | No file is loaded: the list holds the built-in database. |
 | … presets for … headphones | OPRA's database is loaded, with as many presets. |
 | … lines left out, which AudioRef doesn't understand | Lines of the database that a newer OPRA added, or with values outside what AudioRef allows. The others work. |
 | This file isn't OPRA's database. | The file at the path has no lines of OPRA's format. |
@@ -449,7 +443,7 @@ Besides the parameters, the project saves:
 Check that the bundles are in the folders of [Copying the plugins](#copying-the-plugins), and let the DAW rescan its plugins. On macOS, allow them first, see [macOS: allowing the plugins](#macos-allowing-the-plugins). On Windows, the folders under `C:\Program Files` need administrator rights to copy into.
 
 **My headphones aren't in the list.**
-Only three models are built in. Load OPRA's database, see [More headphones from OPRA's database](#more-headphones-from-opras-database), and search for them. If OPRA has no preset for them either, use a measurement from AutoEQ and a target, see [Your own measurement and target](#your-own-measurement-and-target).
+Search for part of their name only, e.g. "1000XM4" instead of "WH-1000XM4 wireless". Headphones that OPRA added after the built-in version are in a newer version of its database, see [A newer version of OPRA's database](#a-newer-version-of-opras-database). If OPRA has no preset for them, use a measurement from AutoEQ and a target, see [Your own measurement and target](#your-own-measurement-and-target).
 
 **Browse… opens no dialog on Linux.**
 AudioRef asks your desktop for the dialog through the XDG desktop portal, or else zenity. Install your desktop's portal, e.g. `xdg-desktop-portal-gtk` or `xdg-desktop-portal-kde`, or zenity, or paste the path into the field and click **Load**.
@@ -476,7 +470,7 @@ AudioRef follows the language your operating system reports to programs, not tha
 
 AudioRef is free software, licensed under the [GNU General Public License v3.0 only](https://github.com/FionaPreroll/audioref/blob/main/LICENSE). Its VST3 support uses nih-plug's VST3 bindings, which are licensed under the GPLv3 as well. The source is on [GitHub](https://github.com/FionaPreroll/audioref).
 
-The built-in EQ presets are an excerpt of [OPRA](https://github.com/opra-project/OPRA)'s database, by oratory1990 and AutoEQ (Jaakko Pasanen), computed from measurements by oratory1990, crinacle, Innerfidelity, Rtings and HypetheSonics. They are licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), not under AudioRef's license; the archives hold their source and authors as `OPRA-PRESETS.md`.
+The built-in EQ presets are [OPRA](https://github.com/opra-project/OPRA)'s whole database, by oratory1990 and AutoEQ (Jaakko Pasanen), computed from measurements by crinacle, Innerfidelity, Rtings, Super Review, oratory1990, HypetheSonics and many others, as each preset names. They are licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), not under AudioRef's license; the archives hold their source and authors as `OPRA-PRESETS.md`.
 
 The window uses the fonts that come with egui: Ubuntu Light under the [Ubuntu Font Licence 1.0](https://ubuntu.com/legal/font-licence), and Noto Emoji and emoji-icon-font under the [SIL Open Font License 1.1](https://openfontlicense.org). The about window lists every other piece of software AudioRef is built with, with its license text.
 

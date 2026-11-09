@@ -34,8 +34,7 @@ use crate::{AudioRefParams, about, theme};
 /// The size of the window, in logical pixels.
 pub const SIZE: (u32, u32) = (760, 720);
 
-/// The height of the lists of headphones and presets, in logical pixels: the built-in
-/// headphones fit.
+/// The height of the lists of headphones and presets, in logical pixels; longer lists scroll.
 const LIST_HEIGHT: f32 = 140.0;
 
 /// The most headphones the search lists.
@@ -51,8 +50,9 @@ const BUTTONS_WIDTH: f32 = 190.0;
 /// The width of the fields of the measurement and the target, in logical pixels.
 const CURVE_FIELD_WIDTH: f32 = 280.0;
 
-/// How often the window looks whether the open dialog picked a file.
-const DIALOG_FRAME: Duration = Duration::from_millis(100);
+/// How often the window looks whether the background is done: whether the open dialog picked a
+/// file, or a database is unpacked or read.
+const POLL_FRAME: Duration = Duration::from_millis(100);
 
 /// The height of the cards of the controls, so they end together.
 const CONTROLS_HEIGHT: f32 = 92.0;
@@ -200,7 +200,7 @@ pub fn create(params: Arc<AudioRefParams>, shared: Arc<Shared>) -> Option<Box<dy
             take_picked(state, &params, &shared);
             if shared.dialog.is_open() {
                 // Draws again to take the file, also with the displays off.
-                ctx.request_repaint_after(DIALOG_FRAME);
+                ctx.request_repaint_after(POLL_FRAME);
             }
             let margin = |top: i8, bottom: i8| egui::Margin {
                 left: 14,
@@ -361,28 +361,29 @@ fn database(
     shared: &Shared,
 ) {
     let load = lock(&shared.database).clone();
-    // Without a file, or when it couldn't be loaded, the built-in presets.
+    // Without a file, or when it couldn't be loaded, the built-in presets, once they are unpacked.
     let unavailable = matches!(load, Load::Unavailable);
     let (database, from_file, problem) = match load {
-        Load::None | Load::Unavailable => (Some(shared.bundled.clone()), false, None),
+        Load::None | Load::Unavailable => (shared.bundled(), false, None),
         Load::Loading => (None, false, None),
         Load::ReadFailed(reason) => (
-            Some(shared.bundled.clone()),
+            shared.bundled(),
             false,
             Some(format!("{} {reason}", Text::ReadFailed.text(lang))),
         ),
         Load::NotOpra => (
-            Some(shared.bundled.clone()),
+            shared.bundled(),
             false,
             Some(Text::NotOpra.text(lang).to_owned()),
         ),
         Load::Loaded(database) => (Some(database), true, None),
     };
-    match database {
-        Some(database) => browser(ui, lang, state, params, shared, &database, from_file),
-        None => {
-            ui.label(Text::Loading.text(lang));
-        }
+    if let Some(database) = database {
+        browser(ui, lang, state, params, shared, &database, from_file);
+    } else {
+        ui.label(Text::Loading.text(lang));
+        // Draws again to show the presets once they are there, also with the displays off.
+        ui.ctx().request_repaint_after(POLL_FRAME);
     }
     ui.add_space(2.0);
     egui::CollapsingHeader::new(Text::Database.text(lang))

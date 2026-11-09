@@ -5,7 +5,7 @@
 
 AudioRef is a VST3 and CLAP plugin that evens out the frequency response of your headphones, so that budget and consumer headphones, e.g. Bose QC25, Sony WH-1000XM4 or AKG K240 Studio, sound closer to neutral studio monitoring while you mix and master.
 
-> **Early development.** AudioRef corrects headphones with OPRA's EQ presets, built in for the Bose QC25, the Sony WH-1000XM4 and the AKG K240 Studio, for all others from OPRA's database, or from a measurement and a target you load yourself, with crossfeed and mono if you like, and a limiter that keeps it from clipping. More follows, see [docs/PLAN.md](docs/PLAN.md#next-steps).
+> **Early development.** AudioRef corrects headphones with OPRA's EQ presets, more than 12,000 for over 6,000 headphones, built in, or from a measurement and a target you load yourself, with crossfeed and mono if you like, and a limiter that keeps it from clipping. More follows, see [docs/PLAN.md](docs/PLAN.md#next-steps).
 
 ![AudioRef's window with a built-in preset for the AKG K240 Studio. The curve shows what the correction does at each frequency.](docs/screenshots/en-correction.png)
 
@@ -13,7 +13,7 @@ AudioRef is a VST3 and CLAP plugin that evens out the frequency response of your
 
 **AudioRef is for private, non-commercial use only**, and comes without any warranty.
 
-AudioRef has OPRA's EQ presets for the Bose QC25, the Sony WH-1000XM4 and the AKG K240 Studio built in, by oratory1990 and AutoEQ, see [data/opra](data/opra/README.md); they are licensed under CC BY-SA 4.0, not under AudioRef's license. Everything else it reads from files you download yourself, e.g. from [AutoEQ](https://github.com/jaakkopasanen/AutoEq) (measurements by oratory1990) or [OPRA](https://github.com/opra-project/OPRA). These data belong to their authors and have their own terms: oratory1990 prohibits unlicensed commercial use of his measurements, and OPRA's data is licensed under CC BY-SA 4.0. Don't use AudioRef or such data commercially without their authors' permission.
+AudioRef has OPRA's whole database of EQ presets built in, by oratory1990 and AutoEQ, see [data/opra](data/opra/README.md); it is licensed under CC BY-SA 4.0, not under AudioRef's license. Everything else it reads from files you download yourself, e.g. from [AutoEQ](https://github.com/jaakkopasanen/AutoEq) (measurements by oratory1990) or [OPRA](https://github.com/opra-project/OPRA). These data belong to their authors and have their own terms: oratory1990 prohibits unlicensed commercial use of his measurements, and OPRA's data is licensed under CC BY-SA 4.0. Don't use AudioRef or such data commercially without their authors' permission.
 
 Headphone correction belongs in the monitoring path only: bypass AudioRef before you export a mix or master.
 
@@ -47,8 +47,8 @@ Then let your DAW rescan its plugins again.
 
 The [user manual](#documentation) describes all of this in more detail, in English and German.
 
-1. Open AudioRef's window. It lists the headphones with built-in presets: the Bose QC25, the Sony WH-1000XM4 and the AKG K240 Studio. If yours are among them, go on with step 3.
-2. For other headphones, download OPRA's database, the file [`dist/database_v1.jsonl`](https://github.com/opra-project/OPRA/tree/main/dist) from OPRA's repository (about 12 MB), and keep it anywhere. Open **OPRA database** below the lists, click **Browse…** and pick the file, or paste its path into the field and click **Load**. AudioRef remembers the path and loads the file again the next time; **Load** with an empty field goes back to the built-in presets.
+1. Open AudioRef's window. It lists the headphones of OPRA's database, which is built in: 12,594 presets for 6,230 headphones, from OPRA's version of 8 November 2026. Nothing needs to be downloaded or chosen.
+2. Optional, for a newer version of OPRA's database: download the file [`dist/database_v1.jsonl`](https://github.com/opra-project/OPRA/tree/main/dist) from OPRA's repository (about 12 MB), and keep it anywhere. Open **OPRA database** below the lists, click **Browse…** and pick the file, or paste its path into the field and click **Load**. AudioRef then uses it instead of the built-in one, remembers the path and loads the file again the next time; **Load** with an empty field goes back to the built-in presets.
 3. Search for your headphones, e.g. "WH-1000XM4". Some come in several modes, e.g. "(ANC on)" and "(ANC off)": pick the one you listen in.
 4. Click a preset. Presets by oratory1990, or "Measured by oratory1990", are a good start. The curve shows what the correction does; rest the pointer on it to read the level at a frequency. If the preset boosts some frequencies, AudioRef lowers its level by as much, so nothing gets louder and nothing clips.
 
@@ -103,4 +103,4 @@ Changes of every parameter fade over 20 ms, so they don't click. Rest the pointe
 
 ## License
 
-AudioRef is licensed under the [GNU General Public License v3.0 only](LICENSE). Its VST3 support uses nih-plug's VST3 bindings, which are licensed under the GPLv3 as well. The built-in EQ presets are an excerpt of [OPRA](https://github.com/opra-project/OPRA)'s database, by oratory1990 and AutoEQ, licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), see [data/opra](data/opra/README.md), which the archives hold as `OPRA-PRESETS.md`. The window uses the fonts that come with egui: Ubuntu Light under the [Ubuntu Font Licence 1.0](https://ubuntu.com/legal/font-licence), and Noto Emoji and emoji-icon-font under the [SIL Open Font License 1.1](https://openfontlicense.org). The about window in the plugin lists every crate AudioRef is built with, with its license texts.
+AudioRef is licensed under the [GNU General Public License v3.0 only](LICENSE). Its VST3 support uses nih-plug's VST3 bindings, which are licensed under the GPLv3 as well. The built-in EQ presets are [OPRA](https://github.com/opra-project/OPRA)'s whole database, by oratory1990 and AutoEQ, licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), see [data/opra](data/opra/README.md), which the archives hold as `OPRA-PRESETS.md`. The window uses the fonts that come with egui: Ubuntu Light under the [Ubuntu Font Licence 1.0](https://ubuntu.com/legal/font-licence), and Noto Emoji and emoji-icon-font under the [SIL Open Font License 1.1](https://openfontlicense.org). The about window in the plugin lists every crate AudioRef is built with, with its license texts.

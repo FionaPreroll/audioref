@@ -1,8 +1,10 @@
 //! Collects what the about window shows of the build: the git commit, the time, whether GitHub
 //! Actions builds it, and the crates the plugin is built from with their license texts, see
-//! `audioref_core::about`.
+//! `audioref_core::about`. Packs OPRA's database for the plugin to hold, see
+//! `audioref_core::bundled`.
 //!
-//! Nothing here may fail the build: what it can't find, the window shows as unknown.
+//! Nothing for the about window may fail the build: what it can't find, the window shows as
+//! unknown. Without the packed database, the plugin doesn't compile.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -12,6 +14,7 @@ use std::{env, fs};
 use audioref_core::about::{
     Package, ci_run, code, is_license_file, packages, standard_licenses, standard_text,
 };
+use audioref_core::bundled;
 
 fn main() {
     let manifest_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap_or_default());
@@ -52,9 +55,17 @@ fn main() {
     println!("cargo:rustc-env=AUDIOREF_CI_RUN_NUMBER={number}");
     println!("cargo:rustc-env=AUDIOREF_CI_RUN_URL={url}");
 
+    let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap_or_default());
     let components = third_party(&manifest_dir).unwrap_or_default();
-    let out = PathBuf::from(env::var_os("OUT_DIR").unwrap_or_default()).join("third_party.rs");
+    let out = out_dir.join("third_party.rs");
     if let Err(error) = fs::write(&out, code(&components)) {
+        println!("cargo:warning=Could not write {}: {error}", out.display());
+    }
+
+    // `background.rs` includes it. Cargo runs this again when the core, and with it the
+    // database it includes, changes.
+    let out = out_dir.join("database_v1.jsonl.deflate");
+    if let Err(error) = fs::write(&out, bundled::pack(bundled::DATABASE)) {
         println!("cargo:warning=Could not write {}: {error}", out.display());
     }
 }

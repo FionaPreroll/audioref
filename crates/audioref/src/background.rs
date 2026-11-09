@@ -1,6 +1,7 @@
-//! The work outside the audio thread: reading OPRA's file and the files of a measurement and a
-//! target, designing the corrections, and freeing the ones the audio thread is done with. Without a file, the presets built into AudioRef are
-//! used, see `audioref_core::bundled`.
+//! The work outside the audio thread: unpacking the presets built into AudioRef, OPRA's whole
+//! database (see `audioref_core::bundled`), reading OPRA's file instead if one is chosen and the
+//! files of a measurement and a target, designing the corrections, and freeing the ones the audio
+//! thread is done with.
 //!
 //! The corrections travel through two lock-free queues: new ones from the background to the audio
 //! thread, which never waits for them, and old ones back, so the audio thread never frees memory.
@@ -14,7 +15,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError, Weak};
 use std::thread::{self, JoinHandle};
 
 use audioref_core::autoeq::{self, Curve};
@@ -25,6 +26,26 @@ use audioref_core::opra::{Database, ParseError};
 
 use crate::AudioRefParams;
 use crate::browse::Dialog;
+
+/// OPRA's database, packed by the build script, see `build.rs`.
+const PACKED_DATABASE: &[u8] =
+    include_bytes!(concat!(env!("OUT_DIR"), "/database_v1.jsonl.deflate"));
+
+/// The built-in presets, unpacked and parsed, shared by all of AudioRef's instances in the host
+/// while one holds them: they take some megabytes, and a tenth of a second to parse. Freed with
+/// the last instance, so nothing stays when the host unloads the library.
+static BUILT_IN: Mutex<Weak<Database>> = Mutex::new(Weak::new());
+
+/// The built-in presets: those another instance holds, or else unpacked and parsed now, which
+/// takes a tenth of a second, so only the background calls it.
+fn built_in() -> Arc<Database> {
+    let mut built_in = lock(&BUILT_IN);
+    built_in.upgrade().unwrap_or_else(|| {
+        let database = Arc::new(bundled::database(PACKED_DATABASE));
+        *built_in = Arc::downgrade(&database);
+        database
+    })
+}
 
 /// How many corrections fit into each queue: more than the window can ask for between two blocks
 /// of audio.
@@ -54,7 +75,7 @@ pub enum Task {
 /// Where OPRA's file stands.
 #[derive(Debug, Clone, Default)]
 pub enum Load {
-    /// No file: the built-in presets are used.
+    /// No file: the built-in presets are used, once [`Shared::bundled`] has them.
     #[default]
     None,
     /// Being read.
@@ -107,8 +128,9 @@ pub struct Shared {
     peak: AtomicU32,
     /// OPRA's file.
     pub database: Mutex<Load>,
-    /// The presets built into AudioRef, for when no file is loaded.
-    pub bundled: Arc<Database>,
+    /// The presets built into AudioRef, for when no file is loaded, once the background unpacked
+    /// them.
+    bundled: OnceLock<Arc<Database>>,
     /// The file of the measurement.
     pub measurement: Mutex<CurveLoad>,
     /// The file of the target.
@@ -134,8 +156,9 @@ pub struct Worker {
 }
 
 impl Worker {
-    /// Starts the background, which does the tasks [`Shared::execute`] sends it. If the system
-    /// can't start a thread, [`Shared::execute`] does them itself.
+    /// Starts the background, which first unpacks the built-in presets, then does the tasks
+    /// [`Shared::execute`] sends it. If the system can't start a thread, the presets are
+    /// unpacked here, and [`Shared::execute`] does the tasks itself.
     #[must_use]
     pub fn start(shared: Arc<Shared>, params: Arc<AudioRefParams>) -> Self {
         let receiver = lock(&shared.receiver).take();
@@ -144,12 +167,16 @@ impl Worker {
             thread::Builder::new()
                 .name(String::from("audioref-background"))
                 .spawn(move || {
+                    background.bundled.get_or_init(built_in);
                     while let Ok(Some(task)) = receiver.recv() {
                         background.run(task, &params);
                     }
                 })
                 .ok()
         });
+        if thread.is_none() {
+            shared.bundled.get_or_init(built_in);
+        }
         Self { shared, thread }
     }
 }
@@ -190,7 +217,7 @@ impl Shared {
             reduction: AtomicU32::new(0.0_f32.to_bits()),
             peak: AtomicU32::new(0.0_f32.to_bits()),
             database: Mutex::new(Load::None),
-            bundled: Arc::new(bundled::database()),
+            bundled: OnceLock::new(),
             measurement: Mutex::new(CurveLoad::None),
             target: Mutex::new(CurveLoad::None),
             dialog: Dialog::default(),
@@ -200,6 +227,12 @@ impl Shared {
             receiver: Mutex::new(Some(receiver)),
         });
         (shared, AudioEnds { incoming, returns })
+    }
+
+    /// The presets built into AudioRef, or `None` while the background unpacks them, for a tenth
+    /// of a second after the plugin starts.
+    pub fn bundled(&self) -> Option<Arc<Database>> {
+        self.bundled.get().cloned()
     }
 
     /// The sample rate the host last activated the plugin with, in Hz.
@@ -358,7 +391,9 @@ mod tests {
 
     use audioref_core::i18n::Lang;
 
-    use super::{CurveLoad, Load, Shared, Task, Which, lock};
+    use std::sync::Arc;
+
+    use super::{CurveLoad, Load, Shared, Task, Which, Worker, lock};
     use crate::AudioRefParams;
 
     /// A file in the system's temporary folder, unique to a test.
@@ -370,6 +405,22 @@ mod tests {
 
     fn missing() -> PathBuf {
         std::env::temp_dir().join("audioref-this-file-does-not-exist.jsonl")
+    }
+
+    #[test]
+    fn the_built_in_presets_are_unpacked_once_and_shared() {
+        let (one, _one_ends) = Shared::new(Lang::En);
+        let (two, _two_ends) = Shared::new(Lang::En);
+        assert!(one.bundled().is_none());
+        let params = Arc::new(AudioRefParams::new(Lang::En));
+        // Dropping a worker joins its thread, which unpacks the presets first.
+        drop(Worker::start(one.clone(), params.clone()));
+        drop(Worker::start(two.clone(), params));
+        let first = one.bundled().expect("unpacked");
+        let second = two.bundled().expect("unpacked");
+        assert!(Arc::ptr_eq(&first, &second));
+        assert!(first.presets().len() > 10_000);
+        assert_eq!(first.skipped(), 0);
     }
 
     #[test]
