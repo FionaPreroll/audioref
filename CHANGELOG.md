@@ -4,6 +4,10 @@ All changes users of AudioRef can notice are listed here. The format follows [Ke
 
 ## [Unreleased]
 
+### Fixed
+
+- The **Output** card keeps its width at levels with two digits, e.g. −12.5 dB, instead of running into the **Stereo** card beside it.
+
 ## [1.0.0-rc1] - 2026-11-09
 
 The first release candidate of AudioRef 1.0: headphone correction for the monitoring path, as a VST3 and a CLAP plugin for Windows, macOS and Linux, with OPRA's whole database built in, your own measurement and target, linear phase, crossfeed, a limiter, a window and a manual in English and German, and a Windows installer.
