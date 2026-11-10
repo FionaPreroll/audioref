@@ -59,7 +59,7 @@ const CONTROLS_HEIGHT: f32 = 92.0;
 
 /// Room beside a slider of a design for its value, e.g. "0.00 dB/oct".
 const SLIDER_VALUE_WIDTH: f32 = 110.0;
-/// The shortest slider of a design.
+/// The shortest slider, e.g. of a design.
 const SLIDER_MIN_WIDTH: f32 = 40.0;
 
 /// The least and most height of the curve, in logical pixels: it takes the room left.
@@ -1192,9 +1192,15 @@ fn parameters(
             return;
         };
         theme::card_of_height(output, params.output.name(), CONTROLS_HEIGHT, |ui| {
+            // The slider leaves room for the widest value, so the card keeps its width, e.g. at
+            // −12.5 dB.
+            let spacing = ui.spacing();
+            let value = value_width(ui, &params.output)
+                + spacing.button_padding.x * 2.0
+                + spacing.item_spacing.x;
             ui.add(
                 widgets::ParamSlider::for_param(&params.output, setter)
-                    .with_width(ui.available_width() - 64.0),
+                    .with_width((ui.available_width() - value).max(SLIDER_MIN_WIDTH)),
             )
             .on_hover_text(Hint::Output.text(lang));
             ui.horizontal(|ui| clicked |= level(ui, lang, on, state.level));
@@ -1256,6 +1262,32 @@ fn parameters(
     if clicked {
         params.meters.store(!on, Ordering::Relaxed);
     }
+}
+
+/// The width of the widest value a parameter shows beside its slider, in logical pixels: the ends
+/// of its range with each digit the font's widest, as digits differ in width.
+fn value_width(ui: &egui::Ui, param: &impl Param) -> f32 {
+    let font = egui::TextStyle::Button.resolve(ui.style());
+    ui.fonts(|fonts| {
+        let width = |c| fonts.glyph_width(&font, c);
+        let widest = ('0'..='9')
+            .max_by(|a, b| width(*a).total_cmp(&width(*b)))
+            .unwrap_or('0');
+        [0.0, 1.0]
+            .into_iter()
+            .map(|normalized| {
+                let text = param
+                    .normalized_value_to_string(normalized, true)
+                    .chars()
+                    .map(|c| if c.is_ascii_digit() { widest } else { c })
+                    .collect();
+                fonts
+                    .layout_no_wrap(text, font.clone(), Color32::PLACEHOLDER)
+                    .size()
+                    .x
+            })
+            .fold(0.0, f32::max)
+    })
 }
 
 /// The lowest level the display shows, in dB of full scale.
