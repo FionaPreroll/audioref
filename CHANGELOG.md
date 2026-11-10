@@ -6,6 +6,7 @@ All changes users of AudioRef can notice are listed here. The format follows [Ke
 
 ### Fixed
 
+- The **Output** card keeps its width at levels with two digits, e.g. −12.5 dB, instead of running into the **Stereo** card beside it.
 - Typing into AudioRef's fields works in FL Studio on Windows, and in other DAWs that keep the keyboard for themselves: the search, the paths of files, and the value beside **Output**. Typed text didn't appear before. See [Typing and your DAW's keys](docs/manual/en.md#typing-and-your-daws-keys).
 - Keys that no field of AudioRef takes go to your DAW, e.g. the space bar, which starts and stops playback. Before, AudioRef's window kept every key while it was in front, e.g. in Bitwig on macOS.
 
