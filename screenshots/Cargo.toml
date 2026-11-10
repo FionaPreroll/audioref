@@ -10,7 +10,7 @@ publish = false
 audioref = { path = "../crates/audioref" }
 # The rev of the workspace's Cargo.toml; [patch] below replaces it with the copy that
 # utils/screenshots.sh makes of it.
-nih_plug = { git = "https://github.com/FionaPreroll/nih-plug.git", rev = "76d2bd21c6e29aa9709109f382b2bc5810e25ce9", default-features = false, features = ["standalone"] }
+nih_plug = { git = "https://github.com/FionaPreroll/nih-plug.git", rev = "42b818b5b7db8eff5d894918d9a82d74ca47a0e5", default-features = false, features = ["standalone"] }
 
 # A workspace of its own, so the Cargo.lock of AudioRef stays free of the standalone program's
 # dependencies (cpal, jack, midir, clap).

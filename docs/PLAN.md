@@ -43,10 +43,11 @@ The rig matters: the Harman target was defined on a GRAS rig, which oratory1990 
 ## Dependencies
 
 - **nih-plug from a fork:** nih-plug isn't on crates.io, and its upstream fixes bugs slowly, so AudioRef uses the fork [FionaPreroll/nih-plug](https://github.com/FionaPreroll/nih-plug), branch `audioref`: upstream's `master` plus the fixes below, each its own commit. The workspace pins the fork to one commit, and `deny.toml` allows exactly the fork and the git repositories it pins itself: clap-sys, vst3-sys, reflink (for the bundler), baseview and egui-baseview. Dependabot doesn't move git pins: check upstream for new commits now and then, merge them into `audioref`, and bump `rev` in `Cargo.toml` deliberately, see [DEVELOPMENT.md](DEVELOPMENT.md#ci). Fixes that upstream takes over drop out of the fork on such a merge.
-- **The fork's fixes** (as of 2026-11-08), found in testing and by clap-validator 0.4.1, which now runs all its tests:
+- **The fork's fixes** (as of 2026-11-10), found in testing and by clap-validator 0.4.1, which now runs all its tests:
   - VST3, the process mode: `setup_processing` handed the plugin the mode of the host's previous call, so in Bitwig 6 the VST3 took playing for an export and the render guard bypassed it, and vice versa. Upstream has no fix for it; the fork's is its own. Upstream's issue #71 (Ableton's limiter on after an export) is probably the same bug.
   - CLAP, loading state: nih-plug reserved as much memory as the first 8 bytes of a state said, so a damaged state aborted the host (`state-invalid-random`). Now it refuses lengths above 256 MiB and reads in chunks. Taken from upstream's open pull request #280 (issue #279).
   - CLAP, after loading state: nih-plug didn't ask the host to rescan the parameters' values, so the host showed the old ones (`state-reproducibility-*`). Also taken from pull request #280; #286 does the same with a weaker length check.
+  - egui, the keys (2026-11-10): egui-baseview, which nih_plug_egui pinned at ec70c3f, kept every key its window got, so the host's shortcuts, e.g. Bitwig's space bar on macOS, didn't work while AudioRef's window was in front; and on Windows text typed into the window's fields didn't arrive in FL Studio, which keeps the keyboard focus. The fork now pins the head of egui-baseview's branch `egui_31` (ceab8d0), which stays on egui 0.31 and has both fixes: keys egui doesn't want go to the host (from brannn's branch fix-keyboard-passthrough), and the feature `keyboard_focus_workaround` (egui-baseview's issue #20), which nih_plug_egui now offers; with it baseview 237d323, which hooks the keyboard on Windows (baseview's #212). egui-baseview logs through tracing, as its feature `nih_log` would pull in upstream's nih_plug. egui-baseview's main branch, with a nih_plug_egui of its own, has moved on to egui 0.33.
 - **GPLv3:** nih-plug is ISC, its VST3 bindings (vst3-sys) are GPLv3, so AudioRef is GPL-3.0-only.
 - **atty:** nih-plug's logger, nih_log, depends on atty, which is unmaintained (RUSTSEC-2024-0375). It only asks whether stderr is a terminal; `deny.toml` ignores the advisory until nih-plug drops it.
 - **vst3-sys and Rust 1.99:** the macros of vst3-sys end expressions with a semicolon, which Rust 1.99 warns of (`semicolon_in_expressions_from_non_local_macros`) and a later Rust will refuse. `crates/audioref` allows the warning; it needs a fix in vst3-sys before Rust turns it into an error.
@@ -71,8 +72,8 @@ A Cargo workspace, see [ARCHITECTURE.md](ARCHITECTURE.md):
 
 What Fiona tried by hand, beyond clap-validator and pluginval in CI:
 
-- **Bitwig 6** (2026-11-08): CLAP and VST3; output level and bypass work in both, after the fork's fix of the VST3 process mode. The audio export, offline, came out as expected with both: the render guard bypasses AudioRef.
-- **FL Studio on Windows** (2026-11-08): tested, no problems reported.
+- **Bitwig 6** (2026-11-08): CLAP and VST3; output level and bypass work in both, after the fork's fix of the VST3 process mode. The audio export, offline, came out as expected with both: the render guard bypasses AudioRef. On macOS (2026-11-10) the window kept the space bar from Bitwig while it was in front; fixed with egui-baseview's branch `egui_31`, see the fork's fixes, not tried yet.
+- **FL Studio on Windows** (2026-11-08): tested, no problems reported. On 2026-11-10: typed text didn't appear in the window's fields; fixed with egui-baseview's branch `egui_31` and its keyboard focus workaround, not tried yet.
 
 ## Next Steps
 
