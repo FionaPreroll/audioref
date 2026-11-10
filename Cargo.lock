@@ -164,7 +164,7 @@ dependencies = [
 [[package]]
 name = "baseview"
 version = "0.1.0"
-source = "git+https://github.com/RustAudio/baseview.git?rev=9a0b42c09d712777b2edb4c5e0cb6baf21e988f0#9a0b42c09d712777b2edb4c5e0cb6baf21e988f0"
+source = "git+https://github.com/RustAudio/baseview.git?rev=237d323c729f3aa99476ba3efa50129c5e86cad3#237d323c729f3aa99476ba3efa50129c5e86cad3"
 dependencies = [
  "cocoa",
  "core-foundation",
@@ -572,18 +572,18 @@ dependencies = [
 
 [[package]]
 name = "egui-baseview"
-version = "0.5.0"
-source = "git+https://github.com/BillyDM/egui-baseview.git?rev=ec70c3fe6b2f070dcacbc22924431edbe24bd1c0#ec70c3fe6b2f070dcacbc22924431edbe24bd1c0"
+version = "0.7.0"
+source = "git+https://github.com/BillyDM/egui-baseview.git?rev=ceab8d088dbd96ab442b1a44f6a27ad74b1351ca#ceab8d088dbd96ab442b1a44f6a27ad74b1351ca"
 dependencies = [
  "baseview",
  "copypasta",
  "egui",
  "egui_glow",
  "keyboard-types",
- "log",
  "open",
  "raw-window-handle 0.5.2",
  "thiserror 2.0.21",
+ "tracing",
 ]
 
 [[package]]
@@ -1085,7 +1085,7 @@ dependencies = [
 [[package]]
 name = "nih_plug"
 version = "0.0.0"
-source = "git+https://github.com/FionaPreroll/nih-plug.git?rev=76d2bd21c6e29aa9709109f382b2bc5810e25ce9#76d2bd21c6e29aa9709109f382b2bc5810e25ce9"
+source = "git+https://github.com/FionaPreroll/nih-plug.git?rev=42b818b5b7db8eff5d894918d9a82d74ca47a0e5#42b818b5b7db8eff5d894918d9a82d74ca47a0e5"
 dependencies = [
  "anyhow",
  "anymap3",
@@ -1115,7 +1115,7 @@ dependencies = [
 [[package]]
 name = "nih_plug_derive"
 version = "0.1.0"
-source = "git+https://github.com/FionaPreroll/nih-plug.git?rev=76d2bd21c6e29aa9709109f382b2bc5810e25ce9#76d2bd21c6e29aa9709109f382b2bc5810e25ce9"
+source = "git+https://github.com/FionaPreroll/nih-plug.git?rev=42b818b5b7db8eff5d894918d9a82d74ca47a0e5#42b818b5b7db8eff5d894918d9a82d74ca47a0e5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1125,7 +1125,7 @@ dependencies = [
 [[package]]
 name = "nih_plug_egui"
 version = "0.0.0"
-source = "git+https://github.com/FionaPreroll/nih-plug.git?rev=76d2bd21c6e29aa9709109f382b2bc5810e25ce9#76d2bd21c6e29aa9709109f382b2bc5810e25ce9"
+source = "git+https://github.com/FionaPreroll/nih-plug.git?rev=42b818b5b7db8eff5d894918d9a82d74ca47a0e5#42b818b5b7db8eff5d894918d9a82d74ca47a0e5"
 dependencies = [
  "baseview",
  "crossbeam",
@@ -1139,7 +1139,7 @@ dependencies = [
 [[package]]
 name = "nih_plug_xtask"
 version = "0.1.0"
-source = "git+https://github.com/FionaPreroll/nih-plug.git?rev=76d2bd21c6e29aa9709109f382b2bc5810e25ce9#76d2bd21c6e29aa9709109f382b2bc5810e25ce9"
+source = "git+https://github.com/FionaPreroll/nih-plug.git?rev=42b818b5b7db8eff5d894918d9a82d74ca47a0e5#42b818b5b7db8eff5d894918d9a82d74ca47a0e5"
 dependencies = [
  "anyhow",
  "cargo_metadata",
@@ -2190,7 +2190,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "63e71662fa4b2a2c3a26f570f037eb95bb1f85397f3cd8076caed2f026a6d100"
 dependencies = [
  "pin-project-lite",
+ "tracing-attributes",
  "tracing-core",
+]
+
+[[package]]
+name = "tracing-attributes"
+version = "0.1.31"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7490cfa5ec963746568740651ac6781f701c9c5ea257c58e057f3ba8cf69e8da"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -2198,6 +2210,9 @@ name = "tracing-core"
 version = "0.1.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "db97caf9d906fbde555dd62fa95ddba9eecfd14cb388e4f491a66d74cd5fb79a"
+dependencies = [
+ "once_cell",
+]
 
 [[package]]
 name = "transpose"

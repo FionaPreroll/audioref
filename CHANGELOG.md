@@ -4,6 +4,11 @@ All changes users of AudioRef can notice are listed here. The format follows [Ke
 
 ## [Unreleased]
 
+### Fixed
+
+- Typing into AudioRef's fields works in FL Studio on Windows, and in other DAWs that keep the keyboard for themselves: the search, the paths of files, and the value beside **Output**. Typed text didn't appear before. See [Typing and your DAW's keys](docs/manual/en.md#typing-and-your-daws-keys).
+- Keys that no field of AudioRef takes go to your DAW, e.g. the space bar, which starts and stops playback. Before, AudioRef's window kept every key while it was in front, e.g. in Bitwig on macOS.
+
 ## [1.0.0-rc1] - 2026-11-09
 
 The first release candidate of AudioRef 1.0: headphone correction for the monitoring path, as a VST3 and a CLAP plugin for Windows, macOS and Linux, with OPRA's whole database built in, your own measurement and target, linear phase, crossfeed, a limiter, a window and a manual in English and German, and a Windows installer.

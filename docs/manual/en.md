@@ -142,6 +142,12 @@ Rest the pointer on any control to see what it does. Where the window waits for 
 
 ![The hint of the crossfeed, shown while the pointer rests on its list.](../screenshots/en-hint.png)
 
+### Typing and your DAW's keys
+
+Click into a field to type into it, e.g. **Search headphones**, the path of a file, or the value beside **Output**. While it is in edit, the keys go to AudioRef, the space bar too. Press Enter or Escape, or click elsewhere in the window, to finish. All other keys go to your DAW, even while AudioRef's window is in front, e.g. the space bar, which starts and stops playback.
+
+On Windows, a field takes the keyboard for AudioRef's window while you type with the pointer over the window, also in DAWs that keep the keyboard for themselves, e.g. FL Studio. After typing, click into your DAW once before using its shortcuts.
+
 ### Language
 
 The window and the parameter names follow the language of your operating system: German on German systems, English on all others. A project saved in one language opens in the other with the same settings, as DAWs save parameters by their IDs, not by their names.

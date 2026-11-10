@@ -252,8 +252,28 @@ pub fn create(params: Arc<AudioRefParams>, shared: Arc<Shared>) -> Option<Box<dy
                     );
                 });
             about::window(ctx, lang, setter.raw_context.plugin_api(), &mut state.about);
+            keyboard_focus(ctx);
         },
     )
+}
+
+/// Asks for the keyboard only for a field in edit, while the pointer is over the window.
+///
+/// egui-baseview, with its `keyboard_focus_workaround`, takes the keyboard focus for the window
+/// after each frame with an output event, e.g. a click, or a field in edit, so the fields get the
+/// keys in hosts that keep the focus, e.g. FL Studio on Windows. A click on a button needs no
+/// keys, though, and a field still in edit would take them back from the host in every frame,
+/// e.g. after a click into the host. Keys that no field takes go to the host, e.g. the space bar,
+/// which starts playback.
+fn keyboard_focus(ctx: &egui::Context) {
+    let pointer = ctx.input(|input| input.pointer.has_pointer());
+    ctx.output_mut(|output| {
+        // Only that workaround reads them: the window has no screen reader.
+        output.events.clear();
+        if !pointer {
+            output.ime = None;
+        }
+    });
 }
 
 /// Takes what the window shows of the saved state when it opens, as the host restores it after

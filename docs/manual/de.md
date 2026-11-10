@@ -142,6 +142,12 @@ Lass den Zeiger auf einem Bedienelement ruhen, um zu sehen, was es tut. Wo das F
 
 ![Der Hinweis des Crossfeeds, während der Zeiger auf seiner Liste ruht.](../screenshots/de-hint.png)
 
+### Tippen und die Tasten deiner DAW
+
+Klicke in ein Feld, um hineinzutippen, z. B. **Kopfhörer suchen**, den Pfad einer Datei oder den Wert neben **Ausgang**. Solange du darin schreibst, gehen die Tasten an AudioRef, auch die Leertaste. Beende es mit Enter oder Escape, oder mit einem Klick anderswo im Fenster. Alle anderen Tasten gehen an deine DAW, auch während das Fenster von AudioRef vorne ist, z. B. die Leertaste, die die Wiedergabe startet und anhält.
+
+Unter Windows holt ein Feld die Tastatur für das Fenster von AudioRef, während du mit dem Zeiger über dem Fenster tippst, auch in DAWs, die die Tastatur für sich behalten, z. B. FL Studio. Klicke nach dem Tippen einmal in deine DAW, bevor du ihre Tastenkürzel nutzt.
+
 ### Sprache
 
 Das Fenster und die Namen der Parameter folgen der Sprache deines Betriebssystems: Deutsch auf deutschen Systemen, Englisch auf allen anderen. Ein Projekt, das in einer Sprache gespeichert wurde, öffnet sich in der anderen mit denselben Einstellungen, denn DAWs speichern Parameter nach ihren IDs, nicht nach ihren Namen.
