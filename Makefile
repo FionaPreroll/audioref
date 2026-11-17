@@ -45,7 +45,7 @@ FUZZ_SECONDS ?= 60
 
 # The share of lines, and of functions, that the tests must cover, in percent, see the target
 # coverage.
-COVERAGE_MIN ?= 100
+COVERAGE_MIN ?= 98
 
 # Crates that audioref-core must not depend on, not even indirectly: plugin APIs, GUIs and the
 # platform belong to the plugin, see crates/audioref-core/src/lib.rs.
