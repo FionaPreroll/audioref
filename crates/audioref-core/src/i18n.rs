@@ -273,11 +273,13 @@ pub enum Text {
     AllFiles,
     /// OPRA's file that the project names couldn't be read again when the window opened.
     DatabaseUnavailable,
+    /// The file of the favorites couldn't be written; the system's reason follows.
+    FavoritesNotSaved,
 }
 
 impl Text {
     /// All texts, e.g. for tests.
-    pub const ALL: [Self; 34] = [
+    pub const ALL: [Self; 35] = [
         Self::Database,
         Self::Load,
         Self::Loading,
@@ -312,6 +314,7 @@ impl Text {
         Self::CurveFiles,
         Self::AllFiles,
         Self::DatabaseUnavailable,
+        Self::FavoritesNotSaved,
     ];
 
     /// The text in a language.
@@ -363,6 +366,7 @@ impl Text {
             Self::DatabaseUnavailable => {
                 "The saved database isn't there at the moment, e.g. as it was moved, so the built-in presets are shown. AudioRef tries again the next time the window opens, or load it again."
             }
+            Self::FavoritesNotSaved => "The favorites couldn't be saved:",
         }
     }
 
@@ -406,6 +410,7 @@ impl Text {
             Self::DatabaseUnavailable => {
                 "Die gespeicherte Datenbank ist gerade nicht da, z. B. weil sie verschoben wurde, daher stehen die eingebauten Presets hier. AudioRef versucht es beim nächsten Öffnen des Fensters wieder, oder lade sie neu."
             }
+            Self::FavoritesNotSaved => "Die Favoriten ließen sich nicht speichern:",
         }
     }
 }
@@ -512,6 +517,8 @@ pub enum Hint {
     PickHeadphones,
     /// A preset in the list.
     Preset,
+    /// The star beside headphones or a preset, which marks it as a favorite.
+    Favorite,
     /// The button that turns the correction off.
     TurnOff,
     /// The curve of the correction.
@@ -558,11 +565,12 @@ pub enum Hint {
 
 impl Hint {
     /// All hints, e.g. for tests.
-    pub const ALL: [Self; 25] = [
+    pub const ALL: [Self; 26] = [
         Self::LoadDatabase,
         Self::Search,
         Self::PickHeadphones,
         Self::Preset,
+        Self::Favorite,
         Self::TurnOff,
         Self::Curve,
         Self::Headroom,
@@ -606,6 +614,9 @@ impl Hint {
             Self::PickHeadphones => "Pick your headphones on the left, then one of their presets.",
             Self::Preset => {
                 "A click makes this preset the correction. Presets by oratory1990, or \"Measured by oratory1990\", are a good start."
+            }
+            Self::Favorite => {
+                "Marks it as a favorite: favorites come first in their list, in every project. Click the star again to unmark it."
             }
             Self::TurnOff => {
                 "Turns the correction off: the signal passes unchanged. The other settings stay."
@@ -678,6 +689,9 @@ impl Hint {
             Self::PickHeadphones => "Wähle links deine Kopfhörer, dann eines ihrer Presets.",
             Self::Preset => {
                 "Ein Klick macht dieses Preset zur Korrektur. Presets von oratory1990 oder „Measured by oratory1990“ sind ein guter Anfang."
+            }
+            Self::Favorite => {
+                "Markiert es als Favorit: Favoriten stehen in ihrer Liste zuerst, in jedem Projekt. Ein weiterer Klick auf den Stern hebt die Markierung auf."
             }
             Self::TurnOff => {
                 "Schaltet die Korrektur aus: Das Signal bleibt unverändert. Die übrigen Einstellungen bleiben."

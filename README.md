@@ -7,7 +7,7 @@ AudioRef is a VST3 and CLAP plugin that evens out the frequency response of your
 
 > **Early development.** AudioRef corrects headphones with OPRA's EQ presets, more than 12,000 for over 6,000 headphones, built in, or from a measurement and a target you load yourself, with crossfeed and mono if you like, and a limiter that keeps it from clipping. More follows, see [docs/PLAN.md](docs/PLAN.md#next-steps).
 
-![AudioRef's window with a built-in preset for the AKG K240 Studio. The curve shows what the correction does at each frequency.](docs/screenshots/en-correction.png)
+![AudioRef's window with a built-in preset for the AKG K240 Studio. The headphones and one of their presets are favorites, marked with a purple star. The curve shows what the correction does at each frequency.](docs/screenshots/en-correction.png)
 
 ## Disclaimer
 
@@ -57,6 +57,8 @@ The [user manual](#documentation) describes all of this in more detail, in Engli
 4. Click a preset. Presets by oratory1990, or "Measured by oratory1990", are a good start. The curve shows what the correction does; rest the pointer on it to read the level at a frequency. If the preset boosts some frequencies, AudioRef lowers its level by as much, so nothing gets louder and nothing clips.
 
 The project saves the chosen preset, so it opens with the same correction even on a computer without the file. **Off** turns the correction off. Changing the preset fades over 20 ms.
+
+Click the star before headphones or a preset to make it a favorite: favorites come first in their lists, in every project, as AudioRef keeps them in a file of its own in your system's folder for settings, see [Favorites](docs/manual/en.md#favorites) in the manual.
 
 ### Your own measurement and target
 

@@ -16,6 +16,7 @@ pub mod delay;
 pub mod design;
 pub mod engine;
 pub mod eq;
+pub mod favorites;
 pub mod filter;
 pub mod fir;
 #[cfg(any(test, fuzzing))]

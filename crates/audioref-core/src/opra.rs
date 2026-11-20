@@ -27,6 +27,7 @@ use std::collections::btree_map::Entry;
 use serde::Deserialize;
 
 use crate::eq::{Band, ParametricEq, Slope};
+use crate::favorites::{Favorites, Kind};
 
 /// A maker of headphones.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -192,28 +193,46 @@ impl Database {
         }
     }
 
-    /// The IDs of the products with presets whose name, with the vendor's, holds every word of
-    /// `query`, ignoring case, at most `limit` of them, by their names. An empty query finds all.
+    /// The presets of a product, with their IDs: the favorites first, then the others, each in
+    /// the order of their IDs.
     #[must_use]
-    pub fn search(&self, query: &str, limit: usize) -> Vec<&str> {
+    pub fn presets_by_favorites<'a>(
+        &'a self,
+        product_id: &'a str,
+        favorites: &Favorites,
+    ) -> Vec<(&'a str, &'a Preset)> {
+        let mut presets: Vec<_> = self.presets_of(product_id).collect();
+        // Stable, so each part keeps the order of the IDs.
+        presets.sort_by_key(|(id, _)| !favorites.contains(Kind::Preset, id));
+        presets
+    }
+
+    /// The IDs of the products with presets whose name, with the vendor's, holds every word of
+    /// `query`, ignoring case, at most `limit` of them: the favorites first, then the others,
+    /// each by their names. An empty query finds all.
+    #[must_use]
+    pub fn search(&self, query: &str, favorites: &Favorites, limit: usize) -> Vec<&str> {
         let words: Vec<String> = query.split_whitespace().map(str::to_lowercase).collect();
         let with_presets: std::collections::BTreeSet<&str> = self
             .presets
             .values()
             .map(|preset| preset.product_id.as_str())
             .collect();
-        let mut found: Vec<(String, &str)> = self
+        let mut found: Vec<(bool, String, &str)> = self
             .products
             .keys()
             .filter(|id| with_presets.contains(id.as_str()))
-            .map(|id| (self.headphones(id), id.as_str()))
-            .filter(|(name, _)| {
+            .map(|id| {
+                let other = !favorites.contains(Kind::Headphones, id);
+                (other, self.headphones(id), id.as_str())
+            })
+            .filter(|(_, name, _)| {
                 let name = name.to_lowercase();
                 words.iter().all(|word| name.contains(word.as_str()))
             })
             .collect();
         found.sort();
-        found.into_iter().take(limit).map(|(_, id)| id).collect()
+        found.into_iter().take(limit).map(|(_, _, id)| id).collect()
     }
 
     /// The number of lines that were left out.
@@ -393,8 +412,9 @@ impl RawBand {
 
 #[cfg(test)]
 mod tests {
-    use super::{Database, Form, ParseError};
+    use super::{Database, Form, ParseError, Preset};
     use crate::eq::{Band, Slope};
+    use crate::favorites::{Favorites, Kind};
 
     const VENDOR: &str = r#"{"type":"vendor","id":"acme","data":{"name":"Acme","logo":"assets/x.png","blurb":"Makes headphones."}}"#;
     const PRODUCT: &str = r#"{"type":"product","id":"acme::one","data":{"name":"One","type":"headphones","subtype":"over_the_ear","vendor_id":"acme","line_art_svg":"assets/y.svg"}}"#;
@@ -602,13 +622,74 @@ mod tests {
         assert_eq!(database.headphones("acme::two"), "Acme Two Pro");
         assert_eq!(database.headphones("nobody::three"), "Three");
         assert_eq!(database.headphones("gone::five"), "gone::five");
+        let none = Favorites::default();
         assert_eq!(
-            database.search("", 10),
+            database.search("", &none, 10),
             ["acme::one", "acme::two", "nobody::three"]
         );
-        assert_eq!(database.search("ACME  pro", 10), ["acme::two"]);
-        assert_eq!(database.search("o", 2), ["acme::one", "acme::two"]);
-        assert_eq!(database.search("four", 10), Vec::<&str>::new());
+        assert_eq!(database.search("ACME  pro", &none, 10), ["acme::two"]);
+        assert_eq!(database.search("o", &none, 2), ["acme::one", "acme::two"]);
+        assert_eq!(database.search("four", &none, 10), Vec::<&str>::new());
+    }
+
+    #[test]
+    fn lists_favorites_first() {
+        let two = r#"{"type":"product","id":"acme::two","data":{"name":"Two","subtype":"in_ear","vendor_id":"acme"}}"#;
+        let three = r#"{"type":"product","id":"acme::three","data":{"name":"Three","subtype":"in_ear","vendor_id":"acme"}}"#;
+        let for_product = |id: &str, product: &str| preset(id, "").replace("acme::one", product);
+        let lines = [
+            VENDOR,
+            PRODUCT,
+            two,
+            three,
+            &preset("acme:one::a", ""),
+            &preset("acme:one::b", ""),
+            &preset("acme:one::c", ""),
+            &for_product("acme:two::a", "acme::two"),
+            &for_product("acme:three::a", "acme::three"),
+        ];
+        let database = parse(&lines);
+        let mut favorites = Favorites::default();
+        favorites.set(Kind::Headphones, "acme::two", true);
+        favorites.set(Kind::Headphones, "acme::three", true);
+        // A favorite the database doesn't have changes nothing.
+        favorites.set(Kind::Headphones, "gone::five", true);
+        assert_eq!(
+            database.search("", &favorites, 10),
+            ["acme::three", "acme::two", "acme::one"]
+        );
+        // The limit takes the favorites first, and the search still holds for them.
+        assert_eq!(database.search("", &favorites, 1), ["acme::three"]);
+        assert_eq!(database.search("one", &favorites, 10), ["acme::one"]);
+        assert_eq!(
+            database.search("t", &favorites, 10),
+            ["acme::three", "acme::two"]
+        );
+
+        let ids = |favorites: &Favorites| -> Vec<&str> {
+            database
+                .presets_by_favorites("acme::one", favorites)
+                .into_iter()
+                .map(|(id, _)| id)
+                .collect()
+        };
+        assert_eq!(
+            ids(&Favorites::default()),
+            ["acme:one::a", "acme:one::b", "acme:one::c"]
+        );
+        favorites.set(Kind::Preset, "acme:one::c", true);
+        favorites.set(Kind::Preset, "acme:one::b", true);
+        // A preset of other headphones, or headphones by the ID of a preset, change nothing.
+        favorites.set(Kind::Preset, "acme:two::a", true);
+        favorites.set(Kind::Headphones, "acme:one::a", true);
+        assert_eq!(
+            ids(&favorites),
+            ["acme:one::b", "acme:one::c", "acme:one::a"]
+        );
+        assert_eq!(
+            database.presets_by_favorites("acme::four", &favorites),
+            Vec::<(&str, &Preset)>::new()
+        );
     }
 
     #[test]

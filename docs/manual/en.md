@@ -116,7 +116,7 @@ To remove AudioRef, delete `AudioRef.vst3` and `AudioRef.clap` from the folders 
 5. Listen. **Bypass** switches the correction off and on, to compare.
 6. Before you export a mix, nothing needs doing in most DAWs: AudioRef bypasses itself while the DAW exports offline. If your DAW exports in real time, bypass AudioRef yourself, see [Exporting](#exporting).
 
-![AudioRef with a built-in preset for the AKG K240 Studio. The curve shows what the correction does at each frequency.](../screenshots/en-correction.png)
+![AudioRef with a built-in preset for the AKG K240 Studio. The headphones and one of their presets are favorites, marked with a purple star. The curve shows what the correction does at each frequency.](../screenshots/en-correction.png)
 
 The project saves the chosen preset, so it opens with the same correction, even on a computer without any files. If your headphones aren't in the list, see [Troubleshooting](#troubleshooting).
 
@@ -127,7 +127,7 @@ AudioRef's window has the same parts in all its uses, from top to bottom:
 | Part | What it holds |
 |----|----------------|
 | Top bar | The name AudioRef, the tabs **OPRA presets** and **Own curves (AutoEQ)**, which choose where the correction comes from, and **About** |
-| Source | In **OPRA presets**: the search, the list of headphones, their presets, and the section **OPRA database** that folds away. In **Own curves (AutoEQ)**: the files of a measurement and a target, and **Use as correction** |
+| Source | In **OPRA presets**: the search, the list of headphones, their presets, each with a star that marks it as a favorite, and the section **OPRA database** that folds away. In **Own curves (AutoEQ)**: the files of a measurement and a target, and **Use as correction** |
 | Correction | **Frequency response of the correction EQ**: the switch **Linear phase**, the name of the current correction with its author, **Off**, for your own curves the sliders **Tilt**, **Bass** and **Max. boost**, and the curve |
 | Output | The output level, the meter **Level** and **Bypass** |
 | Stereo | **Channels** and **Crossfeed** |
@@ -192,7 +192,7 @@ If AudioRef can't use the file, it says why and keeps the presets it had: "This 
 
 ### Finding your headphones
 
-Type part of the name into **Search headphones**, e.g. "WH-1000XM4" or "HD 6". The search finds the headphones whose name, with the vendor's, holds every word you type, in any case, e.g. "sony 1000xm4", and lists the first 200 by name. Headphones with several modes are listed once for each, e.g. "(ANC on)", "(ANC off)" or "(passive)": pick the one you listen in. If nothing fits, the list says "No headphones match."
+Type part of the name into **Search headphones**, e.g. "WH-1000XM4" or "HD 6". The search finds the headphones whose name, with the vendor's, holds every word you type, in any case, e.g. "sony 1000xm4", and lists the first 200: your [favorites](#favorites) first, then the others, each by name. Headphones with several modes are listed once for each, e.g. "(ANC on)", "(ANC off)" or "(passive)": pick the one you listen in. If nothing fits, the list says "No headphones match."
 
 ### Choosing a preset
 
@@ -203,6 +203,20 @@ Click your headphones, then a preset on the right: it becomes the correction at 
 - Others, by other authors, as named.
 
 Try two or three and keep the one that sounds most natural to you, e.g. on a well-known reference track. Below the curve's heading, the window shows the headphones and who made the preset, e.g. "EQ by AutoEQ (Measured by crinacle), from OPRA, CC BY-SA 4.0", with a link to OPRA's repository, as OPRA's license asks.
+
+### Favorites
+
+Click the star before headphones or a preset to mark it as a favorite: the star turns purple, and favorites come first in their list. Favorite headphones are listed before all others, by name, so the ones you use are at the top as soon as the window opens, without a search; a search still finds only those whose name fits. Favorite presets come first among the presets of their headphones. Click the star again to unmark it.
+
+Favorites aren't saved with the project but for AudioRef as a whole: they hold in every project and in every DAW on your computer, for your user account. AudioRef keeps them in a small file in the folder where your system keeps the settings of programs:
+
+| System | File |
+|---|---------|
+| Windows | `%APPDATA%\AudioRef\favorites.json` |
+| macOS | `~/Library/Application Support/AudioRef/favorites.json` |
+| Linux | `~/.config/audioref/favorites.json`, or `audioref/favorites.json` in `$XDG_CONFIG_HOME` if it is set |
+
+AudioRef reads the file each time its window opens, so favorites marked in another project show there too. They are kept by OPRA's IDs, so they hold in a newer version of OPRA's database as well. If the file can't be written, e.g. because the folder is read-only, the window says "The favorites couldn't be saved:" with the reason of your system, and the favorites hold until the DAW closes.
 
 ### Headroom
 
@@ -216,7 +230,7 @@ Most presets bring headroom of their own, so AudioRef needs to lower them little
 
 ### What the project saves
 
-The project saves the chosen preset itself, with all its filters, not only its name. It opens with the same correction on a computer without OPRA's file, and the window shows its headphones and the preset selected. The path of OPRA's database is saved too.
+The project saves the chosen preset itself, with all its filters, not only its name. It opens with the same correction on a computer without OPRA's file, and the window shows its headphones and the preset selected. The path of OPRA's database is saved too. Your favorites aren't part of the project, see [Favorites](#favorites).
 
 ## Your own measurement and target
 
@@ -428,6 +442,8 @@ Besides the parameters, the project saves:
 | Meters | Shown or crossed out |
 | The window | Its size |
 
+The favorites are saved for AudioRef as a whole, not with the project, see [Favorites](#favorites).
+
 ### Messages
 
 | Message | Meaning |
@@ -442,6 +458,7 @@ Besides the parameters, the project saves:
 | Lowered by … dB, so it boosts nothing | The headroom AudioRef gave the correction, see [Headroom](#headroom). |
 | … ms latency | **Linear phase** is on, with this latency. |
 | Lower the output level | The limiter lowers the signal by 3 dB or more. |
+| The favorites couldn't be saved: … | AudioRef couldn't write the file of the favorites, for the reason that follows, see [Favorites](#favorites). |
 
 ### Specifications
 
@@ -463,6 +480,9 @@ Check that the bundles are in the folders of [Copying the plugins](#copying-the-
 
 **My headphones aren't in the list.**
 Search for part of their name only, e.g. "1000XM4" instead of "WH-1000XM4 wireless". Headphones that OPRA added after the built-in version are in a newer version of its database, see [A newer version of OPRA's database](#a-newer-version-of-opras-database). If OPRA has no preset for them, use a measurement from AutoEQ and a target, see [Your own measurement and target](#your-own-measurement-and-target).
+
+**My favorites are gone.**
+Favorites are saved for your user account on this computer, not with the project, see [Favorites](#favorites): on another computer or account, mark them again. If the window says "The favorites couldn't be saved:", check that AudioRef may write to the folder named there.
 
 **Browse… opens no dialog on Linux.**
 AudioRef asks your desktop for the dialog through the XDG desktop portal, or else zenity. Install your desktop's portal, e.g. `xdg-desktop-portal-gtk` or `xdg-desktop-portal-kde`, or zenity, or paste the path into the field and click **Load**.

@@ -64,3 +64,8 @@
 "\"tilt_db_per_octave\":"
 "\"bass_db\":"
 "\"max_boost_db\":"
+
+# The file of the favorites.
+"\"version\":1"
+"\"headphones\":["
+"\"presets\":["

@@ -24,6 +24,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "favorites"
+path = "fuzz_targets/favorites.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "name_index"
 path = "fuzz_targets/name_index.rs"
 test = false
