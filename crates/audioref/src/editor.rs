@@ -15,6 +15,7 @@ use audioref_core::autoeq::ParseError;
 use audioref_core::browse::Pick;
 use audioref_core::cascade::{Cascade, grid};
 use audioref_core::design::{BASS_DB, MAX_BOOST_DB, Settings, TILT_DB_PER_OCTAVE};
+use audioref_core::favorites::{Favorites, Kind};
 use audioref_core::filter::Phase;
 use audioref_core::gain::gain_to_db;
 use audioref_core::i18n::{
@@ -39,6 +40,11 @@ const LIST_HEIGHT: f32 = 140.0;
 
 /// The most headphones the search lists.
 const RESULTS: usize = 200;
+
+/// The star of a favorite, and that of the others, which marks them, and their size.
+const STAR: &str = "★";
+const HOLLOW_STAR: &str = "☆";
+const STAR_SIZE: f32 = 15.0;
 
 /// The width of the buttons that open the dialog to pick a file, the same in both languages, so
 /// the buttons beside them don't move, in logical pixels.
@@ -114,8 +120,8 @@ struct State {
     target_path: String,
     /// The search in the field.
     query: String,
-    /// The search and the database the results are for, and the results.
-    results: Option<(String, Arc<Database>, Vec<String>)>,
+    /// The headphones the search found.
+    results: Option<Results>,
     /// The chosen headphones.
     product: Option<String>,
     /// Whether the headphones of the saved preset were chosen again since the window opened, or
@@ -131,6 +137,18 @@ struct State {
     level: f32,
     /// Whether the about window is open.
     about: bool,
+}
+
+/// The headphones a search found, and what for.
+struct Results {
+    /// The search.
+    query: String,
+    /// The database searched.
+    database: Arc<Database>,
+    /// The favorites, which come first.
+    favorites: Arc<Favorites>,
+    /// The IDs of the headphones found, in their order.
+    found: Vec<String>,
 }
 
 /// What a curve is drawn for.
@@ -280,7 +298,8 @@ fn keyboard_focus(ctx: &egui::Context) {
 /// creating the editor: the tab of the current correction, the paths in the fields, and the
 /// headphones of the saved preset, chosen again once their database is there. Reads the files the
 /// project names again, OPRA's and those of the curves, unless they are loaded; one that can't be
-/// read, e.g. as it was moved, fails softly.
+/// read, e.g. as it was moved, fails softly. Reads the favorites again, which AudioRef in another
+/// project may have changed.
 fn opened(state: &mut State, params: &AudioRefParams, shared: &Shared) {
     let read = |path: &RwLock<String>| path.read().unwrap_or_else(PoisonError::into_inner).clone();
     state.tab = if current_design(params).is_some() {
@@ -293,6 +312,7 @@ fn opened(state: &mut State, params: &AudioRefParams, shared: &Shared) {
     state.target_path = read(&params.target_path);
     state.product = None;
     state.reselected = false;
+    shared.execute(Task::LoadFavorites, params);
     // Tries each time the window opens, so a file that is back by then is read; one that isn't
     // fails softly.
     let unread = matches!(*lock(&shared.database), Load::None | Load::Unavailable);
@@ -461,8 +481,9 @@ fn browser(
     database: &Arc<Database>,
     from_file: bool,
 ) {
+    let favorites = shared.favorites();
     if !state.reselected {
-        reselect(state, database, params);
+        reselect(state, database, &favorites, params);
     }
     ui.horizontal(|ui| {
         ui.add(
@@ -489,25 +510,38 @@ fn browser(
             ui.label(theme::note(Message::Skipped(database.skipped()).text(lang)));
         }
     });
-    let outdated = state.results.as_ref().is_none_or(|(query, searched, _)| {
-        *query != state.query || !Arc::ptr_eq(searched, database)
+    let outdated = state.results.as_ref().is_none_or(|results| {
+        results.query != state.query
+            || !Arc::ptr_eq(&results.database, database)
+            || !Arc::ptr_eq(&results.favorites, &favorites)
     });
     if outdated {
         let found = database
-            .search(&state.query, RESULTS)
+            .search(&state.query, &favorites, RESULTS)
             .into_iter()
             .map(str::to_owned)
             .collect();
-        state.results = Some((state.query.clone(), database.clone(), found));
+        state.results = Some(Results {
+            query: state.query.clone(),
+            database: database.clone(),
+            favorites,
+            found,
+        });
     }
     ui.columns(2, |columns| {
         if let [left, right] = columns {
-            list_frame(left, |ui| headphones(ui, lang, state, database));
+            list_frame(left, |ui| {
+                headphones(ui, lang, state, database, params, shared);
+            });
             list_frame(right, |ui| {
                 presets(ui, lang, state, database, params, shared);
             });
         }
     });
+    if let Some(reason) = lock(&shared.favorites_failed).as_deref() {
+        let problem = format!("{} {reason}", Text::FavoritesNotSaved.text(lang));
+        ui.add(egui::Label::new(egui::RichText::new(problem).small().color(theme::HOT)).wrap());
+    }
 }
 
 /// The deep background of a list.
@@ -526,7 +560,12 @@ fn list_frame(ui: &mut egui::Ui, add: impl FnOnce(&mut egui::Ui)) {
 /// Chooses the headphones of the saved preset again when the window opens, so the browser shows
 /// the preset selected; searches for their name if the search wouldn't list them. Tries again
 /// with each database until one has the preset.
-fn reselect(state: &mut State, database: &Database, params: &AudioRefParams) {
+fn reselect(
+    state: &mut State,
+    database: &Database,
+    favorites: &Favorites,
+    params: &AudioRefParams,
+) {
     if state.product.is_some() || current_design(params).is_some() {
         state.reselected = true;
         return;
@@ -538,7 +577,10 @@ fn reselect(state: &mut State, database: &Database, params: &AudioRefParams) {
     let Some(product) = database.product_of(&saved.preset_id) else {
         return;
     };
-    if !database.search(&state.query, RESULTS).contains(&product) {
+    if !database
+        .search(&state.query, favorites, RESULTS)
+        .contains(&product)
+    {
         state.query = database.headphones(product);
     }
     state.product = Some(product.to_owned());
@@ -546,9 +588,19 @@ fn reselect(state: &mut State, database: &Database, params: &AudioRefParams) {
     state.reselected = true;
 }
 
-/// The headphones the search found.
-fn headphones(ui: &mut egui::Ui, lang: Lang, state: &mut State, database: &Database) {
-    let Some((_, _, found)) = &state.results else {
+/// The headphones the search found, the favorites first, each with its star.
+fn headphones(
+    ui: &mut egui::Ui,
+    lang: Lang,
+    state: &mut State,
+    database: &Database,
+    params: &AudioRefParams,
+    shared: &Shared,
+) {
+    let Some(Results {
+        favorites, found, ..
+    }) = &state.results
+    else {
         return;
     };
     if found.is_empty() {
@@ -563,7 +615,12 @@ fn headphones(ui: &mut egui::Ui, lang: Lang, state: &mut State, database: &Datab
             ui.spacing_mut().interact_size.y = 18.0;
             for id in found {
                 let selected = state.product.as_deref() == Some(id.as_str());
-                let response = ui.selectable_label(selected, database.headphones(id));
+                let favorite = favorites.contains(Kind::Headphones, id);
+                let (starred, response) =
+                    entry(ui, lang, favorite, selected, database.headphones(id));
+                if starred {
+                    shared.set_favorite(Kind::Headphones, id, !favorite, params);
+                }
                 if selected && state.scroll_to_product {
                     response.scroll_to_me(Some(egui::Align::Center));
                     state.scroll_to_product = false;
@@ -576,6 +633,51 @@ fn headphones(ui: &mut egui::Ui, lang: Lang, state: &mut State, database: &Datab
     if chosen.is_some() {
         state.product = chosen;
     }
+}
+
+/// An entry of a list of headphones or presets: its star, then its name, which takes the rest of
+/// the row and wraps, as in a list without stars. Says whether the star was clicked, and gives
+/// the name's response.
+fn entry(
+    ui: &mut egui::Ui,
+    lang: Lang,
+    favorite: bool,
+    selected: bool,
+    name: String,
+) -> (bool, egui::Response) {
+    ui.horizontal(|ui| {
+        let starred = star(ui, lang, favorite);
+        let name = ui
+            .with_layout(egui::Layout::top_down_justified(egui::Align::Min), |ui| {
+                ui.selectable_label(selected, name)
+            })
+            .inner;
+        (starred, name)
+    })
+    .inner
+}
+
+/// The star before headphones or a preset in a list: filled in the accent color for a
+/// favorite, else hollow and dim. Says whether it was clicked, which marks or unmarks it.
+fn star(ui: &mut egui::Ui, lang: Lang, favorite: bool) -> bool {
+    ui.spacing_mut().item_spacing.x = 4.0;
+    let (glyph, color) = if favorite {
+        (STAR, theme::ACCENT)
+    } else {
+        (HOLLOW_STAR, theme::FAINT)
+    };
+    let star = egui::Label::new(egui::RichText::new(glyph).size(STAR_SIZE).color(color))
+        .sense(egui::Sense::click());
+    let clicked = ui
+        .add(star)
+        .on_hover_cursor(egui::CursorIcon::PointingHand)
+        .on_hover_text(Hint::Favorite.text(lang))
+        .clicked();
+    if clicked {
+        // The lists are sorted again in the next frame, also with the displays off.
+        ui.ctx().request_repaint();
+    }
+    clicked
 }
 
 /// The presets of the chosen headphones; a click makes one the correction.
@@ -596,25 +698,26 @@ fn presets(
         .is_none()
         .then(|| current(params).map(|saved| saved.preset_id))
         .flatten();
+    let favorites = shared.favorites();
     egui::ScrollArea::vertical()
         .id_salt("presets")
         .max_height(LIST_HEIGHT - 20.0)
         .show(ui, |ui| {
             ui.spacing_mut().item_spacing.y = 1.0;
             ui.spacing_mut().interact_size.y = 18.0;
-            for (id, preset) in database.presets_of(product) {
+            for (id, preset) in database.presets_by_favorites(product, &favorites) {
                 let label = if preset.details.is_empty() {
                     preset.author.clone()
                 } else {
                     format!("{}: {}", preset.author, preset.details)
                 };
                 let selected = current.as_deref() == Some(id);
-                if ui
-                    .selectable_label(selected, label)
-                    .on_hover_text(Hint::Preset.text(lang))
-                    .clicked()
-                    && !selected
-                {
+                let favorite = favorites.contains(Kind::Preset, id);
+                let (starred, response) = entry(ui, lang, favorite, selected, label);
+                if starred {
+                    shared.set_favorite(Kind::Preset, id, !favorite, params);
+                }
+                if response.on_hover_text(Hint::Preset.text(lang)).clicked() && !selected {
                     set_correction(params, shared, SavedCorrection::from_preset(database, id));
                 }
             }

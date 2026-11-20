@@ -4,6 +4,10 @@ All changes users of AudioRef can notice are listed here. The format follows [Ke
 
 ## [Unreleased]
 
+### Added
+
+- Favorites: click the star before headphones or a preset to mark it as a favorite, and again to unmark it. Favorite headphones come first in the list, so yours are at the top as soon as the window opens, and favorite presets come first among the presets of their headphones. Favorites hold in every project and every DAW on your computer: AudioRef keeps them in `favorites.json` in your system's folder for the settings of programs, not in the project, see [Favorites](docs/manual/en.md#favorites).
+
 ### Fixed
 
 - The **Output** card keeps its width at levels with two digits, e.g. −12.5 dB, instead of running into the **Stereo** card beside it.

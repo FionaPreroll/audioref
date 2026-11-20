@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Takes screenshots of the plugin's window, without a DAW and without a graphics card. AudioRef
 # runs as a standalone program (screenshots/) on Xvfb, drawn by Mesa's software OpenGL; xdotool
-# searches the built-in presets for the AKG K240 Studio and picks one, then loads a small
-# synthetic database in OPRA's format (screenshots/demo_database.jsonl) and picks one of its
-# presets, and ImageMagick's import takes the pictures, in English and in German.
+# searches the built-in presets for the AKG K240 Studio, picks one and marks favorites, then loads
+# a small synthetic database in OPRA's format (screenshots/demo_database.jsonl) and picks one of
+# its presets, and ImageMagick's import takes the pictures, in English and in German. The
+# favorites go to a folder in /tmp, not to the user's settings.
 #
 # Usage: utils/screenshots.sh [directory], by default target/screenshots.
 # Needs the libraries and tools from: utils/install-linux-deps.sh --screenshots
@@ -22,7 +23,9 @@ DATABASE_HEADER=(90 253)
 PATH_FIELD=(290 282)
 LOAD_BUTTON=(711 282)
 FIRST_HEADPHONES=(60 101)
-FIRST_PRESET=(440 115)
+FIRST_HEADPHONES_STAR=(37 101)
+FIRST_PRESET=(440 119)
+THIRD_PRESET_STAR=(394 167)
 CURVES_TAB=(315 24)
 MEASUREMENT_FIELD=(300 99)
 MEASUREMENT_LOAD=(569 99)
@@ -80,6 +83,9 @@ measurement=/tmp/audioref-screenshots/Demo\ headphones.csv
 target=/tmp/audioref-screenshots/Demo\ target.csv
 cp "$root/screenshots/demo_measurement.csv" "$measurement"
 cp "$root/screenshots/demo_target.csv" "$target"
+# The favorites go to a folder of their own, not to the user's settings, and each language starts
+# without any.
+export XDG_CONFIG_HOME=/tmp/audioref-screenshots/config
 pid=
 trap '[[ -n "$pid" ]] && kill "$pid" 2>/dev/null; true' EXIT
 
@@ -114,6 +120,7 @@ for lang in en de; do
     en) locale=en_US.UTF-8 ;;
     de) locale=de_DE.UTF-8 ;;
     esac
+    rm -rf "$XDG_CONFIG_HOME"
     # The plugin takes its language from the locale, see audioref::system_lang.
     LC_ALL="$locale" LANG="$locale" "$program" --backend dummy >"$out/$lang.log" 2>&1 &
     pid=$!
@@ -122,9 +129,11 @@ for lang in en de; do
         echo "The window didn't open, see $out/$lang.log." >&2
         exit 1
     fi
-    # Away from the curve, whose readout would show.
+    # Away from the curve, whose readout would show. The wait lets the background unpack the
+    # built-in presets, which takes a few seconds in a debug build; until then the list says
+    # "Loading…".
     xdotool mousemove --window "$window" 4 4
-    sleep 1
+    sleep 4
     shoot "$lang-built-in"
 
     click "${SEARCH_FIELD[@]}"
@@ -132,6 +141,10 @@ for lang in en de; do
     sleep 0.5
     click "${FIRST_HEADPHONES[@]}"
     click "${FIRST_PRESET[@]}"
+    # The headphones and the third preset as favorites: that preset moves to the top.
+    click "${FIRST_HEADPHONES_STAR[@]}"
+    click "${THIRD_PRESET_STAR[@]}"
+    xdotool mousemove --window "$window" 4 4
     sleep 1
     shoot "$lang-correction"
 

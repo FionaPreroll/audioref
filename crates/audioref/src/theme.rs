@@ -28,6 +28,9 @@ pub const HOT: Color32 = Color32::from_rgb(240, 98, 88);
 pub const GOOD: Color32 = Color32::from_rgb(104, 204, 128);
 /// Lines of the grid of the curve.
 pub const GRID: Color32 = Color32::from_rgb(42, 46, 54);
+/// What only shows that it can be clicked, e.g. the hollow star of headphones that aren't a
+/// favorite: dimmer than weak text.
+pub const FAINT: Color32 = Color32::from_rgb(84, 90, 101);
 
 /// How round corners are, in logical pixels.
 const RADIUS: u8 = 6;

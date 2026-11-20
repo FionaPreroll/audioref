@@ -7,6 +7,7 @@ use crate::autoeq::{Curve, FREQUENCY_HZ as CURVE_HZ, LEVEL_DB, MAX_POINTS, REQUI
 use crate::cascade::{Cascade, grid};
 use crate::design::{MAX_BOOST_DB, MAX_CUT_DB};
 use crate::eq::{FREQUENCY_HZ, GAIN_DB, MAX_BANDS, ParametricEq};
+use crate::favorites::{Favorites, Kind, MAX_FAVORITES, MAX_ID_BYTES};
 use crate::fir;
 use crate::opra::Database;
 use crate::profiles::{FORMS, MAX_LINES, NameIndex};
@@ -143,6 +144,33 @@ pub fn saved_design(data: &[u8]) {
     );
     let taps = fir::minimum_phase(&correction, 44_100.0);
     assert!(taps.is_some_and(|taps| taps.iter().all(|tap| tap.is_finite())));
+}
+
+/// The text of the file of the favorites, as bytes.
+///
+/// Checks beyond not crashing: favorites that [`Favorites::parse`] accepts are at most
+/// [`MAX_FAVORITES`] of each kind, with IDs that aren't empty and at most [`MAX_ID_BYTES`] long,
+/// and the text [`Favorites::to_json`] writes of them reads as the same favorites again.
+///
+/// # Panics
+///
+/// If one of these checks fails, which is what the fuzz target looks for.
+pub fn favorites(data: &[u8]) {
+    let Ok(text) = std::str::from_utf8(data) else {
+        return;
+    };
+    let Ok(favorites) = Favorites::parse(text) else {
+        return;
+    };
+    for kind in Kind::ALL {
+        let ids = favorites.ids(kind);
+        assert!(ids.len() <= MAX_FAVORITES);
+        assert!(
+            ids.iter()
+                .all(|id| !id.is_empty() && id.len() <= MAX_ID_BYTES)
+        );
+    }
+    assert_eq!(Favorites::parse(&favorites.to_json()), Ok(favorites));
 }
 
 /// Asserts that an EQ holds no value outside its range.
@@ -289,6 +317,23 @@ not json"#,
         ];
         for input in inputs {
             super::saved_correction(input);
+        }
+    }
+
+    #[test]
+    fn favorites_smoke_test() {
+        let long = format!(r#"{{"presets":["{}"]}}"#, "x".repeat(300));
+        let inputs: [&[u8]; 7] = [
+            b"",
+            b"\xff\xfe",
+            b"[]",
+            b"{}",
+            br#"{"version":1,"headphones":["a::b","a::b",""],"presets":["a:b::c"]}"#,
+            br#"{"headphones":"a::b","presets":[1,null,{"id":"a:b::c"},"\u00fc\"\\"]}"#,
+            long.as_bytes(),
+        ];
+        for input in inputs {
+            super::favorites(input);
         }
     }
 

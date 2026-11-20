@@ -1,7 +1,8 @@
 //! The work outside the audio thread: unpacking the presets built into AudioRef, OPRA's whole
 //! database (see `audioref_core::bundled`), reading OPRA's file instead if one is chosen and the
-//! files of a measurement and a target, designing the corrections, and freeing the ones the audio
-//! thread is done with.
+//! files of a measurement and a target, reading and writing the file of the favorites (see
+//! `audioref_core::favorites`), designing the corrections, and freeing the ones the audio thread
+//! is done with.
 //!
 //! The corrections travel through two lock-free queues: new ones from the background to the audio
 //! thread, which never waits for them, and old ones back, so the audio thread never frees memory.
@@ -12,6 +13,8 @@
 //! would keep it alive. The host could then never free the plugin, and nih-plug's thread would
 //! still run when the host unloads the library, which crashes the host on Windows.
 
+use std::fs::File;
+use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
@@ -20,6 +23,7 @@ use std::thread::{self, JoinHandle};
 
 use audioref_core::autoeq::{self, Curve};
 use audioref_core::bundled;
+use audioref_core::favorites::{self, Favorites, Kind, MAX_FILE_BYTES, System};
 use audioref_core::filter::{Filter, Phase};
 use audioref_core::i18n::Lang;
 use audioref_core::opra::{Database, ParseError};
@@ -70,6 +74,13 @@ pub enum Task {
     ReloadCurve(Which, PathBuf),
     /// Designs the saved correction for the current sample rate and sends it to the audio thread.
     Design,
+    /// Reads the file of the favorites, when the plugin starts and each time the window opens, as
+    /// AudioRef in another project may have changed it.
+    LoadFavorites,
+    /// Marks headphones or a preset with this ID as a favorite, or unmarks it, in the file of the
+    /// favorites: reads it again, so the favorites other instances saved stay, changes it and
+    /// writes it.
+    SaveFavorite(Kind, String, bool),
 }
 
 /// Where OPRA's file stands.
@@ -135,6 +146,14 @@ pub struct Shared {
     pub measurement: Mutex<CurveLoad>,
     /// The file of the target.
     pub target: Mutex<CurveLoad>,
+    /// The favorite headphones and presets. The window changes them at once, the background
+    /// saves them, see [`Self::set_favorite`]; each change makes a new `Arc`, so the window
+    /// knows when to sort its lists again.
+    pub favorites: Mutex<Arc<Favorites>>,
+    /// Why the favorites couldn't be saved the last time, the system's reason.
+    pub favorites_failed: Mutex<Option<String>>,
+    /// The file of the favorites, if the system says where settings go.
+    favorites_file: Option<PathBuf>,
     /// The system's dialog that picks a file for a field of the window. Dropped with the rest,
     /// which joins its thread.
     pub dialog: Dialog,
@@ -156,9 +175,10 @@ pub struct Worker {
 }
 
 impl Worker {
-    /// Starts the background, which first unpacks the built-in presets, then does the tasks
-    /// [`Shared::execute`] sends it. If the system can't start a thread, the presets are
-    /// unpacked here, and [`Shared::execute`] does the tasks itself.
+    /// Starts the background, which first unpacks the built-in presets and reads the favorites,
+    /// then does the tasks [`Shared::execute`] sends it. If the system can't start a thread, the
+    /// presets are unpacked and the favorites read here, and [`Shared::execute`] does the tasks
+    /// itself.
     #[must_use]
     pub fn start(shared: Arc<Shared>, params: Arc<AudioRefParams>) -> Self {
         let receiver = lock(&shared.receiver).take();
@@ -168,6 +188,7 @@ impl Worker {
                 .name(String::from("audioref-background"))
                 .spawn(move || {
                     background.bundled.get_or_init(built_in);
+                    background.load_favorites();
                     while let Ok(Some(task)) = receiver.recv() {
                         background.run(task, &params);
                     }
@@ -176,6 +197,7 @@ impl Worker {
         });
         if thread.is_none() {
             shared.bundled.get_or_init(built_in);
+            shared.load_favorites();
         }
         Self { shared, thread }
     }
@@ -208,6 +230,15 @@ impl Shared {
     /// The shared state, and the ends of the queues for the audio thread.
     #[must_use]
     pub fn new(lang: Lang) -> (Arc<Self>, AudioEnds) {
+        Self::with_favorites_file(lang, favorites_file())
+    }
+
+    /// The shared state with the file of the favorites at a path, or none, e.g. for tests.
+    #[must_use]
+    pub fn with_favorites_file(
+        lang: Lang,
+        favorites_file: Option<PathBuf>,
+    ) -> (Arc<Self>, AudioEnds) {
         let (outgoing, incoming) = rtrb::RingBuffer::new(QUEUE);
         let (returns, returned) = rtrb::RingBuffer::new(QUEUE);
         let (tasks, receiver) = mpsc::channel();
@@ -220,6 +251,9 @@ impl Shared {
             bundled: OnceLock::new(),
             measurement: Mutex::new(CurveLoad::None),
             target: Mutex::new(CurveLoad::None),
+            favorites: Mutex::new(Arc::default()),
+            favorites_failed: Mutex::new(None),
+            favorites_file,
             dialog: Dialog::default(),
             outgoing: Mutex::new(outgoing),
             returned: Mutex::new(returned),
@@ -299,7 +333,50 @@ impl Shared {
                 *lock(self.curve(which)) = load;
             }
             Task::Design => self.send(design(params, self.sample_rate())),
+            Task::LoadFavorites => self.load_favorites(),
+            Task::SaveFavorite(kind, id, favorite) => self.save_favorite(kind, &id, favorite),
         }
+    }
+
+    /// Reads the file of the favorites. If it isn't there or holds none that can be read, the
+    /// favorites stay as they are.
+    fn load_favorites(&self) {
+        if let Some(saved) = self.favorites_file.as_deref().and_then(read_favorites) {
+            *lock(&self.favorites) = Arc::new(saved);
+        }
+    }
+
+    /// The favorite headphones and presets.
+    pub fn favorites(&self) -> Arc<Favorites> {
+        lock(&self.favorites).clone()
+    }
+
+    /// Marks headphones or a preset as a favorite, or unmarks it: at once for the window, and
+    /// in the file through the background.
+    pub fn set_favorite(&self, kind: Kind, id: &str, favorite: bool, params: &AudioRefParams) {
+        let mut favorites = lock(&self.favorites);
+        let mut changed = Favorites::clone(&favorites);
+        if changed.set(kind, id, favorite) {
+            *favorites = Arc::new(changed);
+            drop(favorites);
+            self.execute(Task::SaveFavorite(kind, id.to_owned(), favorite), params);
+        }
+    }
+
+    /// Writes a change of the favorites into their file: into the favorites it holds now, so
+    /// those that AudioRef saved in another project stay, or into those of the window if it
+    /// holds none that can be read. Notes why it couldn't, if it can't.
+    fn save_favorite(&self, kind: Kind, id: &str, favorite: bool) {
+        let Some(path) = self.favorites_file.as_deref() else {
+            return;
+        };
+        let mut saved = read_favorites(path).unwrap_or_else(|| Favorites::clone(&self.favorites()));
+        saved.set(kind, id, favorite);
+        let failed = write_favorites(path, &saved)
+            .err()
+            .map(|error| error.to_string());
+        *lock(&self.favorites) = Arc::new(saved);
+        *lock(&self.favorites_failed) = failed;
     }
 
     /// Where the file of a curve stands.
@@ -337,6 +414,47 @@ impl Shared {
         // A full queue hands the correction back, which is dropped here, outside the audio thread.
         drop(lock(&self.outgoing).push(correction));
     }
+}
+
+/// The file of the favorites on this system, in its folder for the settings of programs.
+fn favorites_file() -> Option<PathBuf> {
+    let system = if cfg!(target_os = "windows") {
+        System::Windows
+    } else if cfg!(target_os = "macos") {
+        System::MacOs
+    } else {
+        System::Unix
+    };
+    favorites::file(system, &|name| std::env::var_os(name))
+}
+
+/// Reads the file of the favorites, if it is there and holds favorites.
+fn read_favorites(path: &Path) -> Option<Favorites> {
+    let mut text = String::new();
+    File::open(path)
+        .ok()?
+        .take(MAX_FILE_BYTES)
+        .read_to_string(&mut text)
+        .ok()?;
+    Favorites::parse(&text).ok()
+}
+
+/// Writes the file of the favorites, with its folder if that isn't there yet: first beside it,
+/// then in its place, so AudioRef in another project never reads half a file.
+fn write_favorites(path: &Path, favorites: &Favorites) -> io::Result<()> {
+    if let Some(folder) = path.parent() {
+        std::fs::create_dir_all(folder)?;
+    }
+    let mut partial = path.as_os_str().to_owned();
+    partial.push(format!(".{}.partial", std::process::id()));
+    let partial = PathBuf::from(partial);
+    if let Err(error) =
+        std::fs::write(&partial, favorites.to_json()).and_then(|()| std::fs::rename(&partial, path))
+    {
+        drop(std::fs::remove_file(&partial));
+        return Err(error);
+    }
+    Ok(())
 }
 
 /// Reads and parses the file of a curve, and names it after the file.
@@ -392,6 +510,8 @@ mod tests {
     use audioref_core::i18n::Lang;
 
     use std::sync::Arc;
+
+    use audioref_core::favorites::{Favorites, Kind};
 
     use super::{CurveLoad, Load, Shared, Task, Which, Worker, lock};
     use crate::AudioRefParams;
@@ -460,5 +580,98 @@ mod tests {
         shared.run(Task::ReloadCurve(Which::Target, curve.clone()), &params);
         assert!(matches!(&*lock(&shared.target), CurveLoad::Loaded(_, c) if c.points().len() == 5));
         drop(std::fs::remove_file(curve));
+    }
+
+    /// Does the tasks sent to the background, as its thread would.
+    fn background(shared: &Shared, params: &AudioRefParams) {
+        let receiver = lock(&shared.receiver).take().expect("no background yet");
+        while let Ok(Some(task)) = receiver.try_recv() {
+            shared.run(task, params);
+        }
+        *lock(&shared.receiver) = Some(receiver);
+    }
+
+    #[test]
+    fn favorites_are_saved_for_every_instance() {
+        let folder =
+            std::env::temp_dir().join(format!("audioref-{}-favorites", std::process::id()));
+        drop(std::fs::remove_dir_all(&folder));
+        let file = folder.join("settings").join("favorites.json");
+        let params = AudioRefParams::new(Lang::En);
+        let (one, _one_ends) = Shared::with_favorites_file(Lang::En, Some(file.clone()));
+        let (two, _two_ends) = Shared::with_favorites_file(Lang::En, Some(file.clone()));
+        // Without a file there are none, and nothing is written.
+        one.run(Task::LoadFavorites, &params);
+        assert!(one.favorites().is_empty());
+        assert!(!file.exists());
+
+        // Each marks one: the file keeps both, and the window sees the change at once.
+        let before = one.favorites();
+        one.set_favorite(Kind::Headphones, "acme::one", true, &params);
+        assert!(!std::sync::Arc::ptr_eq(&before, &one.favorites()));
+        assert!(one.favorites().contains(Kind::Headphones, "acme::one"));
+        assert!(!file.exists());
+        background(&one, &params);
+        assert!(file.exists());
+        two.set_favorite(Kind::Preset, "acme:one::tester", true, &params);
+        background(&two, &params);
+        let saved =
+            Favorites::parse(&std::fs::read_to_string(&file).expect("written")).expect("favorites");
+        assert!(saved.contains(Kind::Headphones, "acme::one"));
+        assert!(saved.contains(Kind::Preset, "acme:one::tester"));
+        assert_eq!(*two.favorites(), saved);
+        one.run(Task::LoadFavorites, &params);
+        assert_eq!(*one.favorites(), saved);
+        assert!(lock(&one.favorites_failed).is_none());
+
+        // A change that changes nothing isn't saved; unmarking is.
+        let unchanged = one.favorites();
+        one.set_favorite(Kind::Headphones, "acme::one", true, &params);
+        background(&one, &params);
+        assert!(std::sync::Arc::ptr_eq(&unchanged, &one.favorites()));
+        one.set_favorite(Kind::Headphones, "acme::one", false, &params);
+        background(&one, &params);
+        two.run(Task::LoadFavorites, &params);
+        assert!(!two.favorites().contains(Kind::Headphones, "acme::one"));
+        assert!(two.favorites().contains(Kind::Preset, "acme:one::tester"));
+
+        // A damaged file: the favorites of the window are written instead, and loading it keeps
+        // them.
+        std::fs::write(&file, "not json").expect("writes the file");
+        two.run(Task::LoadFavorites, &params);
+        assert!(two.favorites().contains(Kind::Preset, "acme:one::tester"));
+        two.set_favorite(Kind::Headphones, "acme::two", true, &params);
+        background(&two, &params);
+        let saved =
+            Favorites::parse(&std::fs::read_to_string(&file).expect("written")).expect("favorites");
+        assert!(saved.contains(Kind::Preset, "acme:one::tester"));
+        assert!(saved.contains(Kind::Headphones, "acme::two"));
+        drop(std::fs::remove_dir_all(&folder));
+    }
+
+    #[test]
+    fn favorites_that_cannot_be_saved_say_why_and_stay() {
+        // A file where the folder of the file should be.
+        let blocker = temp("favorites-blocker", "");
+        let params = AudioRefParams::new(Lang::En);
+        let (shared, _ends) =
+            Shared::with_favorites_file(Lang::En, Some(blocker.join("favorites.json")));
+        shared.set_favorite(Kind::Headphones, "acme::one", true, &params);
+        background(&shared, &params);
+        assert!(shared.favorites().contains(Kind::Headphones, "acme::one"));
+        assert!(lock(&shared.favorites_failed).is_some());
+        drop(std::fs::remove_file(blocker));
+
+        // Without a file, they stay in the window, without an error.
+        let (shared, _ends) = Shared::with_favorites_file(Lang::En, None);
+        shared.run(Task::LoadFavorites, &params);
+        shared.set_favorite(Kind::Preset, "acme:one::tester", true, &params);
+        background(&shared, &params);
+        assert!(
+            shared
+                .favorites()
+                .contains(Kind::Preset, "acme:one::tester")
+        );
+        assert!(lock(&shared.favorites_failed).is_none());
     }
 }

@@ -116,7 +116,7 @@ Um AudioRef zu entfernen, lösche `AudioRef.vst3` und `AudioRef.clap` aus den Or
 5. Hör hin. **Umgehen** schaltet die Korrektur aus und an, zum Vergleichen.
 6. Bevor du einen Mix exportierst, musst du in den meisten DAWs nichts tun: AudioRef umgeht sich selbst, während die DAW offline exportiert. Exportiert deine DAW in Echtzeit, umgehe AudioRef selbst, siehe [Exportieren](#exportieren).
 
-![AudioRef mit einem eingebauten Preset für den AKG K240 Studio. Die Kurve zeigt, was die Korrektur bei jeder Frequenz tut.](../screenshots/de-correction.png)
+![AudioRef mit einem eingebauten Preset für den AKG K240 Studio. Die Kopfhörer und eines ihrer Presets sind Favoriten, mit einem violetten Stern markiert. Die Kurve zeigt, was die Korrektur bei jeder Frequenz tut.](../screenshots/de-correction.png)
 
 Das Projekt speichert das gewählte Preset und öffnet sich deshalb mit derselben Korrektur, auch auf einem Rechner ganz ohne Dateien. Sind deine Kopfhörer nicht in der Liste, siehe [Fehlerbehebung](#fehlerbehebung).
 
@@ -127,7 +127,7 @@ Das Fenster von AudioRef hat immer dieselben Teile, von oben nach unten:
 | Teil | Was darin steht |
 |----|----------------|
 | Kopfzeile | Der Name AudioRef, die Tabs **OPRA-Presets** und **Eigene Kurven (AutoEQ)**, die wählen, woher die Korrektur kommt, und **Info** |
-| Quelle | Bei **OPRA-Presets**: die Suche, die Liste der Kopfhörer, ihre Presets und der einklappbare Bereich **OPRA-Datenbank**. Bei **Eigene Kurven (AutoEQ)**: die Dateien einer Messung und einer Zielkurve, und **Als Korrektur verwenden** |
+| Quelle | Bei **OPRA-Presets**: die Suche, die Liste der Kopfhörer, ihre Presets, jeweils mit einem Stern, der sie als Favoriten markiert, und der einklappbare Bereich **OPRA-Datenbank**. Bei **Eigene Kurven (AutoEQ)**: die Dateien einer Messung und einer Zielkurve, und **Als Korrektur verwenden** |
 | Korrektur | **Frequenzgang des Korrektur-EQ**: der Schalter **Linearphasig**, der Name der aktuellen Korrektur mit ihrem Urheber, **Aus**, bei eigenen Kurven die Regler **Neigung**, **Bass** und **Max. Anhebung**, und die Kurve |
 | Ausgang | Der Ausgangspegel, die Anzeige **Pegel** und **Umgehen** |
 | Stereo | **Kanäle** und **Crossfeed** |
@@ -192,7 +192,7 @@ Kann AudioRef die Datei nicht verwenden, sagt es, warum, und behält die Presets
 
 ### Deine Kopfhörer finden
 
-Tippe einen Teil des Namens in **Kopfhörer suchen**, z. B. „WH-1000XM4“ oder „HD 6“. Die Suche findet die Kopfhörer, deren Name, mit dem des Herstellers, jedes getippte Wort enthält, gleich ob groß oder klein, z. B. „sony 1000xm4“, und listet die ersten 200 nach Namen. Kopfhörer mit mehreren Modi stehen für jeden einmal da, z. B. „(ANC on)“, „(ANC off)“ oder „(passive)“: Wähle den, mit dem du hörst. Passt nichts, steht in der Liste „Keine Kopfhörer passen.“
+Tippe einen Teil des Namens in **Kopfhörer suchen**, z. B. „WH-1000XM4“ oder „HD 6“. Die Suche findet die Kopfhörer, deren Name, mit dem des Herstellers, jedes getippte Wort enthält, gleich ob groß oder klein, z. B. „sony 1000xm4“, und listet die ersten 200: zuerst deine [Favoriten](#favoriten), dann die übrigen, jeweils nach Namen. Kopfhörer mit mehreren Modi stehen für jeden einmal da, z. B. „(ANC on)“, „(ANC off)“ oder „(passive)“: Wähle den, mit dem du hörst. Passt nichts, steht in der Liste „Keine Kopfhörer passen.“
 
 ### Ein Preset wählen
 
@@ -203,6 +203,20 @@ Klicke deine Kopfhörer an, dann rechts ein Preset: Es wird sofort zur Korrektur
 - Weitere, von anderen Urhebern, wie genannt.
 
 Probiere zwei oder drei aus und behalte das, das für dich am natürlichsten klingt, z. B. mit einem gut bekannten Referenztitel. Unter der Überschrift der Kurve zeigt das Fenster die Kopfhörer und wer das Preset gemacht hat, z. B. „EQ von AutoEQ (Measured by crinacle), aus OPRA, CC BY-SA 4.0“, mit einem Link zu OPRAs Repository, wie OPRAs Lizenz es verlangt.
+
+### Favoriten
+
+Klicke den Stern vor Kopfhörern oder einem Preset an, um sie als Favoriten zu markieren: Der Stern wird violett, und Favoriten stehen in ihrer Liste zuerst. Favorisierte Kopfhörer stehen vor allen anderen, nach Namen, sodass deine schon beim Öffnen des Fensters oben stehen, ohne Suche; eine Suche findet weiterhin nur die, deren Name passt. Favorisierte Presets stehen unter den Presets ihrer Kopfhörer zuerst. Ein weiterer Klick auf den Stern hebt die Markierung auf.
+
+Favoriten werden nicht mit dem Projekt gespeichert, sondern für AudioRef als Ganzes: Sie gelten in jedem Projekt und in jeder DAW auf deinem Rechner, für dein Benutzerkonto. AudioRef bewahrt sie in einer kleinen Datei in dem Ordner auf, in dem dein System die Einstellungen von Programmen ablegt:
+
+| System | Datei |
+|---|---------|
+| Windows | `%APPDATA%\AudioRef\favorites.json` |
+| macOS | `~/Library/Application Support/AudioRef/favorites.json` |
+| Linux | `~/.config/audioref/favorites.json`, oder `audioref/favorites.json` in `$XDG_CONFIG_HOME`, falls gesetzt |
+
+AudioRef liest die Datei bei jedem Öffnen seines Fensters, daher erscheinen Favoriten, die du in einem anderen Projekt markiert hast, auch dort. Sie werden über OPRAs IDs gemerkt und gelten daher auch in einer neueren Version von OPRAs Datenbank. Lässt sich die Datei nicht schreiben, z. B. weil der Ordner schreibgeschützt ist, sagt das Fenster „Die Favoriten ließen sich nicht speichern:“ mit dem Grund deines Systems, und die Favoriten gelten, bis die DAW geschlossen wird.
 
 ### Headroom
 
@@ -216,7 +230,7 @@ Die meisten Presets bringen eigenen Headroom mit, AudioRef muss sie also wenig o
 
 ### Was das Projekt speichert
 
-Das Projekt speichert das gewählte Preset selbst, mit allen Filtern, nicht nur seinen Namen. Es öffnet sich mit derselben Korrektur auf einem Rechner ohne OPRAs Datei, und das Fenster zeigt seine Kopfhörer und das Preset ausgewählt. Auch der Pfad von OPRAs Datenbank wird gespeichert.
+Das Projekt speichert das gewählte Preset selbst, mit allen Filtern, nicht nur seinen Namen. Es öffnet sich mit derselben Korrektur auf einem Rechner ohne OPRAs Datei, und das Fenster zeigt seine Kopfhörer und das Preset ausgewählt. Auch der Pfad von OPRAs Datenbank wird gespeichert. Deine Favoriten gehören nicht zum Projekt, siehe [Favoriten](#favoriten).
 
 ## Eigene Messung und Zielkurve
 
@@ -428,6 +442,8 @@ Neben den Parametern speichert das Projekt:
 | Anzeigen | Sichtbar oder durchgestrichen |
 | Das Fenster | Seine Größe |
 
+Die Favoriten werden für AudioRef als Ganzes gespeichert, nicht mit dem Projekt, siehe [Favoriten](#favoriten).
+
 ### Meldungen
 
 | Meldung | Bedeutung |
@@ -442,6 +458,7 @@ Neben den Parametern speichert das Projekt:
 | Um … dB abgesenkt, damit nichts lauter wird | Der Headroom, den AudioRef der Korrektur gegeben hat, siehe [Headroom](#headroom). |
 | … ms Latenz | **Linearphasig** ist an, mit dieser Latenz. |
 | Senke den Ausgang | Der Limiter senkt das Signal um 3 dB oder mehr ab. |
+| Die Favoriten ließen sich nicht speichern: … | AudioRef konnte die Datei der Favoriten nicht schreiben, aus dem Grund, der folgt, siehe [Favoriten](#favoriten). |
 
 ### Technische Daten
 
@@ -463,6 +480,9 @@ Prüfe, dass die Bundles in den Ordnern aus [Die Plugins kopieren](#die-plugins-
 
 **Meine Kopfhörer sind nicht in der Liste.**
 Suche nur nach einem Teil ihres Namens, z. B. „1000XM4“ statt „WH-1000XM4 wireless“. Kopfhörer, die OPRA nach der eingebauten Version ergänzt hat, stehen in einer neueren Version seiner Datenbank, siehe [Eine neuere Version von OPRAs Datenbank](#eine-neuere-version-von-opras-datenbank). Hat OPRA kein Preset für sie, nimm eine Messung von AutoEQ und eine Zielkurve, siehe [Eigene Messung und Zielkurve](#eigene-messung-und-zielkurve).
+
+**Meine Favoriten sind weg.**
+Favoriten werden für dein Benutzerkonto auf diesem Rechner gespeichert, nicht mit dem Projekt, siehe [Favoriten](#favoriten): Auf einem anderen Rechner oder Konto markiere sie neu. Sagt das Fenster „Die Favoriten ließen sich nicht speichern:“, prüfe, ob AudioRef in den dort genannten Ordner schreiben darf.
 
 **Durchsuchen … öffnet unter Linux keinen Dialog.**
 AudioRef fragt deinen Desktop über das XDG-Desktop-Portal nach dem Dialog, sonst zenity. Installiere das Portal deines Desktops, z. B. `xdg-desktop-portal-gtk` oder `xdg-desktop-portal-kde`, oder zenity, oder füge den Pfad in das Feld ein und klicke **Laden**.
