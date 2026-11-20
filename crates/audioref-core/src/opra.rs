@@ -412,7 +412,7 @@ impl RawBand {
 
 #[cfg(test)]
 mod tests {
-    use super::{Database, Form, ParseError};
+    use super::{Database, Form, ParseError, Preset};
     use crate::eq::{Band, Slope};
     use crate::favorites::{Favorites, Kind};
 
@@ -686,10 +686,9 @@ mod tests {
             ids(&favorites),
             ["acme:one::b", "acme:one::c", "acme:one::a"]
         );
-        assert!(
-            database
-                .presets_by_favorites("acme::four", &favorites)
-                .is_empty()
+        assert_eq!(
+            database.presets_by_favorites("acme::four", &favorites),
+            Vec::<(&str, &Preset)>::new()
         );
     }
 
