@@ -19,6 +19,8 @@ Headphone correction belongs in the monitoring path only: bypass AudioRef before
 
 ## Installing
 
+AudioRef runs in any DAW that loads VST3 or CLAP plugins. It is tested in Bitwig Studio 6, the CLAP and the VST3 version, and in FL Studio on Windows.
+
 Download the archive for your system from the [latest release](https://github.com/FionaPreroll/audioref/releases/latest), or from the pre-release [`snapshot`](https://github.com/FionaPreroll/audioref/releases/tag/snapshot), which always has the latest build of `main`:
 
 | System | Archive | Copy `AudioRef.vst3` to | Copy `AudioRef.clap` to |

@@ -72,8 +72,8 @@ A Cargo workspace, see [ARCHITECTURE.md](ARCHITECTURE.md):
 
 What Fiona tried by hand, beyond clap-validator and pluginval in CI:
 
-- **Bitwig 6** (2026-11-08): CLAP and VST3; output level and bypass work in both, after the fork's fix of the VST3 process mode. The audio export, offline, came out as expected with both: the render guard bypasses AudioRef. On macOS (2026-11-10) the window kept the space bar from Bitwig while it was in front; fixed with egui-baseview's branch `egui_31`, see the fork's fixes, not tried yet.
-- **FL Studio on Windows** (2026-11-08): tested, no problems reported. On 2026-11-10: typed text didn't appear in the window's fields; fixed with egui-baseview's branch `egui_31` and its keyboard focus workaround, not tried yet.
+- **Bitwig 6** (2026-11-08): CLAP and VST3; output level and bypass work in both, after the fork's fix of the VST3 process mode. The audio export, offline, came out as expected with both: the render guard bypasses AudioRef. On macOS (2026-11-10) the window kept the space bar from Bitwig while it was in front; fixed with egui-baseview's branch `egui_31`, see the fork's fixes. Tried on 2026-11-20: works, Bitwig's shortcuts reach it while the window is in front.
+- **FL Studio on Windows** (2026-11-08): tested, no problems reported. On 2026-11-10: typed text didn't appear in the window's fields; fixed with egui-baseview's branch `egui_31` and its keyboard focus workaround. Tried on 2026-11-20: works, typing into the fields too.
 
 ## Next Steps
 

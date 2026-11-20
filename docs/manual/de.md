@@ -387,11 +387,11 @@ Was du exportierst, darf die Korrektur nicht enthalten. AudioRef sorgt dafür, w
 
 ### Bitwig Studio
 
-Nimm die CLAP-Version. Setze AudioRef ans Ende der Gerätekette der Master-Spur. Bitwig exportiert offline, und AudioRef umgeht sich dabei selbst, in der CLAP- wie in der VST3-Version (getestet mit Bitwig Studio 6).
+Nimm die CLAP-Version. Setze AudioRef ans Ende der Gerätekette der Master-Spur. Bitwig exportiert offline, und AudioRef umgeht sich dabei selbst, in der CLAP- wie in der VST3-Version (getestet mit Bitwig Studio 6). Die Tastenkürzel von Bitwig, z. B. die Leertaste, funktionieren auch, während das Fenster von AudioRef vorne ist (getestet unter macOS).
 
 ### FL Studio
 
-Setze AudioRef im Mixer in den letzten Slot der Master-Spur. FL Studio exportiert standardmäßig offline, und AudioRef umgeht sich dabei selbst (getestet unter Windows).
+Setze AudioRef im Mixer in den letzten Slot der Master-Spur. FL Studio exportiert standardmäßig offline, und AudioRef umgeht sich dabei selbst (getestet unter Windows). In die Felder von AudioRef, z. B. die Suche, kannst du tippen; klicke danach einmal in FL Studio, bevor du seine Tastenkürzel nutzt, z. B. die Leertaste, siehe [Tippen und die Tasten deiner DAW](#tippen-und-die-tasten-deiner-daw).
 
 ### Automation
 
